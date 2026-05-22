@@ -326,4 +326,70 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentPa
         help="Overwrite outputs that already exist",
     )
     p.set_defaults(func=cmd_ingest_youtube)
+
+    pa = subparsers.add_parser(
+        "fetch-youtube-audio",
+        help="Download manifest videos with yt-dlp and convert to 16 kHz mono PCM-16 WAV",
+    )
+    pa.add_argument(
+        "--manifest",
+        required=True,
+        help="Path to sources.yaml manifest (same one used by ingest-youtube)",
+    )
+    pa.add_argument(
+        "--output-dir",
+        default=None,
+        help="Output dir for WAVs (default: lab/fixtures/youtube/)",
+    )
+    pa.add_argument(
+        "--force",
+        action="store_true",
+        help="Re-download even if the target WAV already exists",
+    )
+    pa.set_defaults(func=cmd_fetch_youtube_audio)
     return p
+
+
+def cmd_fetch_youtube_audio(args: argparse.Namespace) -> int:
+    from voice_lab.ingestion.audio import AudioFetchError, fetch_youtube_audio
+
+    manifest_path = Path(args.manifest).resolve()
+    if not manifest_path.exists():
+        print(f"Manifest not found: {manifest_path}", file=sys.stderr)
+        return 2
+    sources = _load_manifest(manifest_path)
+    if not sources:
+        print(f"No sources in manifest {manifest_path}.")
+        return 0
+
+    output_dir = (
+        Path(args.output_dir).resolve()
+        if args.output_dir
+        else _resolve_lab_root() / "fixtures" / "youtube"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    n_ok = 0
+    n_skipped = 0
+    n_failed = 0
+    for src in sources:
+        try:
+            res = fetch_youtube_audio(src.video_id, output_dir=output_dir, force=args.force)
+        except AudioFetchError as exc:
+            print(f"[{src.video_id}] FAILED: {exc}", file=sys.stderr)
+            n_failed += 1
+            continue
+        if res.skipped:
+            n_skipped += 1
+            duration = f"{res.duration_seconds:.1f}s" if res.duration_seconds else "?"
+            print(f"[{src.video_id}] skipped (exists, {duration})  {res.audio_path}")
+        else:
+            n_ok += 1
+            duration = f"{res.duration_seconds:.1f}s" if res.duration_seconds else "?"
+            print(f"[{src.video_id}] downloaded {duration}  {res.audio_path}")
+
+    print(
+        f"\nfetched={n_ok} skipped={n_skipped} failed={n_failed} of {len(sources)} manifest entries.",
+        file=sys.stderr,
+    )
+    return 0 if n_failed == 0 else 1

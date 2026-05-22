@@ -11,6 +11,9 @@ demo/auditpro-rn-showcase/node_modules/
 # Voice engine — lab reports + generated audio fixtures
 voice-engine/lab/reports/
 voice-engine/lab/fixtures/generated/
+voice-engine/lab/fixtures/youtube/*.wav
+voice-engine/lab/fixtures/youtube/*.m4a
+voice-engine/lab/fixtures/youtube/*.mp3
 
 # Vehicle feature catalog — downloaded brochures (large binaries, not source)
 vehicle-feature-catalog/data-cache/

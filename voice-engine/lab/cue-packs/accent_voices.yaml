@@ -1,0 +1,57 @@
+# v1 — TTS voice profiles for the ElevenLabs synthesis provider.
+#
+# Decision (2026-05-22): use the FREE-TIER ElevenLabs voice library (21
+# default voices, all American/British/Australian — no labeled regional
+# US accents). Regional accent realism is sourced from the YouTube
+# ingestion path (real Honda dealer walkarounds) instead, which captures
+# Southern/Midwest/Northeast variation naturally.
+#
+# Net: this TTS matrix tests SPEAKER VARIABILITY (gender, age, energy,
+# depth, cadence) against the hand-written scripts. The YouTube fixtures
+# test REGIONAL ACCENT variability against real dealer language.
+#
+# To upgrade to true regional accents from TTS, subscribe to ElevenLabs
+# Creator tier (~$22/mo), swap these voice_ids for shared-library picks
+# (e.g. Grace=Southern, Evan=Midwest, Jerry B.=Boston, Elliot Quick=fast),
+# and re-run `voice-lab synth`.
+profiles:
+  - id: us_baseline_neutral
+    display_name: US Baseline (Neutral)
+    voice_id: SAz9YHcvj6GT2YYXdXww
+    voice_name: River
+    accent_label: american
+    gender: neutral
+    source: elevenlabs_default_library
+    notes: Relaxed, neutral, informative. The reference voice for the matrix.
+  - id: us_female_professional
+    display_name: US Female (Professional)
+    voice_id: hpp4J3VqNfWAUOO0d1Us
+    voice_name: Bella
+    accent_label: american
+    gender: female
+    source: elevenlabs_default_library
+    notes: Professional, bright, warm. Tests female timbre + professional cadence.
+  - id: us_male_casual
+    display_name: US Male (Casual)
+    voice_id: bIHbv24MWmeRgasZH58o
+    voice_name: Will
+    accent_label: american
+    gender: male
+    source: elevenlabs_default_library
+    notes: Relaxed optimist — casual conversational delivery.
+  - id: us_male_deep
+    display_name: US Male (Deep / Resonant)
+    voice_id: nPczCjzI2devNBz1zQrb
+    voice_name: Brian
+    accent_label: american
+    gender: male
+    source: elevenlabs_default_library
+    notes: Deep resonant comforting tone. Lower-pitch stress test.
+  - id: us_male_fast_proxy
+    display_name: US Male (Fast / Energetic)
+    voice_id: TX3LPaxmHKxFdv7VOQHJ
+    voice_name: Liam
+    accent_label: american
+    gender: male
+    source: elevenlabs_default_library
+    notes: Energetic social media creator. Proxy for fast-speaker stress test.
