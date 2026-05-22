@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleIdentifier</key>
+    <string>com.auditpro.voiceengine.applestt</string>
+    <key>CFBundleName</key>
+    <string>AppleSTT</string>
+    <key>CFBundleExecutable</key>
+    <string>AppleSTT</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>26.0</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Road to Sale uses on-device speech recognition to evaluate STT strategies against dealership audio clips.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>AppleSTT may briefly probe the microphone subsystem while initializing Apple's speech framework. No microphone audio is recorded; transcription operates on supplied audio files only.</string>
+</dict>
+</plist>

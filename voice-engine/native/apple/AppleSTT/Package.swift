@@ -31,7 +31,24 @@ let package = Package(
     targets: [
         .executableTarget(
             name: "AppleSTT",
-            path: "Sources/AppleSTT"
+            path: "Sources/AppleSTT",
+            linkerSettings: [
+                // Embed Info.plist into the executable's __TEXT,__info_plist
+                // Mach-O section. SwiftPM CLI binaries have no bundle, so
+                // macOS's privacy subsystem cannot surface the speech-
+                // recognition consent prompt without an embedded plist —
+                // the auth request silently never returns. The plist path
+                // is resolved relative to the package root (where
+                // `swift build` is invoked), so this assumes the standard
+                // `swift build -c release` invocation from the package
+                // directory.
+                .unsafeFlags([
+                    "-Xlinker", "-sectcreate",
+                    "-Xlinker", "__TEXT",
+                    "-Xlinker", "__info_plist",
+                    "-Xlinker", "Info.plist"
+                ])
+            ]
         )
     ]
 )

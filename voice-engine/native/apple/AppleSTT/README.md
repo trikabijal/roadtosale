@@ -27,15 +27,60 @@ research brief that motivates this split.
   recommended for on-device recognition).
 - Xcode / Swift toolchain 5.9+. Tested against Swift 6.3 on macOS 26.3.1.
 - Speech recognition authorization granted to the binary. The first run on a
-  given device triggers a system prompt. Approve under
+  given device should trigger a system prompt. Approve under
   *System Settings > Privacy & Security > Speech Recognition*.
+
+## Authorization model (read this first)
+
+SwiftPM produces a plain Mach-O executable — not an app bundle. macOS's
+privacy subsystem (TCC) keys speech-recognition consent off a binary's
+identity, which it derives from its embedded `Info.plist` and its
+codesignature. Without those, `SFSpeechRecognizer.requestAuthorization`
+either silently never returns (sfspeech_recognizer) or the Speech framework
+crashes inside its XPC reply path (speech_transcriber, SIGTRAP via
+`completeTaskWithClosure`). No system prompt ever appears.
+
+To mitigate this we:
+
+1. Ship an `Info.plist` next to `Package.swift` declaring
+   `CFBundleIdentifier=com.auditpro.voiceengine.applestt`,
+   `NSSpeechRecognitionUsageDescription`, `NSMicrophoneUsageDescription`,
+   and `LSMinimumSystemVersion=26.0`.
+2. Embed that plist into the executable's `__TEXT,__info_plist` Mach-O
+   section via `linkerSettings` in `Package.swift` (see the `.unsafeFlags`
+   block).
+3. After `swift build -c release`, ad-hoc codesign the binary with an
+   explicit `--identifier` matching the plist's `CFBundleIdentifier` so
+   that `codesign -d -vvv` reports `Info.plist entries=N` rather than
+   `Info.plist=not bound`. This step is required because `swift build`
+   emits a linker-signed signature that ignores the embedded plist.
+
+**Status as of last test (macOS 26.3.1):** steps 1–3 land the plist into
+the binary and bind it to the codesignature, but the OS still does **not**
+surface the speech-recognition consent prompt for a bare CLI binary. The
+binary still hangs (sfspeech_recognizer) or crashes inside Speech.framework
+XPC (speech_transcriber). The expected next step is to wrap the executable
+in a proper `.app` bundle (Contents/Info.plist + Contents/MacOS/AppleSTT)
+and invoke it through that bundle — TCC keys consent off the bundle URL,
+not the inner Mach-O. See "Known gaps" below.
 
 ## Build
 
 ```bash
 # from voice-engine/native/apple/AppleSTT/
 swift build -c release
-# binary lands at .build/release/AppleSTT
+
+# Required follow-up: rebind the embedded Info.plist to the codesignature.
+# swift build emits a linker-signed binary that does not bind the plist;
+# without this step `codesign -d -vvv` will report `Info.plist=not bound`
+# and TCC will not recognize the binary.
+codesign -f -s - \
+  --identifier com.auditpro.voiceengine.applestt \
+  .build/release/AppleSTT
+
+# Verify both the section and the binding:
+otool -s __TEXT __info_plist .build/release/AppleSTT | head -5
+codesign -d -vvv .build/release/AppleSTT 2>&1 | grep -E 'Identifier|Info.plist'
 ```
 
 Or use the wrapper script which prints the binary path on its last line:
@@ -68,6 +113,24 @@ the `APPLE_STT_BIN` environment variable if you put it elsewhere.
   --partials true \
   --vocab ../../../lab/cue-packs/dealership_vocabulary.txt
 ```
+
+### Expected first-run authorization flow
+
+Once the `.app` bundle wrap (see "Known gaps" #1) is in place, the intended
+behavior is:
+
+- **First run on a device:** macOS shows a one-time consent prompt
+  ("AppleSTT would like to access Speech Recognition"). The user clicks
+  *Allow*. The auth callback resolves to `.authorized` and transcription
+  proceeds.
+- **Subsequent runs:** no prompt; the binary transcribes directly.
+- **If the user clicks Deny:** the binary exits with one of codes 10–13
+  (typically 10 = denied). To reverse, toggle the entry under
+  *System Settings > Privacy & Security > Speech Recognition*.
+
+Until the bundle wrap lands, the current behavior on first run is the
+unauthorized hang / SIGTRAP documented in "Known gaps" — the prompt does
+not surface for a bare CLI executable.
 
 ### Output
 
@@ -130,13 +193,53 @@ shape maps 1:1 to the RN event emitter.
 
 ## Known gaps / manual verification still required
 
-1. **End-to-end run with real audio on macOS 26.** Build success only proves
+1. **Auth prompt does not surface for a bare SwiftPM executable.** Even with
+   the embedded `Info.plist` and a bound ad-hoc codesignature
+   (`Identifier=com.auditpro.voiceengine.applestt`,
+   `Info.plist entries=9`), macOS 26.3.1 does not show the speech-recognition
+   consent prompt. Observed behavior on first run:
+   - `--mode speech_transcriber` exits with SIGTRAP (`code 5`) after ~1s.
+     Crash report shows the fatal trap originates in `Speech.framework`
+     via `NSXPCConnection._sendInvocation:` /
+     `completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)` —
+     i.e. the Speech framework's XPC reply path crashes when its TCC consent
+     query for our identifier produces no usable response.
+   - `--mode sfspeech_recognizer` simply hangs in
+     `dispatch_group_wait_slow` — the `requestAuthorization` callback
+     never fires.
+   The diagnosis matches the original symptom: TCC for Speech Recognition
+   keys consent off a bundle, and a Mach-O on its own (even with bound
+   plist) is not enough.
+
+   **Next step:** wrap the executable in a real `.app` bundle:
+
+   ```
+   AppleSTT.app/
+     Contents/
+       Info.plist            # same keys as the embedded one
+       MacOS/
+         AppleSTT            # the SwiftPM-built executable
+   ```
+
+   Invoke as `AppleSTT.app/Contents/MacOS/AppleSTT --file ... --mode ...`.
+   The Python wrapper (`apple_speech_transcriber.py` /
+   `apple_sfspeechrecognizer.py`) will need its binary path resolution
+   updated to point at the bundle's `Contents/MacOS/AppleSTT`. The
+   `APPLE_STT_BIN` environment variable already provides the override hook,
+   so the wrapper change is optional if callers set the env var. A
+   `build-bundle.sh` script that copies `Info.plist` and the built binary
+   into the bundle layout, then re-signs with `--identifier
+   com.auditpro.voiceengine.applestt`, is the cleanest path; this has not
+   been written yet because the user wants to confirm the bundle approach
+   before committing more scaffolding.
+2. **End-to-end run with real audio on macOS 26.** Build success only proves
    the API surface compiles. Actually running the binary against an audio
-   file requires (a) a wired-up audio fixture and (b) the OS to have granted
-   speech-recognition authorization to the binary. Both are manual steps;
-   see `voice-engine/lab/fixtures/`.
-2. **Microphone vs file authorization.** This CLI only reads files. No mic
-   access is requested. Speech-recognition authorization is still required.
-3. **`speech_transcriber` confidence.** Left as `null` deliberately — Apple
+   file additionally requires the OS to have granted speech-recognition
+   authorization to the binary (blocked on gap #1 above).
+3. **Microphone vs file authorization.** This CLI only reads files. No mic
+   access is requested. Speech-recognition authorization is still required;
+   `NSMicrophoneUsageDescription` is present in `Info.plist` defensively
+   because SFSpeechRecognizer probes the mic subsystem during init.
+4. **`speech_transcriber` confidence.** Left as `null` deliberately — Apple
    has not documented the per-token confidence attribute's scale. Will be
    surfaced via `engine_metadata` if a stable scale appears.
