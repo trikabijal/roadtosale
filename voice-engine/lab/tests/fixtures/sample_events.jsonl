@@ -1,0 +1,5 @@
+{"text": "I want to talk about the Honda Sensing suite", "stability": "partial", "timestamp_ms": 1200, "latency_ms_from_audio_start": 1250, "confidence": 0.71, "engine_metadata": {"vendor": "mock"}}
+{"text": "I want to talk about the Honda Sensing suite", "stability": "final", "timestamp_ms": 1500, "latency_ms_from_audio_start": 1600, "confidence": 0.92, "engine_metadata": {"vendor": "mock"}}
+{"text": "and wireless CarPlay is great", "stability": "partial", "timestamp_ms": 3100, "latency_ms_from_audio_start": 3150, "confidence": 0.66, "engine_metadata": {"vendor": "mock"}}
+{"text": "and wireless CarPlay is great", "stability": "final", "timestamp_ms": 3400, "latency_ms_from_audio_start": 3500, "confidence": 0.95, "engine_metadata": {"vendor": "mock"}}
+{"text": "thank you for visiting", "stability": "final", "timestamp_ms": 5000, "latency_ms_from_audio_start": 5100, "confidence": 0.97, "engine_metadata": {"vendor": "mock"}}

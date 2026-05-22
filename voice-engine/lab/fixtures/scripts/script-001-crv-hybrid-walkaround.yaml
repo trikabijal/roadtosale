@@ -1,0 +1,76 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: script_001_crv_hybrid_walkaround
+title: 2026 CR-V Hybrid AWD Sport Touring full walkaround
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: hand_written
+  author: roadtosale-v1-seed
+segments:
+  - step: greet
+    text: |
+      Hi Sarah, welcome to Riverside Honda. My name is Marcus, I'll be working with you today.
+      Before we head out, can I grab you a coffee or water?
+    expected_cues:
+      - { cue_id: workflow.hospitality_offer, approx_ms: 8000 }
+      - { cue_id: workflow.self_introduction, approx_ms: 3500 }
+  - step: discovery
+    text: |
+      So tell me a bit about how you'll be using it. Is this mostly for the family, or more
+      for the commute? ... Got it — so mostly school runs during the week, and then you're
+      on the highway most mornings for the commute. And you mentioned you'd like better
+      mileage than what you've been driving.
+    expected_cues:
+      - { cue_id: workflow.discovery_school_runs, approx_ms: 12000 }
+      - { cue_id: workflow.discovery_highway_commute, approx_ms: 17000 }
+      - { cue_id: workflow.discovery_better_mileage, approx_ms: 22000 }
+  - step: vehicle_match
+    text: |
+      Because you mentioned school runs, the commute, and better fuel economy, that's why
+      I picked this one for you — the 2026 CR-V Hybrid AWD Sport Touring.
+    expected_cues:
+      - { cue_id: workflow.recommendation_logic, approx_ms: 6000 }
+  - step: front_line_ready
+    text: |
+      Let me just grab the keys — she's fueled up and staged out front, ready to go.
+    expected_cues:
+      - { cue_id: workflow.front_line_ready, approx_ms: 4500 }
+  - step: walkaround
+    text: |
+      Let me show you around. This is the Sport Touring trim, which has Honda Sensing 360+
+      as standard — that's the top of the line driver assistance suite. Inside, you'll
+      notice wireless Apple CarPlay — your phone connects without a cable. These are the
+      heated front seats, and on this trim you also get ventilated front seats — they
+      actually blow cool air. Around back, the hands-free power tailgate opens when you
+      kick your foot under the bumper. And up top, the panoramic moonroof stretches all
+      the way across. The audio in here is a Bose premium audio system, twelve speakers.
+    expected_cues:
+      - { cue_id: honda.feature.honda_sensing_360plus, approx_ms: 6000 }
+      - { cue_id: universal.feature.wireless_apple_carplay, approx_ms: 14000 }
+      - { cue_id: universal.feature.heated_front_seats, approx_ms: 20000 }
+      - { cue_id: universal.feature.ventilated_front_seats, approx_ms: 24000 }
+      - { cue_id: universal.feature.hands_free_power_tailgate, approx_ms: 31000 }
+      - { cue_id: universal.feature.panoramic_moonroof, approx_ms: 38000 }
+      - { cue_id: honda.feature.bose_premium_audio_honda, approx_ms: 44000 }
+  - step: test_drive
+    text: |
+      Once we're moving, notice the Real-Time AWD — it shifts power to whichever wheels
+      need it. Look up at the windshield — that's the head-up display, your speed and
+      directions project right there. And you can feel how Honda Sensing handles the lane
+      when I let off slightly.
+    expected_cues:
+      - { cue_id: honda.feature.real_time_awd, approx_ms: 6000 }
+      - { cue_id: universal.feature.head_up_display, approx_ms: 14000 }
+  - step: trade
+    text: |
+      Let me take a quick look at your trade. I'm seeing a small dent back here on the
+      rear quarter, and the front tires are getting worn — tread's getting low.
+    expected_cues:
+      - { cue_id: workflow.trade_in_dent, approx_ms: 5000 }
+      - { cue_id: workflow.trade_in_tires, approx_ms: 9000 }
+  - step: finance
+    text: |
+      Sarah, let me introduce you to David, our finance manager — he'll walk you through
+      the paperwork.
+    expected_cues:
+      - { cue_id: workflow.finance_introduction, approx_ms: 4000 }
+negative_cues: []

@@ -1,0 +1,138 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+# Universal workflow cues — brand-agnostic, NOT tied to any vehicle feature.
+# These cues correspond to phases of the Road to the Sale (greet, discovery, vehicle match,
+# front-line ready, trade, handoff, finance). They are loaded by the voice-engine lab
+# alongside feature cues from the vehicle-feature-catalog.
+cues:
+  - id: workflow.hospitality_offer
+    display_name: Hospitality offer
+    category: greet
+    cue_phrases:
+      - coffee or water
+      - water or coffee
+      - anything to drink
+      - grab you a drink
+      - get you something to drink
+      - can I get you anything to drink
+      - water or coffee before we head
+      - grab you a coffee
+    synonyms: []
+  - id: workflow.self_introduction
+    display_name: Rep self-introduction
+    category: greet
+    cue_phrases:
+      - my name is
+      - I'm Marcus
+      - I am Marcus
+      - this is me
+      - welcome to
+    synonyms: []
+  - id: workflow.discovery_school_runs
+    display_name: Family / school runs signal
+    category: discovery
+    cue_phrases:
+      - school runs
+      - school run
+      - school pickup
+      - kids in the car
+      - dropping the kids
+    synonyms: []
+  - id: workflow.discovery_highway_commute
+    display_name: Highway commute signal
+    category: discovery
+    cue_phrases:
+      - highway commuting
+      - highway commute
+      - on the highway every day
+      - long highway drives
+      - commuting on the highway
+    synonyms: []
+  - id: workflow.discovery_better_mileage
+    display_name: Better mileage signal
+    category: discovery
+    cue_phrases:
+      - better mileage
+      - better fuel economy
+      - better gas mileage
+      - save on gas
+      - more efficient on fuel
+    synonyms: []
+  - id: workflow.discovery_family_use
+    display_name: General family use signal
+    category: discovery
+    cue_phrases:
+      - family driving
+      - family use
+      - the family
+      - room for the family
+      - everyone in the car
+    synonyms: []
+  - id: workflow.recommendation_logic
+    display_name: Vehicle recommendation logic
+    category: vehicle_match
+    cue_phrases:
+      - that's why I picked this one
+      - that is why I picked this one
+      - because you mentioned
+      - this fits what you told me
+      - this is the right fit
+      - that's why I'm showing you
+      - since you need
+    synonyms: []
+  - id: workflow.front_line_ready
+    display_name: Front-line-ready vehicle confirmation
+    category: front_line_ready
+    cue_phrases:
+      - fueled up
+      - full tank
+      - grab the keys
+      - staged out front
+      - she's ready to go
+      - pulled around front
+    synonyms: []
+  - id: workflow.trade_in_dent
+    display_name: Trade-in dent / scratch condition mention
+    category: trade
+    cue_phrases:
+      - small dent
+      - dent on the rear quarter
+      - dent back here
+      - scratch on the rear quarter
+      - scratch on the door
+      - a ding
+    synonyms: []
+  - id: workflow.trade_in_tires
+    display_name: Trade-in tire condition mention
+    category: trade
+    cue_phrases:
+      - front tires
+      - front tyres
+      - tread is low
+      - tires are worn
+      - tires getting worn
+      - tires will need attention
+      - tread depth
+    synonyms: []
+  - id: workflow.manager_introduction
+    display_name: Sales manager introduction / handoff
+    category: handoff
+    cue_phrases:
+      - let me introduce you to
+      - I'd like you to meet
+      - I want to introduce you
+      - this is my manager
+      - my sales manager
+      - let me grab the manager
+    synonyms: []
+  - id: workflow.finance_introduction
+    display_name: Finance / F&I manager introduction
+    category: finance
+    cue_phrases:
+      - finance manager
+      - our F and I manager
+      - F&I manager
+      - this is David Chen
+      - David Chen our finance manager
+      - walk you over to finance
+      - introduce you to finance
+    synonyms: []

@@ -1,0 +1,56 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+# Negative-control script: same trim as script-001, but the walkaround deliberately omits
+# heated_front_seats, ventilated_front_seats, and bose_premium_audio_honda. Used to verify
+# the cue matcher does NOT hallucinate cues for features that exist on the trim but were
+# never mentioned in the audio.
+id: script_002_crv_hybrid_negative
+title: 2026 CR-V Hybrid AWD Sport Touring partial walkaround (negative control)
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: hand_written
+  author: roadtosale-v1-seed
+segments:
+  - step: greet
+    text: |
+      Hi Sarah, welcome to Riverside Honda. My name is Marcus. Can I grab you a coffee or
+      water before we head out?
+    expected_cues:
+      - { cue_id: workflow.hospitality_offer, approx_ms: 7000 }
+      - { cue_id: workflow.self_introduction, approx_ms: 3500 }
+  - step: discovery
+    text: |
+      So how will you be using it — mostly school runs during the week and highway
+      commuting in the morning, yeah?
+    expected_cues:
+      - { cue_id: workflow.discovery_school_runs, approx_ms: 6000 }
+      - { cue_id: workflow.discovery_highway_commute, approx_ms: 9500 }
+  - step: walkaround
+    text: |
+      Let me show you around. This is the Sport Touring trim, which has Honda Sensing 360+
+      as standard. Inside you've got wireless Apple CarPlay — phone connects without a
+      cable. Around back, the hands-free power tailgate opens when you kick your foot
+      under the bumper. And up top, the panoramic moonroof stretches across the roof.
+    expected_cues:
+      - { cue_id: honda.feature.honda_sensing_360plus, approx_ms: 6000 }
+      - { cue_id: universal.feature.wireless_apple_carplay, approx_ms: 13000 }
+      - { cue_id: universal.feature.hands_free_power_tailgate, approx_ms: 21000 }
+      - { cue_id: universal.feature.panoramic_moonroof, approx_ms: 28000 }
+  - step: test_drive
+    text: |
+      Once we're moving, you'll feel the Real-Time AWD. And look up at the windshield —
+      that's the head-up display.
+    expected_cues:
+      - { cue_id: honda.feature.real_time_awd, approx_ms: 4500 }
+      - { cue_id: universal.feature.head_up_display, approx_ms: 10000 }
+  - step: finance
+    text: |
+      Sarah, let me introduce you to David Chen, our finance manager.
+    expected_cues:
+      - { cue_id: workflow.finance_introduction, approx_ms: 4000 }
+# Features that exist on the Sport Touring trim but were NOT mentioned in the script above.
+# The matcher should produce zero detections for these cue ids when run against the audio
+# rendered from this script. Any detection is a false positive.
+negative_cues:
+  - universal.feature.heated_front_seats
+  - universal.feature.ventilated_front_seats
+  - honda.feature.bose_premium_audio_honda
