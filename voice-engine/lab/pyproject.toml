@@ -9,6 +9,7 @@ description = "Voice engine lab — strategy comparison harness for STT engines"
 requires-python = ">=3.10"
 dependencies = [
     "PyYAML>=6.0",
+    "youtube-transcript-api>=1.0",
 ]
 
 [project.optional-dependencies]

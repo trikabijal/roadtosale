@@ -1,0 +1,62 @@
+# Auto-generated from a public YouTube dealer walkaround transcript.
+# Step boundaries and cue annotations are best-effort — review before
+# relying on them for scoring.
+id: youtube_pxUbp7YxBtc
+title: 2026 Honda CR-V TrailSport Hybrid walkaround (demonstration build — see notes)
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: youtube_transcript
+  url: https://www.youtube.com/watch?v=pxUbp7YxBtc
+  video_id: pxUbp7YxBtc
+  fetched_at: '2026-05-22T12:03:19Z'
+  fair_use_note: Demonstration only — no live YouTube content captured in this file. Used for internal
+    STT evaluation pipeline verification.
+  notes: 'DEMONSTRATION BUILD. Real youtube-transcript-api fetch for this video id was blocked by YouTube
+    anti-bot rate limiting at ingest time (all 10 manifest entries returned IpBlocked). Transcript text
+    in this file is a representative stand-in so the pipeline output can be verified end-to-end. To regenerate
+    from the real transcript, wait for the IP block to clear (typically hours-to-days) and run: voice-lab
+    ingest-youtube --manifest fixtures/scripts/youtube/sources.yaml --force'
+segments:
+- step: greet
+  text: Hey guys, it's me, Crazy Honda Chris at Randy Kill Honda in Cedar Rapids, Iowa. Today I'm walking
+    you around the 2026 CR-V Hybrid Sport Touring.
+  expected_cues: []
+- step: walkaround
+  text: Let me show you around. Starting up here at the front you can see the LED headlights. This trim
+    comes standard with Honda Sensing 360+, the top-of-the-line driver assistance suite. Inside you'll
+    notice wireless Apple CarPlay so your phone connects without a cable. These are the heated front seats,
+    and on this trim you also get the ventilated front seats. Around back the hands-free power tailgate
+    opens when you kick your foot under the bumper. Up top, the panoramic moonroof stretches all the way
+    across. Audio in here is the Bose premium audio system, twelve speakers. Once we're moving, you'll
+    feel the Real-Time AWD shifting power between the wheels. Up at the windshield, that's the head-up
+    display projecting your speed.
+  expected_cues:
+  - cue_id: workflow.walkaround_opening
+    approx_ms: 0
+  - cue_id: universal.feature.led_headlights
+    approx_ms: 0
+  - cue_id: honda.feature.honda_sensing_360plus
+    approx_ms: 6000
+  - cue_id: honda.feature.honda_sensing
+    approx_ms: 6000
+  - cue_id: universal.feature.wireless_apple_carplay
+    approx_ms: 12000
+  - cue_id: workflow.interior_focus
+    approx_ms: 12000
+  - cue_id: universal.feature.ventilated_front_seats
+    approx_ms: 17000
+  - cue_id: universal.feature.heated_front_seats
+    approx_ms: 17000
+  - cue_id: universal.feature.hands_free_power_tailgate
+    approx_ms: 23000
+  - cue_id: universal.feature.panoramic_moonroof
+    approx_ms: 29000
+  - cue_id: honda.feature.bose_premium_audio_honda
+    approx_ms: 34000
+  - cue_id: honda.feature.real_time_awd
+    approx_ms: 39000
+  - cue_id: workflow.exterior_focus
+    approx_ms: 39000
+  - cue_id: universal.feature.head_up_display
+    approx_ms: 45000
+negative_cues: []

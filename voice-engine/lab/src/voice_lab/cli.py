@@ -4,6 +4,8 @@ Subcommands:
 - synth          synthesize fixtures (stub — see OQ3/OQ7)
 - run            run a comparison matrix
 - validate-catalog   delegates to vehicle-feature-catalog's validator
+- ingest-youtube  pull public YouTube dealer walkaround transcripts into the
+                  script YAML schema (see voice_lab.ingestion)
 
 This is the only file in the lab that ties the catalog and the engine
 together. The orchestrator stays catalog-agnostic.
@@ -143,6 +145,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_val = sub.add_parser("validate-catalog", help="Validate the vehicle catalog")
     p_val.add_argument("--data-dir", required=True)
     p_val.set_defaults(func=_cmd_validate_catalog)
+
+    # Late import so the youtube-transcript-api dependency is only required
+    # when the ingest subcommand is registered (which is always — but the
+    # actual transcript fetch is lazy and only fires when the user runs it).
+    from voice_lab.ingestion.cli import add_subparser as _add_ingest_subparser
+    _add_ingest_subparser(sub)
 
     return parser
 

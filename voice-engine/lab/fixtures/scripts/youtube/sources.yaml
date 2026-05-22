@@ -1,0 +1,94 @@
+# Source manifest for `voice-lab ingest-youtube`.
+#
+# Each entry is a public YouTube dealer walkaround / feature-review video.
+# All videos here were located via web search and verified to exist as of
+# the date this file was authored. Transcripts are pulled with
+# `youtube-transcript-api`; YouTube auto-generated transcripts (no human
+# captions) are accepted — they are the dominant source for dealer
+# channels and quality is good enough for STT evaluation.
+#
+# Fair use: per PRD OQ13, ingesting public dealer walkaround transcripts
+# for internal STT evaluation is acceptable. We never redistribute the
+# transcripts or the videos themselves; only the derived script YAML is
+# committed, and it is for evaluation use only.
+#
+# Trim mapping limitations:
+#   - Only `honda.cr-v-hybrid-awd.2026.sport-touring`,
+#     `honda.cr-v-hybrid-awd.2026.sport-l`, and `honda.cr-v-hybrid-awd.2026.sport`
+#     currently exist in vehicle-feature-catalog/data/matrix/honda.yaml.
+#   - For models that lack a catalog entry (Civic, Pilot, Accord), we mark
+#     the target_trim_id with the closest CR-V trim and flag in `notes`.
+#     These rows must be re-mapped once the catalog adds those trims; the
+#     orchestrator will surface a mismatch when the trim's feature set
+#     doesn't intersect the script's matched feature cues.
+
+sources:
+  - video_id: pxUbp7YxBtc
+    title: 2026 Honda CR-V TrailSport Hybrid full walkaround review
+    url: https://www.youtube.com/watch?v=pxUbp7YxBtc
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: TrailSport trim not in catalog; mapping to Sport Touring as the closest hybrid AWD analog.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: b8E_hh8BYYQ
+    title: 2026 Honda CR-V EX walkaround — standard features review
+    url: https://www.youtube.com/watch?v=b8E_hh8BYYQ
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport
+    notes: EX trim not in catalog; mapping to Sport as the closest non-hybrid analog.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: 5h5eokRcqr4
+    title: All-New 2026 Honda CR-V — full review and test drive
+    url: https://www.youtube.com/watch?v=5h5eokRcqr4
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: Full review covers multiple trims; mapping to the top-line Sport Touring.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: 4Q1Qq8SwPeM
+    title: 2026 Honda CR-V Hybrid mechanic review and walkaround
+    url: https://www.youtube.com/watch?v=4Q1Qq8SwPeM
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: Independent mechanic review; treats CR-V Hybrid generically.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: kD9iEP74p6s
+    title: 2026 Honda Civic LX standard features review walkaround
+    url: https://www.youtube.com/watch?v=kD9iEP74p6s
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport
+    notes: PLACEHOLDER TRIM. Civic is not in the catalog yet. The cue index is brand-agnostic so workflow cues still match; feature cue overlap may be low.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: 2FXQvvp9Blw
+    title: 2026 Honda Civic Sport standard features walkaround review
+    url: https://www.youtube.com/watch?v=2FXQvvp9Blw
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport
+    notes: PLACEHOLDER TRIM. Civic Sport is not in the catalog; re-map once Civic trims land.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: aymzOuyQySk
+    title: 2026 Honda Pilot walkaround and review
+    url: https://www.youtube.com/watch?v=aymzOuyQySk
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: PLACEHOLDER TRIM. Pilot is not in the catalog; re-map once Pilot trims land.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: BQ_WnNES1Y8
+    title: 2026 Honda Pilot TrailSport — POV start-up, test drive, walkaround
+    url: https://www.youtube.com/watch?v=BQ_WnNES1Y8
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: PLACEHOLDER TRIM. Pilot TrailSport is not in the catalog; re-map once Pilot trims land.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: hS9KZfE_cf8
+    title: 2026 Honda Accord Hybrid EX-L in-depth walkaround and feature breakdown
+    url: https://www.youtube.com/watch?v=hS9KZfE_cf8
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: PLACEHOLDER TRIM. Accord Hybrid EX-L is not in the catalog; re-map once Accord trims land.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+
+  - video_id: Xk4to4BIDL4
+    title: 2026 Honda Accord — full review and test drive
+    url: https://www.youtube.com/watch?v=Xk4to4BIDL4
+    target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    notes: PLACEHOLDER TRIM. Accord is not in the catalog; re-map once Accord trims land.
+    fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
