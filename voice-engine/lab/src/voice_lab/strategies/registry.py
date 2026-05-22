@@ -44,6 +44,21 @@ def _bootstrap_default_strategies() -> None:
     and to keep registry import side-effect-free for tests.
     """
     from voice_lab.strategies.mock import MockTranscriptionStrategy
+    from voice_lab.strategies.apple_speech_transcriber import (
+        AppleSpeechTranscriberStrategy,
+    )
+    from voice_lab.strategies.apple_sfspeechrecognizer import (
+        AppleSFSpeechRecognizerStrategy,
+    )
 
     if "mock" not in _REGISTRY:
         register_strategy(MockTranscriptionStrategy.empty())
+
+    # Apple strategies. Construction is cheap and side-effect free —
+    # subprocess only spawns inside transcribe(). It is fine to register
+    # these on non-macOS hosts; failures surface as TranscriptionError when
+    # transcribe() is called.
+    if "apple_speech_transcriber" not in _REGISTRY:
+        register_strategy(AppleSpeechTranscriberStrategy())
+    if "apple_sfspeechrecognizer_vocab" not in _REGISTRY:
+        register_strategy(AppleSFSpeechRecognizerStrategy())

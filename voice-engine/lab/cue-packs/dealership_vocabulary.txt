@@ -1,0 +1,69 @@
+# Dealership vocabulary for AppleSTT --mode sfspeech_recognizer
+# Used as SFSpeechRecognitionRequest.contextualStrings to bias the
+# recognizer toward terms a salesperson is likely to say on a Road to Sale.
+#
+# Format: one term per line. Blank lines and lines starting with `#` are
+# ignored. Apple recommends "shorter is better"; multi-word brand/feature
+# names are fine but keep generic words out.
+#
+# Sources:
+#   - vehicle-feature-catalog/data/features/honda/*.yaml
+#   - vehicle-feature-catalog/data/features/universal/*.yaml
+#   - vehicle-feature-catalog/data/models/honda/cr-v-hybrid-awd.yaml
+#
+# Keep this file under ~50 entries to stay inside Apple's "shorter is
+# better" guidance.
+
+# --- Honda feature display names ---
+Honda Sensing
+Honda Sensing 360+
+Honda Sensing 360 Plus
+HondaLink
+Real-Time AWD
+Real Time AWD
+Bose Premium Audio
+Walk Away Auto Lock
+
+# --- Honda model / trim names ---
+CR-V
+CR-V Hybrid
+CR-V Hybrid AWD
+Sport Trim
+Sport-L
+Sport Touring
+
+# --- Universal feature display names ---
+Wireless Apple CarPlay
+Apple CarPlay
+Wireless Android Auto
+Android Auto
+Wireless Phone Charger
+Heated Front Seats
+Heated Steering Wheel
+Ventilated Front Seats
+Panoramic Moonroof
+Hands-Free Power Tailgate
+Head-Up Display
+LED Headlights
+
+# --- Common dealership / Road-to-Sale phrases ---
+test drive
+trade-in value
+trade in value
+financing options
+lease options
+APR
+down payment
+monthly payment
+out the door price
+warranty
+extended warranty
+certified pre-owned
+VIN
+window sticker
+Monroney
+all wheel drive
+front wheel drive
+hybrid
+fuel economy
+MPG
