@@ -155,19 +155,19 @@ Cue accuracy and latency are **measured and reported, not gated** in v1. Thresho
 
 | # | Question | Why it matters |
 |---|---|---|
-| OQ1 | Apple SpeechTranscriber — confirm macOS Speech framework offers an equivalent of the iOS SpeechTranscriber API and minimum OS versions | Affects `AppleSpeechTranscriberStrategy` in the lab |
-| OQ2 | Argmax Pro SDK 2 — confirm Python or CLI bindings exist; if not, lab invokes a small Swift/Kotlin harness | Affects `ArgmaxStrategy` implementation in the lab |
+| OQ1 | Apple SpeechTranscriber — confirm macOS Speech framework offers an equivalent of the iOS SpeechTranscriber API and minimum OS versions | Affects `AppleSpeechTranscriberStrategy` in the lab |Ans : I dont know you will have to search and find. 
+| OQ2 | Argmax Pro SDK 2 — confirm Python or CLI bindings exist; if not, lab invokes a small Swift/Kotlin harness | Affects `ArgmaxStrategy` implementation in the lab | Ans : For you to find. 
 | OQ3 | ElevenLabs voice IDs — pick 5 specific voices for the 5 accent profiles; document them | Reproducibility |
-| OQ4 | Honda model year scope — current MY (2026) only, or include 2025 inventory still on dealer lots? Default: current MY only, revisit if telemetry warrants | Catalog scope |
-| OQ5 | Brochure-extraction owner — ~20–30 hours of hand-curation. Engineer time, contractor, or a former Honda salesperson on Upwork? | Schedule and budget |
-| OQ6 | Universal workflow cue inventory — full list of universal cues for the NADA workflow needs to be enumerated before scripts can be written | Script writing blocked on this |
+| OQ4 | Honda model year scope — current MY (2026) only, or include 2025 inventory still on dealer lots? Default: current MY only, revisit if telemetry warrants | Catalog scope | : 2026 only is fine for now. 
+| OQ5 | Brochure-extraction owner — ~20–30 hours of hand-curation. Engineer time, contractor, or a former Honda salesperson on Upwork? | Schedule and budget | Ans : if you can scrape and download that will be wonderful 
+| OQ6 | Universal workflow cue inventory — full list of universal cues for the NADA workflow needs to be enumerated before scripts can be written | Script writing blocked on this | : Ans : This should be built by you. 
 | OQ7 | Dealership-room noise track — source it (open-licensed recording or self-recorded), commit one canonical file | Reproducibility |
 | OQ8 | Exact SNR levels for noise overlay — propose clean + ~10 dB SNR; confirm | Standardize the noise dimension |
-| OQ9 | Human anchor recording protocol — phone vs USB mic, room conditions, who records | Comparability |
-| OQ10 | Custom vocabulary support — Argmax supports it, Apple's is limited. Do we test with dealership vocab loaded? | Could materially change comparison outcome |
-| OQ11 | Confidence score normalization — Apple and Argmax expose confidence differently; how do we normalize to a 0–1 scale for comparison? | Apples-to-apples |
-| OQ12 | Script-sourcing split — target hand-written vs YouTube-transcribed | Schedule and authenticity |
-| OQ13 | YouTube transcript attribution and fair-use boundary — confirm fair-use testing of public dealer walkaround videos is acceptable for internal evaluation | Legal / IP |
+| OQ9 | Human anchor recording protocol — phone vs USB mic, room conditions, who records | Comparability | : I will do this. 
+| OQ10 | Custom vocabulary support — Argmax supports it, Apple's is limited. Do we test with dealership vocab loaded? | Could materially change comparison outcome | : This will be awesome. 
+| OQ11 | Confidence score normalization — Apple and Argmax expose confidence differently; how do we normalize to a 0–1 scale for comparison? | Apples-to-apples | : 0 - 1 probability scale 
+| OQ12 | Script-sourcing split — target hand-written vs YouTube-transcribed | Schedule and authenticity | : Youtube if we can find enough 
+| OQ13 | YouTube transcript attribution and fair-use boundary — confirm fair-use testing of public dealer walkaround videos is acceptable for internal evaluation | Legal / IP | Ans : This is fine. 
 
 ---
 
