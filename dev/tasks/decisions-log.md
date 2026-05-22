@@ -132,3 +132,53 @@ The user wrote answers directly into `dev/tasks/0001-prd-voice-engine.md` Sectio
 - **DC21** — Kept a single file rather than splitting per category. Cues are clearly section-headered for review. Splitting per file can come if the inventory grows past ~60 cues.
 - **DC22** — Phrasing drawn from `demo/auditpro-rn-showcase/src/services/audio/audioScript.ts`, `dev/docs/ROAD_TO_SALE_AUDIO_TEST_MATRIX.md`, `demo/video-packet/VOICEOVER_SCRIPT.md`, and NADA common dealer language. Same v1-seed verification header.
 - **DC23** — New cues introduced beyond starter 12: customer_name_use, test_drive_offer, discovery_weekend_use, discovery_work_use, discovery_towing_cargo, discovery_budget_signal, walkaround_opening, exterior_focus, interior_focus, test_drive_opening, trial_close, trade_in_mileage, trade_in_condition_overall, pencil_numbers_intro, monthly_payment_mention, down_payment_mention, manager_voice_change, buyers_order_confirmation, three_way_intro, delivery_walkthrough, follow_up_commitment.
+
+### Apple Swift CLI + Python wrappers (delivered)
+- **DC24** — Used Apple's `SpeechAnalyzer(inputAudioFile:...)` convenience init in the Swift CLI rather than a manual `AVAudioFile → AnalyzerInput` pump. Apple handles streaming, format conversion, and finishing. Cleaner code, avoids `AVAudioConverter` Sendable warnings.
+- **DC25** — `confidence: null` for SpeechTranscriber events (per-token attribute scale undocumented; honest about it); populated for SFSpeechRecognizer events (`SFTranscriptionSegment.confidence` is documented as 0–1 Float, averaged across non-zero segments on finals).
+- **DC26** — Two Python wrappers (`apple_speech_transcriber.py`, `apple_sfspeechrecognizer.py`) share a single `_run_apple_stt` subprocess driver. Each class just builds different argv.
+- **DC27** — Registry registers both Apple strategies as defaults on all hosts. Construction is side-effect free; failure surfaces at `transcribe()` time with embedded fix-it hint.
+- **DC28** — Authorization gating in Swift, not Python. CLI exits 10–13 if Speech Recognition not granted. First-time setup: run from Terminal, approve in System Settings > Privacy & Security > Speech Recognition.
+- **DC29** — `--partials false` still emits partials internally but filters them on the way out (safer than mid-stream `reportingOptions` changes).
+- **DC30** — Vocab file format permits blank lines and `#` comments. Sourced from catalog feature display names + dealership phrases.
+- **Manual verification still required (after end-of-day landing):** first-run Speech Recognition authorization grant; `supportsOnDeviceRecognition` runtime check for SFSpeechRecognizer; latency calibration against a real-time mic path (future work).
+- **Build verified:** `swift build -c release` clean on macOS 26.3.1 / Swift 6.3.2 / SDK MacOSX26.5; binary 171 KB.
+
+### Argmax wrapper (delivered, blocked on user)
+- **DC31** — Used the `websockets` Python package (asyncio) against the Argmax Local Server's Deepgram-compatible WebSocket on `ws://localhost:50060/v1/listen`. Alternative would have been the Deepgram Python SDK; chose `websockets` for transparency and fewer transitive deps.
+- **DC32** — `websockets` is an optional dependency under `[argmax]` extras (`pip install -e '.[argmax]'`). Lab works without it; only fails at transcribe-time with a clear hint when the package is missing.
+- **DC33** — Audio format requirement: 16 kHz mono PCM-16 WAV. Other formats raise `AudioFileError` with a literal `ffmpeg` command for conversion.
+- **DC34** — `is_final=true` → `stability='final'` (Argmax 'Confirmed'); `is_final=false` → `stability='partial'` (Argmax 'Hypothesis').
+- **User actions still required:** $14 self-serve trial at app.argmaxinc.com (30 device licenses); email `customer@argmaxinc.com` for macOS Local Server binary; `export ARGMAX_API_KEY=ax_...`.
+
+### Honda US brochure scraper (delivered, with finding)
+- **DC35** — Real-world finding: `automobiles.honda.com` is fronted by Akamai Bot Manager. Every server-side scrape attempt 403s regardless of UA / headers / rate. Discoverer surfaces this with diagnostic messages naming the URL it tried.
+- **DC36** — Workaround documented in `vehicle-feature-catalog/scrapers/honda_us/README.md`: operator downloads brochures in a real browser (which Akamai allows), drops PDFs in `data-cache/brochures/honda/2026/<slug>.pdf`, runs `python -m scrapers.honda_us.cli --skip-discover`. Pipeline tested end-to-end with a synthetic fixture PDF — 3 trims + 21 matrix cells emitted, catalog validates clean.
+- **DC37** — Feature mapping uses a curated alias table in `emit.py` (`LABEL_TO_DISPLAY_NAME`) + fuzzy substring fallback. Unmatched labels become Honda-scoped features (never universal — conservative).
+- **DC38** — Matrix append is merge-by-trim-id with strongest-availability-wins dedup; existing CR-V Hybrid AWD entries preserved verbatim.
+- **DC39** — Catalog `pyproject.toml` `pythonpath = ["src/python", "."]` allows tests to import the `scrapers` package without pip-installing the catalog.
+
+### YouTube transcript ingestion (delivered, with finding)
+- **DC40** — YouTube anti-bot rate limit hits after ~10 sequential fetches per IP; sticky block for hours-to-days. Documented; proxy rotation flagged as the production path. Library docs (youtube-transcript-api) recommend Webshare or similar.
+- **DC41** — Monotonic step-boundary detection: as segments are scanned in order, when a cue matches whose category is a "later" NADA step than the current step, the script transitions to that step. Prevents step regressions.
+- **DC42** — Cue index built from `universal_workflow_cues.yaml` + all feature YAMLs in the catalog. 327 entries (33 workflow cues × ~6 phrases + 17 feature cues × ~5 phrases × synonyms).
+- **DC43** — Manifest `sources.yaml` carries 10 verified video IDs. 5 non-CR-V entries (Civic, Pilot, Accord) flagged with `PLACEHOLDER TRIM` notes since the catalog only has CR-V trims today; ingestion still works (workflow cues are brand/trim-agnostic; feature-cue overlap will be undercounted for non-CR-V until those trims land).
+- **DC44** — One demonstration script committed (`youtube_pxUbp7YxBtc.yaml`). Future runs of `voice-lab ingest-youtube --manifest ... --force` overwrite it with the real transcript once IP block clears.
+
+### Test count snapshot (end of day)
+- vehicle-feature-catalog: 41 Python tests + 27 TS tests = 68
+- voice-engine/lab: 69 Python tests
+- voice-engine/ (TS library): 15 tests
+- **Total: 152 tests, all green**
+
+### Branches and commits as of end-of-day
+- `chore/repo-split-demo-product` — repo split + PRD + module docs (2 commits)
+- `feat/voice-engine-catalog-v1` — implementation work:
+  - feat: vehicle-feature-catalog
+  - feat: voice-engine (Py lab + TS lib)
+  - docs: Apple + Argmax research
+  - feat: expand workflow cues to full NADA
+  - feat: real Apple + Argmax STT strategies
+  - feat: Honda US brochure scraper
+  - feat: YouTube transcript ingestion
+  - docs: this decisions-log entry
