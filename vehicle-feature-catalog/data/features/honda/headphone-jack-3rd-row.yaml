@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.headphone-jack-3rd-row
+display_name: Headphone Jack (3rd Row)
+category: general
+brand_scope: honda
+cue_phrases:
+- Headphone Jack (3rd Row)
+synonyms:
+- Headphone Jack (3rd row)

@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.curb-weight-lbs-2wd
+display_name: Curb Weight (lbs.) (2wd)
+category: general
+brand_scope: honda
+cue_phrases:
+- Curb Weight (lbs.) (2wd)
+synonyms:
+- Curb Weight (lbs.) (2WD)

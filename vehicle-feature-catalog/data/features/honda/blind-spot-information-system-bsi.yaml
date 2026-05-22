@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.blind-spot-information-system-bsi
+display_name: Blind Spot Information System (bsi)
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+- Blind Spot Information System (bsi)
+synonyms:
+- Blind Spot Information System (BSI)

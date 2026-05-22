@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.range-miles-fwd
+display_name: Range (miles) - FWD
+category: general
+brand_scope: honda
+cue_phrases:
+- Range (miles) - FWD
+synonyms:
+- Range (Miles) - FWD

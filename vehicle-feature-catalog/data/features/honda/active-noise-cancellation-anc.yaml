@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.active-noise-cancellation-anc
+display_name: Active Noise Cancellation™ (anc)
+category: general
+brand_scope: honda
+cue_phrases:
+- Active Noise Cancellation™ (anc)
+synonyms:
+- Active Noise Cancellation™ (ANC)

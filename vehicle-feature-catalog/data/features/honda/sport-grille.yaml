@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.sport-grille
+display_name: Sport Grille
+category: general
+brand_scope: honda
+cue_phrases:
+- Sport Grille
+synonyms: []

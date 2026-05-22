@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.horsepower-hp1-awd
+display_name: Horsepower (hp)1 - AWD
+category: drivetrain
+brand_scope: honda
+cue_phrases:
+- Horsepower (hp)1 - AWD
+synonyms: []

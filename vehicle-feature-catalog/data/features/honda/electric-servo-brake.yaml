@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.electric-servo-brake
+display_name: Electric Servo Brake
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+- Electric Servo Brake
+synonyms: []

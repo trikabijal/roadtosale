@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.stabilizer-bar-mm-front-rear-fwd
+display_name: Stabilizer Bar (mm, Front / Rear) (fwd)
+category: general
+brand_scope: honda
+cue_phrases:
+- Stabilizer Bar (mm, Front / Rear) (fwd)
+synonyms:
+- Stabilizer Bar (mm, Front / Rear) (FWD)

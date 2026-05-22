@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.all-season-tires
+display_name: All-Season Tires
+category: general
+brand_scope: honda
+cue_phrases:
+- All-Season Tires
+synonyms: []

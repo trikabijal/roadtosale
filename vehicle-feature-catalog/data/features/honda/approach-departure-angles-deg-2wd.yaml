@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.approach-departure-angles-deg-2wd
+display_name: Approach / Departure Angles (deg.) (2wd)
+category: general
+brand_scope: honda
+cue_phrases:
+- Approach / Departure Angles (deg.) (2wd)
+synonyms:
+- Approach / Departure Angles (deg.) (2WD)

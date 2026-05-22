@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.110v-power-outlet-rear-console
+display_name: 110v Power Outlet - Rear Console
+category: general
+brand_scope: honda
+cue_phrases:
+- 110v Power Outlet - Rear Console
+synonyms:
+- 110V Power Outlet - Rear Console

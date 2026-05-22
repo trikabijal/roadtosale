@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.heated-wiper-zone
+display_name: Heated Wiper Zone
+category: comfort
+brand_scope: honda
+cue_phrases:
+- Heated Wiper Zone
+synonyms: []

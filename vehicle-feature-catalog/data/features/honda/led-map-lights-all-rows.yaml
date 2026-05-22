@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.led-map-lights-all-rows
+display_name: LED Map Lights (all Rows)
+category: lighting
+brand_scope: honda
+cue_phrases:
+- LED Map Lights (all Rows)
+synonyms:
+- LED Map Lights (All Rows)

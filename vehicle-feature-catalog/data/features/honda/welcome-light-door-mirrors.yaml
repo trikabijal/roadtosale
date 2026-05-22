@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.welcome-light-door-mirrors
+display_name: Welcome Light (door Mirrors)
+category: general
+brand_scope: honda
+cue_phrases:
+- Welcome Light (door Mirrors)
+synonyms:
+- Welcome Light (Door Mirrors)

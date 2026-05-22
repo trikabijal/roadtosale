@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.red-ambient-light
+display_name: Red Ambient Light
+category: general
+brand_scope: honda
+cue_phrases:
+- Red Ambient Light
+synonyms: []

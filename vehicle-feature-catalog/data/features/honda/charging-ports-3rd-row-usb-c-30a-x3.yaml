@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.charging-ports-3rd-row-usb-c-30a-x3
+display_name: 'Charging Ports, 3rd-Row: Usb-C 3.0a (x3)'
+category: general
+brand_scope: honda
+cue_phrases:
+- 'Charging Ports, 3rd-Row: Usb-C 3.0a (x3)'
+synonyms:
+- 'Charging Ports, 3rd-Row: USB-C 3.0A (x3)'

@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.ac-synchronous-permanent-magnet-electric-motor-horsepower-rpm
+display_name: Ac Synchronous Permanent-Magnet Electric Motor (horsepower @ Rpm)
+category: general
+brand_scope: honda
+cue_phrases:
+- Ac Synchronous Permanent-Magnet Electric Motor (horsepower @ Rpm)
+synonyms:
+- AC Synchronous Permanent-Magnet Electric Motor (Horsepower @ rpm)

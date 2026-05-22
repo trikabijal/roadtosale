@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.track-in-front-rear-2wd
+display_name: Track (in.) (front / Rear) (2wd)
+category: general
+brand_scope: honda
+cue_phrases:
+- Track (in.) (front / Rear) (2wd)
+synonyms:
+- Track (in.) (front / rear) (2WD)

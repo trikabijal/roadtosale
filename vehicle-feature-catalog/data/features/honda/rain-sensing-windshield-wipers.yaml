@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.rain-sensing-windshield-wipers
+display_name: Rain Sensing Windshield Wipers
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+- Rain Sensing Windshield Wipers
+synonyms: []

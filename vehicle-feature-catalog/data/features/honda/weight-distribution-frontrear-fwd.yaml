@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.weight-distribution-frontrear-fwd
+display_name: Weight Distribution (% Front/rear) [fwd]
+category: general
+brand_scope: honda
+cue_phrases:
+- Weight Distribution (% Front/rear) [fwd]
+synonyms:
+- Weight Distribution (% front/rear) [FWD]

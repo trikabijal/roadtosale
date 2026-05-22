@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.upper-seatback-pockets-front-row
+display_name: Upper Seatback Pockets (front Row)
+category: comfort
+brand_scope: honda
+cue_phrases:
+- Upper Seatback Pockets (front Row)
+synonyms:
+- Upper Seatback Pockets (front row)

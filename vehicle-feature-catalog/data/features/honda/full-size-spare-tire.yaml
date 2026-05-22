@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.full-size-spare-tire
+display_name: Full-Size Spare Tire
+category: general
+brand_scope: honda
+cue_phrases:
+- Full-Size Spare Tire
+synonyms: []

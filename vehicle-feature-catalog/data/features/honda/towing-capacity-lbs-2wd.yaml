@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.towing-capacity-lbs-2wd
+display_name: Towing Capacity (lbs.) (2wd)
+category: general
+brand_scope: honda
+cue_phrases:
+- Towing Capacity (lbs.) (2wd)
+synonyms:
+- Towing Capacity (lbs.) (2WD)

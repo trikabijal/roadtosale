@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.115-volt-150-watt-power-outlet-front
+display_name: 115-Volt / 150-Watt Power Outlet (front)
+category: general
+brand_scope: honda
+cue_phrases:
+- 115-Volt / 150-Watt Power Outlet (front)
+synonyms: []

@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.rear-cross-traffic-monitor-ctm
+display_name: Rear Cross Traffic Monitor (ctm)
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+- Rear Cross Traffic Monitor (ctm)
+synonyms:
+- Rear Cross Traffic Monitor (CTM)

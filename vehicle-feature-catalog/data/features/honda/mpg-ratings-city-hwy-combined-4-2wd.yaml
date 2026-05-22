@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.mpg-ratings-city-hwy-combined-4-2wd
+display_name: Mpg Ratings* (city / Hwy / Combined) 4 - 2wd
+category: general
+brand_scope: honda
+cue_phrases:
+- Mpg Ratings* (city / Hwy / Combined) 4 - 2wd
+synonyms:
+- MPG Ratings* (City / Hwy / Combined) 4 - 2WD

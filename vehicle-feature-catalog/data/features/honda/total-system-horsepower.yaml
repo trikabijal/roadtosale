@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.total-system-horsepower
+display_name: Total System Horsepower
+category: general
+brand_scope: honda
+cue_phrases:
+- Total System Horsepower
+synonyms: []

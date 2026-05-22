@@ -1,42 +1,2013 @@
-# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+# Honda US 2026 trim x feature matrix. Manually-seeded CR-V Hybrid AWD
+# entries are preserved here alongside scraper-emitted entries; both must
+# be reviewed against the published brochure before being trusted.
 make_id: honda
 entries:
-  - trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
-    features:
-      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
-      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
-      - { feature_id: universal.feature.heated_front_seats, availability: standard }
-      - { feature_id: universal.feature.ventilated_front_seats, availability: standard }
-      - { feature_id: universal.feature.heated_steering_wheel, availability: standard }
-      - { feature_id: universal.feature.panoramic_moonroof, availability: standard }
-      - { feature_id: universal.feature.hands_free_power_tailgate, availability: standard }
-      - { feature_id: universal.feature.wireless_phone_charger, availability: standard }
-      - { feature_id: universal.feature.head_up_display, availability: standard }
-      - { feature_id: universal.feature.led_headlights, availability: standard }
-      - { feature_id: honda.feature.honda_sensing_360plus, availability: standard }
-      - { feature_id: honda.feature.honda_sensing, availability: unavailable }
-      - { feature_id: honda.feature.real_time_awd, availability: standard }
-      - { feature_id: honda.feature.bose_premium_audio_honda, availability: standard }
-      - { feature_id: honda.feature.hondalink, availability: standard }
-      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }
-  - trim_id: honda.cr-v-hybrid-awd.2026.sport-l
-    features:
-      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
-      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
-      - { feature_id: universal.feature.heated_front_seats, availability: standard }
-      - { feature_id: universal.feature.hands_free_power_tailgate, availability: standard }
-      - { feature_id: universal.feature.wireless_phone_charger, availability: standard }
-      - { feature_id: universal.feature.led_headlights, availability: standard }
-      - { feature_id: honda.feature.honda_sensing, availability: standard }
-      - { feature_id: honda.feature.real_time_awd, availability: standard }
-      - { feature_id: honda.feature.hondalink, availability: standard }
-      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }
-  - trim_id: honda.cr-v-hybrid-awd.2026.sport
-    features:
-      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
-      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
-      - { feature_id: universal.feature.led_headlights, availability: standard }
-      - { feature_id: honda.feature.honda_sensing, availability: standard }
-      - { feature_id: honda.feature.real_time_awd, availability: standard }
-      - { feature_id: honda.feature.hondalink, availability: standard }
-      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }
+- trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+  features:
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: standard
+  - feature_id: universal.feature.wireless_android_auto
+    availability: standard
+  - feature_id: universal.feature.heated_front_seats
+    availability: standard
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: standard
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: standard
+  - feature_id: universal.feature.panoramic_moonroof
+    availability: standard
+  - feature_id: universal.feature.hands_free_power_tailgate
+    availability: standard
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: standard
+  - feature_id: universal.feature.head_up_display
+    availability: standard
+  - feature_id: universal.feature.led_headlights
+    availability: standard
+  - feature_id: honda.feature.honda_sensing_360plus
+    availability: standard
+  - feature_id: honda.feature.honda_sensing
+    availability: unavailable
+  - feature_id: honda.feature.real_time_awd
+    availability: standard
+  - feature_id: honda.feature.bose_premium_audio_honda
+    availability: standard
+  - feature_id: honda.feature.hondalink
+    availability: standard
+  - feature_id: honda.feature.walk_away_auto_lock
+    availability: standard
+- trim_id: honda.cr-v-hybrid-awd.2026.sport-l
+  features:
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: standard
+  - feature_id: universal.feature.wireless_android_auto
+    availability: standard
+  - feature_id: universal.feature.heated_front_seats
+    availability: standard
+  - feature_id: universal.feature.hands_free_power_tailgate
+    availability: standard
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: standard
+  - feature_id: universal.feature.led_headlights
+    availability: standard
+  - feature_id: honda.feature.honda_sensing
+    availability: standard
+  - feature_id: honda.feature.real_time_awd
+    availability: standard
+  - feature_id: honda.feature.hondalink
+    availability: standard
+  - feature_id: honda.feature.walk_away_auto_lock
+    availability: standard
+- trim_id: honda.cr-v-hybrid-awd.2026.sport
+  features:
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: standard
+  - feature_id: universal.feature.wireless_android_auto
+    availability: standard
+  - feature_id: universal.feature.led_headlights
+    availability: standard
+  - feature_id: honda.feature.honda_sensing
+    availability: standard
+  - feature_id: honda.feature.real_time_awd
+    availability: standard
+  - feature_id: honda.feature.hondalink
+    availability: standard
+  - feature_id: honda.feature.walk_away_auto_lock
+    availability: standard
+- trim_id: honda.civic.2026.lx
+  features:
+  - feature_id: honda.feature.102-inch-digital-instrument-cluster
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-8-speakers
+    availability: unavailable
+  - feature_id: honda.feature.6040-split-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.9-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.ac-synchronous-permanent-magnet-electric-motor-horsepower-rpm
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-windshield
+    availability: unavailable
+  - feature_id: honda.feature.active-noise-cancellation-anc
+    availability: unavailable
+  - feature_id: honda.feature.alexa-built-in
+    availability: unavailable
+  - feature_id: honda.feature.automatic-climate-control-system
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.black-headliner
+    availability: unavailable
+  - feature_id: honda.feature.blind-spot-information-system-bsi
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-19-with-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.deceleration-selectors
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-8-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.electric-servo-brake
+    availability: unavailable
+  - feature_id: honda.feature.final-drive
+    availability: unavailable
+  - feature_id: honda.feature.front-passengers-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirror-covers
+    availability: unavailable
+  - feature_id: honda.feature.google-built-in-17-includes-3-years-unlimited-data-plan-for-in-vehicle-apps
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.heated-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.hondalink-21-subscription-services
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.paddle-shifters
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.passenger-side-seatback-pocket
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.ratio-range
+    availability: unavailable
+  - feature_id: honda.feature.rear-cross-traffic-monitor-ctm
+    availability: unavailable
+  - feature_id: honda.feature.rear-seat-center-armrest-with-beverage-holders
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+  - feature_id: honda.feature.remote-engine-start
+    availability: unavailable
+  - feature_id: honda.feature.reverse
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-integrated-led-turn-indicators
+    availability: unavailable
+  - feature_id: honda.feature.sport-pedals
+    availability: unavailable
+  - feature_id: honda.feature.sunglasses-holder
+    availability: unavailable
+  - feature_id: honda.feature.tire-repair-kit
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-rpm
+    availability: unavailable
+  - feature_id: honda.feature.total-system-horsepower
+    availability: unavailable
+  - feature_id: honda.feature.two-motor-hybrid-system-direct-drive
+    availability: unavailable
+  - feature_id: honda.feature.urban-gray-pearl-nh-912p
+    availability: unavailable
+  - feature_id: honda.feature.variable-intermittent-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.walk_away_auto_lock
+    availability: unavailable
+  - feature_id: honda.feature.wheel-resonators
+    availability: unavailable
+  - feature_id: honda.feature.wi-fi-hotspot-capability
+    availability: unavailable
+  - feature_id: universal.feature.heated_front_seats
+    availability: unavailable
+  - feature_id: universal.feature.wireless_android_auto
+    availability: unavailable
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: unavailable
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: unavailable
+- trim_id: honda.civic.2026.sport
+  features:
+  - feature_id: honda.feature.102-inch-digital-instrument-cluster
+    availability: unavailable
+  - feature_id: honda.feature.160-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.9-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.ac-synchronous-permanent-magnet-electric-motor-horsepower-rpm
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-windshield
+    availability: unavailable
+  - feature_id: honda.feature.active-noise-cancellation-anc
+    availability: unavailable
+  - feature_id: honda.feature.alexa-built-in
+    availability: unavailable
+  - feature_id: honda.feature.automatic-climate-control-system
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-19-with-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.deceleration-selectors
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-8-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.electric-servo-brake
+    availability: unavailable
+  - feature_id: honda.feature.final-drive
+    availability: unavailable
+  - feature_id: honda.feature.front-passengers-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.google-built-in-17-includes-3-years-unlimited-data-plan-for-in-vehicle-apps
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.hondalink-21-subscription-services
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.one-piece-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.passenger-side-seatback-pocket
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.ratio-range
+    availability: unavailable
+  - feature_id: honda.feature.reverse
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-integrated-led-turn-indicators
+    availability: unavailable
+  - feature_id: honda.feature.sunglasses-holder
+    availability: unavailable
+  - feature_id: honda.feature.tire-repair-kit
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-rpm
+    availability: unavailable
+  - feature_id: honda.feature.total-system-horsepower
+    availability: unavailable
+  - feature_id: honda.feature.two-motor-hybrid-system-direct-drive
+    availability: unavailable
+  - feature_id: honda.feature.variable-intermittent-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.wheel-resonators
+    availability: unavailable
+  - feature_id: honda.feature.wi-fi-hotspot-capability
+    availability: unavailable
+  - feature_id: universal.feature.heated_front_seats
+    availability: unavailable
+  - feature_id: universal.feature.wireless_android_auto
+    availability: unavailable
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: unavailable
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: unavailable
+- trim_id: honda.civic.2026.sport-hybrid
+  features:
+  - feature_id: honda.feature.102-inch-digital-instrument-cluster
+    availability: unavailable
+  - feature_id: honda.feature.160-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.9-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.alexa-built-in
+    availability: unavailable
+  - feature_id: honda.feature.automatic-climate-control-system
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-19-with-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.compact-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.continuously-variable-transmission
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-8-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.final-drive
+    availability: unavailable
+  - feature_id: honda.feature.front-passengers-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.google-built-in-17-includes-3-years-unlimited-data-plan-for-in-vehicle-apps
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.hondalink-21-subscription-services
+    availability: unavailable
+  - feature_id: honda.feature.idle-stop
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.one-piece-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.paddle-shifters
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.ratio-range
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+  - feature_id: honda.feature.reverse
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-integrated-led-turn-indicators
+    availability: unavailable
+  - feature_id: honda.feature.sunglasses-holder
+    availability: unavailable
+  - feature_id: honda.feature.two-speed-intermittent-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.wheel-resonators
+    availability: unavailable
+  - feature_id: honda.feature.wi-fi-hotspot-capability
+    availability: unavailable
+  - feature_id: universal.feature.wireless_android_auto
+    availability: unavailable
+  - feature_id: universal.feature.wireless_apple_carplay
+    availability: unavailable
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: unavailable
+- trim_id: honda.civic.2026.sport-touring-hybrid
+  features:
+  - feature_id: honda.feature.160-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-8-speakers
+    availability: unavailable
+  - feature_id: honda.feature.7-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.7-inch-tft-meter
+    availability: unavailable
+  - feature_id: honda.feature.automatic-climate-control-system
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.compact-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.continuously-variable-transmission
+    availability: unavailable
+  - feature_id: honda.feature.final-drive
+    availability: unavailable
+  - feature_id: honda.feature.idle-stop
+    availability: unavailable
+  - feature_id: honda.feature.one-piece-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.paddle-shifters
+    availability: unavailable
+  - feature_id: honda.feature.ratio-range
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+  - feature_id: honda.feature.reverse
+    availability: unavailable
+  - feature_id: honda.feature.two-speed-intermittent-windshield-wipers
+    availability: unavailable
+- trim_id: honda.accord.2026.gas-engine
+  features:
+  - feature_id: honda.feature.123-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-8-speakers
+    availability: unavailable
+  - feature_id: honda.feature.6040-split-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.ac-synchronous-permanent-magnet-electric-motor-horsepower-rpm
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-front-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-windshield
+    availability: unavailable
+  - feature_id: honda.feature.alexa-built-in
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.blind-spot-information-system-bsi
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-19-with-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.canyon-river-blue-metallic-b-640m
+    availability: unavailable
+  - feature_id: honda.feature.deceleration-selectors
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-10-way-power-adjustment-including-2-way-power-lumbar-support
+    availability: unavailable
+  - feature_id: honda.feature.dual-zone-climate-control
+    availability: unavailable
+  - feature_id: honda.feature.electric-servo-brake
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirror-covers
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.google-built-in-18-includes-3-years-unlimited-data-plan-for-in-vehicle-apps
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.heated-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-shift-knob
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.multi-angle-rearview-camera-17-with-dynamic-guidelines
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-cross-traffic-monitor-ctm
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-integrated-led-turn-indicators
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-reverse-gear-tilt-down
+    availability: unavailable
+  - feature_id: honda.feature.sport-pedals
+    availability: unavailable
+  - feature_id: honda.feature.still-night-pearl-b-575p
+    availability: unavailable
+  - feature_id: honda.feature.tire-repair-kit
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-rpm
+    availability: unavailable
+  - feature_id: honda.feature.total-system-horsepower
+    availability: unavailable
+  - feature_id: honda.feature.two-motor-hybrid-system-direct-drive
+    availability: unavailable
+  - feature_id: honda.feature.two-position-drivers-seat-memory
+    availability: unavailable
+  - feature_id: honda.feature.urban-gray-pearl-nh-912p
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_front_seats
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.accord.2026.hybrid
+  features:
+  - feature_id: honda.feature.123-inch-color-touchscreen
+    availability: unavailable
+  - feature_id: honda.feature.160-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.ac-synchronous-permanent-magnet-electric-motor-horsepower-rpm
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-front-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-windshield
+    availability: unavailable
+  - feature_id: honda.feature.alexa-built-in
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-19-with-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.deceleration-selectors
+    availability: unavailable
+  - feature_id: honda.feature.electric-servo-brake
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.google-built-in-18-includes-3-years-unlimited-data-plan-for-in-vehicle-apps
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-shift-knob
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.multi-angle-rearview-camera-17-with-dynamic-guidelines
+    availability: unavailable
+  - feature_id: honda.feature.one-piece-fold-down-rear-seatback
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-integrated-led-turn-indicators
+    availability: unavailable
+  - feature_id: honda.feature.side-mirrors-with-reverse-gear-tilt-down
+    availability: unavailable
+  - feature_id: honda.feature.sport-pedals
+    availability: unavailable
+  - feature_id: honda.feature.still-night-pearl-b-575p
+    availability: unavailable
+  - feature_id: honda.feature.tire-repair-kit
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-rpm
+    availability: unavailable
+  - feature_id: honda.feature.total-system-horsepower
+    availability: unavailable
+  - feature_id: honda.feature.two-motor-hybrid-system-direct-drive
+    availability: unavailable
+  - feature_id: honda.feature.two-position-drivers-seat-memory
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.hr-v.2026.lx
+  features:
+  - feature_id: honda.feature.180-watt-audio-system-with-6-speakers
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-8-speakers
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.blind-spot-information-system-bsi
+    availability: unavailable
+  - feature_id: honda.feature.boost-blue-pearl-b-637p
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-8-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.dual-zone-climate-control
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirror-covers
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.heated-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-shift-knob
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-side-mirror-turn-indicator
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.milano-red-r-81
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.power-windows-with-auto-updown-passengers-window
+    availability: unavailable
+  - feature_id: honda.feature.real-time-awd-with-intelligent-control-system
+    availability: optional
+  - feature_id: honda.feature.rear-cross-traffic-monitor-ctm
+    availability: unavailable
+  - feature_id: honda.feature.remote-engine-start
+    availability: unavailable
+  - feature_id: honda.feature.sport-grille
+    availability: unavailable
+  - feature_id: honda.feature.sunvisor-vanity-driver-passenger
+    availability: unavailable
+  - feature_id: honda.feature.urban-gray-pearl-nh-912p
+    availability: unavailable
+  - feature_id: honda.feature.walk_away_auto_lock
+    availability: unavailable
+  - feature_id: universal.feature.heated_front_seats
+    availability: unavailable
+- trim_id: honda.hr-v.2026.sport
+  features:
+  - feature_id: honda.feature.180-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-8-speakers
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-8-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.dual-zone-climate-control
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.solar-silver-metallic-nh-932m
+    availability: unavailable
+  - feature_id: honda.feature.sunvisor-vanity-driver-passenger
+    availability: unavailable
+- trim_id: honda.hr-v.2026.ex-l
+  features:
+  - feature_id: honda.feature.180-watt-audio-system-with-4-speakers
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-6-speakers
+    availability: unavailable
+  - feature_id: honda.feature.boost-blue-pearl-b-637p
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-manual-height-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirror-covers
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.milano-red-r-81
+    availability: unavailable
+  - feature_id: honda.feature.sport-grille
+    availability: unavailable
+  - feature_id: honda.feature.sunvisor-vanity-driver-passenger
+    availability: unavailable
+- trim_id: honda.pilot.2026.trailsport
+  features:
+  - feature_id: honda.feature.40-20-40-split-flat-folding-2nd-row-seats
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.approach-departure-angles-deg-2wd
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-6-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.compact-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.dual-gloss-black-exhaust-finishers
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-front-grille
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-rear-roof-spoiler-sides
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.mpg-ratings-city-hwy-combined-4-2wd
+    availability: unavailable
+  - feature_id: honda.feature.multi-function-2nd-row-with-removable-middle-seat
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-ultrasuede-accents-and-contrast-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.radiant-red-metallic-ii-r-580m
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.towing-capacity-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.track-in-front-rear-2wd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-front-rear-2wd
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.pilot.2026.touring
+  features:
+  - feature_id: honda.feature.115-volt-power-outlet-2nd-row
+    availability: unavailable
+  - feature_id: honda.feature.245-watt-audio-system-with-9-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.2nd-row-captains-chairs
+    availability: unavailable
+  - feature_id: honda.feature.approach-departure-angles-deg-2wd
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-4-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.dual-gloss-black-exhaust-finishers
+    availability: unavailable
+  - feature_id: honda.feature.durable-synthetic-leather-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.full-size-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-door-handles
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.heated-windshield
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.mpg-ratings-city-hwy-combined-4-2wd
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-ultrasuede-accents-and-contrast-piping
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-front-door-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.standard-trailer-hitch-receiver-with-rear-recovery-point-without-connector-or-ball
+    availability: unavailable
+  - feature_id: honda.feature.towing-capacity-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.track-in-front-rear-2wd
+    availability: unavailable
+  - feature_id: honda.feature.trail-torque-logic
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-front-rear-2wd
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.pilot.2026.elite
+  features:
+  - feature_id: honda.feature.245-watt-audio-system-with-9-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.2nd-row-captains-chairs
+    availability: unavailable
+  - feature_id: honda.feature.approach-departure-angles-deg-2wd
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-4-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.dual-gloss-black-exhaust-finishers
+    availability: unavailable
+  - feature_id: honda.feature.durable-synthetic-leather-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.full-size-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-door-handles
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.mpg-ratings-city-hwy-combined-4-2wd
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-front-door-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.standard-trailer-hitch-receiver-with-rear-recovery-point-without-connector-or-ball
+    availability: unavailable
+  - feature_id: honda.feature.towing-capacity-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.track-in-front-rear-2wd
+    availability: unavailable
+  - feature_id: honda.feature.trail-torque-logic
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-front-rear-2wd
+    availability: unavailable
+- trim_id: honda.pilot.2026.black-edition
+  features:
+  - feature_id: honda.feature.245-watt-audio-system-with-9-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.2nd-row-captains-chairs
+    availability: unavailable
+  - feature_id: honda.feature.approach-departure-angles-deg-2wd
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-4-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.durable-synthetic-leather-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.full-size-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-door-handles
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.mpg-ratings-city-hwy-combined-4-2wd
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-front-door-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.smoke-blue-pearl-b-642p
+    availability: unavailable
+  - feature_id: honda.feature.standard-trailer-hitch-receiver-with-rear-recovery-point-without-connector-or-ball
+    availability: unavailable
+  - feature_id: honda.feature.towing-capacity-lbs-2wd
+    availability: unavailable
+  - feature_id: honda.feature.track-in-front-rear-2wd
+    availability: unavailable
+  - feature_id: honda.feature.trail-torque-logic
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-front-rear-2wd
+    availability: unavailable
+- trim_id: honda.pilot.2026.sport
+  features:
+  - feature_id: honda.feature.115-volt-power-outlet-2nd-row
+    availability: unavailable
+  - feature_id: honda.feature.12-volt-power-outlet-cargo
+    availability: unavailable
+  - feature_id: honda.feature.2nd-gen-intelligent-variable-torque-management-i-vtm-4-awd-system
+    availability: optional
+  - feature_id: honda.feature.2nd-row-captains-chairs
+    availability: unavailable
+  - feature_id: honda.feature.30-amp-usb-type-c-charging-port-3rd-row-2-ports
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-4-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.chrome-exhaust-finisher
+    availability: unavailable
+  - feature_id: honda.feature.conversation-mirror
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.drivers-and-front-passengers-illuminated-vanity-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.drivers-two-position-memory-seat-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.durable-synthetic-leather-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.full-size-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-door-handles
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-front-grille
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-rear-roof-spoiler-sides
+    availability: unavailable
+  - feature_id: honda.feature.heated-power-side-mirrors-with-integrated-led-turn-signal-and-reverese-gear-tilt-down
+    availability: unavailable
+  - feature_id: honda.feature.heated-windshield
+    availability: unavailable
+  - feature_id: honda.feature.homelink-remote-system
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.led-map-lights-all-rows
+    availability: unavailable
+  - feature_id: honda.feature.low-speed-braking-control
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.multi-function-2nd-row-with-removable-middle-seat
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.multiview-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.panoramic-moonroof-with-tilt-and-slide-function
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-ultrasuede-accents-and-contrast-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-2nd-row-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.smoke-blue-pearl-b-642p
+    availability: unavailable
+  - feature_id: honda.feature.standard-trailer-hitch-receiver-with-rear-recovery-point-without-connector-or-ball
+    availability: unavailable
+  - feature_id: honda.feature.trail-torque-logic
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+  - feature_id: universal.feature.wireless_phone_charger
+    availability: unavailable
+- trim_id: honda.pilot.2026.ex-l
+  features:
+  - feature_id: honda.feature.115-volt-power-outlet-2nd-row
+    availability: unavailable
+  - feature_id: honda.feature.2nd-gen-intelligent-variable-torque-management-i-vtm-4-awd-system
+    availability: optional
+  - feature_id: honda.feature.2nd-row-captains-chairs
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.beverage-holders-front-row-4-2nd-row-4-3rd-row-4
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.dual-gloss-black-exhaust-finishers
+    availability: unavailable
+  - feature_id: honda.feature.durable-synthetic-leather-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.full-size-spare-tire
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-door-handles
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-front-grille
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-rear-roof-spoiler-sides
+    availability: unavailable
+  - feature_id: honda.feature.heated-windshield
+    availability: unavailable
+  - feature_id: honda.feature.homelink-remote-system
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.multiview-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.panoramic-moonroof-with-tilt-and-slide-function
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-ultrasuede-accents-and-contrast-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-2nd-row-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.standard-trailer-hitch-receiver-with-rear-recovery-point-without-connector-or-ball
+    availability: unavailable
+  - feature_id: honda.feature.trail-torque-logic
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.rtl
+  features:
+  - feature_id: honda.feature.115-volt-power-outlets-2nd-row-and-rear-cargo
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-amber
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.black-honda-badges
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.durable-leatherette-and-cloth-seats-with-trailsport-orange-stiching-and-accents
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.high-visibility-recovery-hooks
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.led-fog-lights
+    availability: unavailable
+  - feature_id: honda.feature.led-side-mirror-turn-indicator
+    availability: unavailable
+  - feature_id: honda.feature.led-trailsport-amber-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.multi-view-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.panoramic-moonroof-with-tilt-and-slide-function
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-with-contrast-stitching-and-accents-and-black-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.sunset-orange-yr-585
+    availability: unavailable
+  - feature_id: honda.feature.trailer-hitch-class-iii-with-harness-and-hitch-panel
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.rtl-towing
+  features:
+  - feature_id: honda.feature.115-volt-power-outlets-2nd-row-and-rear-cargo
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-amber
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.black-honda-badges
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.durable-leatherette-and-cloth-seats-with-trailsport-orange-stiching-and-accents
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.high-visibility-recovery-hooks
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.led-fog-lights
+    availability: unavailable
+  - feature_id: honda.feature.led-side-mirror-turn-indicator
+    availability: unavailable
+  - feature_id: honda.feature.led-trailsport-amber-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.multi-view-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.panoramic-moonroof-with-tilt-and-slide-function
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-with-contrast-stitching-and-accents-and-black-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.sunset-orange-yr-585
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.rtl-blackout
+  features:
+  - feature_id: honda.feature.115-volt-power-outlets-2nd-row-and-rear-cargo
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-amber
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.durable-leatherette-and-cloth-seats-with-trailsport-orange-stiching-and-accents
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.high-visibility-recovery-hooks
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.led-fog-lights
+    availability: unavailable
+  - feature_id: honda.feature.led-side-mirror-turn-indicator
+    availability: unavailable
+  - feature_id: honda.feature.led-trailsport-amber-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.multi-view-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.panoramic-moonroof-with-tilt-and-slide-function
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-with-contrast-stitching-and-accents-and-black-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.sunset-orange-yr-585
+    availability: unavailable
+  - feature_id: honda.feature.trailer-hitch-class-iii-with-harness-and-hitch-panel
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: honda.feature.underbody-skid-plates-with-integrated-front-recovery-point
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.trailsport
+  features:
+  - feature_id: honda.feature.acoustic-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.all-season-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-white
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.black-honda-badges
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.leather-and-cloth-seats
+    availability: unavailable
+  - feature_id: honda.feature.led-bright-white-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.multi-view-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-with-contrast-stitching-and-accents-and-black-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.trailsport-blackout
+  features:
+  - feature_id: honda.feature.acoustic-front-side-glass
+    availability: unavailable
+  - feature_id: honda.feature.all-season-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-white
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-sound-system-with-12-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.front-camera-washer
+    availability: unavailable
+  - feature_id: honda.feature.integrated-rear-door-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.leather-and-cloth-seats
+    availability: unavailable
+  - feature_id: honda.feature.led-bright-white-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.multi-view-camera-system
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-with-contrast-stitching-and-accents-and-black-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-lift-tailgate-with-hands-free-access-and-walk-away-close
+    availability: unavailable
+  - feature_id: honda.feature.puddle-lights
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-all-doors-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.trailwatch
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.passport.2026.trailsport-elite
+  features:
+  - feature_id: honda.feature.245-watt-audio-system-with-9-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.all-season-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-amber
+    availability: unavailable
+  - feature_id: honda.feature.black-honda-badges
+    availability: unavailable
+  - feature_id: honda.feature.durable-leatherette-and-cloth-seats-with-trailsport-orange-stiching-and-accents
+    availability: unavailable
+  - feature_id: honda.feature.leather-and-cloth-seats
+    availability: unavailable
+  - feature_id: honda.feature.led-bright-white-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-front-door-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: universal.feature.hands_free_power_tailgate
+    availability: unavailable
+- trim_id: honda.passport.2026.trailsport-elite-blackout
+  features:
+  - feature_id: honda.feature.245-watt-audio-system-with-9-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.all-season-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-amber
+    availability: unavailable
+  - feature_id: honda.feature.durable-leatherette-and-cloth-seats-with-trailsport-orange-stiching-and-accents
+    availability: unavailable
+  - feature_id: honda.feature.leather-and-cloth-seats
+    availability: unavailable
+  - feature_id: honda.feature.led-bright-white-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.smart-entry-with-walk-away-auto-lock-front-door-and-tailgate
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: universal.feature.hands_free_power_tailgate
+    availability: unavailable
+- trim_id: honda.odyssey.2026.ex-l
+  features:
+  - feature_id: honda.feature.115-volt-150-watt-power-outlet-front
+    availability: unavailable
+  - feature_id: honda.feature.3rd-row-integrated-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.500-watt-premium-audio-system-with-11-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-rear-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.advanced-rear-entertainment-system-with-128-inch-high-resolution-screen
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.cabinwatch-rear-seat-monitor
+    availability: unavailable
+  - feature_id: honda.feature.charging-ports-3rd-row-usb-c-30a-x2
+    availability: unavailable
+  - feature_id: honda.feature.charging-ports-3rd-row-usb-c-30a-x3
+    availability: unavailable
+  - feature_id: honda.feature.hdmi-interface-27-with-usb-a-25a
+    availability: unavailable
+  - feature_id: honda.feature.headphone-jack-3rd-row
+    availability: unavailable
+  - feature_id: honda.feature.honda-satellite-linked-navigation-system-with-voice-recognition-28-and-honda-hd-digital-traffic
+    availability: unavailable
+  - feature_id: honda.feature.hondalink-subscription-services
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-hands-free-access-and-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+  - feature_id: honda.feature.sonic-gray-pearl-nh-877p
+    availability: unavailable
+  - feature_id: honda.feature.upper-seatback-pockets-front-row
+    availability: unavailable
+  - feature_id: honda.feature.wi-fi-hotspot-capability
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.odyssey.2026.sport-l
+  features:
+  - feature_id: honda.feature.115-volt-150-watt-power-outlet-front
+    availability: unavailable
+  - feature_id: honda.feature.3rd-row-integrated-sunshades
+    availability: unavailable
+  - feature_id: honda.feature.500-watt-premium-audio-system-with-11-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-rear-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.advanced-rear-entertainment-system-with-128-inch-high-resolution-screen
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.blue-ambient-light
+    availability: unavailable
+  - feature_id: honda.feature.cabinwatch-rear-seat-monitor
+    availability: unavailable
+  - feature_id: honda.feature.charging-ports-3rd-row-usb-c-30a-x3
+    availability: unavailable
+  - feature_id: honda.feature.hdmi-interface-27-with-usb-a-25a
+    availability: unavailable
+  - feature_id: honda.feature.headphone-jack-3rd-row
+    availability: unavailable
+  - feature_id: honda.feature.honda-satellite-linked-navigation-system-with-voice-recognition-28-and-honda-hd-digital-traffic
+    availability: unavailable
+  - feature_id: honda.feature.hondalink-subscription-services
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-hands-free-access-and-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.smoke-blue-pearl-b-642p
+    availability: unavailable
+  - feature_id: honda.feature.solar-silver-metallic-nh-932m
+    availability: unavailable
+  - feature_id: honda.feature.upper-seatback-pockets-front-row
+    availability: unavailable
+  - feature_id: honda.feature.wi-fi-hotspot-capability
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.odyssey.2026.touring
+  features:
+  - feature_id: honda.feature.12-volt-power-outlet-3rd-row
+    availability: unavailable
+  - feature_id: honda.feature.500-watt-premium-audio-system-with-11-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-front-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-laminate-rear-door-glass
+    availability: unavailable
+  - feature_id: honda.feature.auto-dimming-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.charging-ports-3rd-row-usb-c-30a-x2
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.multi-zone-audio
+    availability: unavailable
+  - feature_id: honda.feature.perforated-leather-trimmed-seats-with-piping
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-hands-free-access-and-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.rain-sensing-windshield-wipers
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.odyssey.2026.elite
+  features:
+  - feature_id: honda.feature.12-volt-power-outlet-3rd-row
+    availability: unavailable
+  - feature_id: honda.feature.160-watt-audio-system-with-7-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.charging-ports-3rd-row-usb-c-30a-x2
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.red-ambient-light
+    availability: unavailable
+- trim_id: honda.ridgeline.2026.sport
+  features:
+  - feature_id: honda.feature.150-watt-400-watt-truck-bed-power-outlet
+    availability: unavailable
+  - feature_id: honda.feature.540-watt-premium-audio-system-with-8-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.acoustic-windshield
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-red
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-trail-orange
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-10-way-power-adjustment-including-power-lumbar-support-and-two-position-memory
+    availability: unavailable
+  - feature_id: honda.feature.front-passengers-seat-with-4-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.heated-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.homelink-remote-system
+    availability: unavailable
+  - feature_id: honda.feature.honda-satellite-linked-navigation-system-with-voice-recognition-25-and-honda-hd-digital-traffic
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-drivers-and-front-passengers-vanity-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.led-front-map-lights
+    availability: unavailable
+  - feature_id: honda.feature.led-truck-bed-lights
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.one-touch-power-moonroof-with-tilt-feature
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-2-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-sliding-rear-window
+    availability: unavailable
+  - feature_id: honda.feature.radiant-red-metallic-ii-r-580m
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.siriusxm
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.usb-c-30a-charging-port-rear-console-2-ports
+    availability: unavailable
+  - feature_id: universal.feature.heated_front_seats
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.ridgeline.2026.rtl
+  features:
+  - feature_id: honda.feature.150-watt-400-watt-truck-bed-power-outlet
+    availability: unavailable
+  - feature_id: honda.feature.540-watt-premium-audio-system-with-8-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-red
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-trail-orange
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.hd-radio
+    availability: unavailable
+  - feature_id: honda.feature.honda-satellite-linked-navigation-system-with-voice-recognition-25-and-honda-hd-digital-traffic
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-daytime-running-lights-drl
+    availability: unavailable
+  - feature_id: honda.feature.led-truck-bed-lights
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.parking-sensors-2-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-side-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.usb-c-30a-charging-port-rear-console-2-ports
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.ridgeline.2026.black-edition
+  features:
+  - feature_id: honda.feature.215-watt-audio-system-with-7-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.all-terrain-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-trail-orange
+    availability: unavailable
+  - feature_id: honda.feature.ash-green-metallic-g-545m
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: optional
+  - feature_id: honda.feature.leather-trimmed-seats-with-trail-orange-stitching
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.modern-steel-metallic-nh-797m
+    availability: unavailable
+  - feature_id: honda.feature.off-road-tuned-suspension
+    availability: unavailable
+  - feature_id: honda.feature.radiant-red-metallic-ii-r-580m
+    availability: unavailable
+  - feature_id: honda.feature.solar-silver-metallic-nh-932m
+    availability: unavailable
+  - feature_id: honda.feature.trailsport-all-season-floor-mats
+    availability: unavailable
+- trim_id: honda.ridgeline.2026.trailsport
+  features:
+  - feature_id: honda.feature.150-watt-400-watt-truck-bed-power-outlet
+    availability: unavailable
+  - feature_id: honda.feature.540-watt-premium-audio-system-with-8-speakers-including-subwoofer
+    availability: unavailable
+  - feature_id: honda.feature.all-season-tires
+    availability: unavailable
+  - feature_id: honda.feature.ambient-led-lighting-red
+    availability: unavailable
+  - feature_id: honda.feature.black-lug-nuts
+    availability: unavailable
+  - feature_id: honda.feature.courtesy-door-lights-front-row
+    availability: unavailable
+  - feature_id: honda.feature.floor-mats
+    availability: unavailable
+  - feature_id: honda.feature.gloss-black-roofline-spoiler
+    availability: unavailable
+  - feature_id: honda.feature.leather-trimmed-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-wrapped-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-truck-bed-lights
+    availability: unavailable
+  - feature_id: honda.feature.rear-outboard-heated-seats
+    availability: unavailable
+  - feature_id: honda.feature.usb-c-30a-charging-port-rear-console-2-ports
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.prologue.2026.ex-awd
+  features:
+  - feature_id: honda.feature.110v-power-outlet-rear-console
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-audio-system-with-12-speakers
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-fwd
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-two-position-memory
+    availability: unavailable
+  - feature_id: honda.feature.front-rear-park-assist-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.horsepower-hp-1-fwd
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-door-panels-front-rear
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-footwells
+    availability: unavailable
+  - feature_id: honda.feature.instrument-panel-illumination
+    availability: unavailable
+  - feature_id: honda.feature.key-card
+    availability: unavailable
+  - feature_id: honda.feature.leather-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-foglights
+    availability: unavailable
+  - feature_id: honda.feature.north-shore-pearl-139p
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-6-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-hands-free-access-and-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.range-miles-fwd
+    availability: unavailable
+  - feature_id: honda.feature.rear-pedestrian-alert
+    availability: unavailable
+  - feature_id: honda.feature.roof-rails
+    availability: unavailable
+  - feature_id: honda.feature.self-sealing-tires
+    availability: unavailable
+  - feature_id: honda.feature.sonic-gray-pearl-138p
+    availability: unavailable
+  - feature_id: honda.feature.stabilizer-bar-mm-front-rear-fwd
+    availability: unavailable
+  - feature_id: honda.feature.surround-vision-system
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-2-fwd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-frontrear-fwd
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-door-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-rear-kick-sensor
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.panoramic_moonroof
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.prologue.2026.touring-awd
+  features:
+  - feature_id: honda.feature.110v-power-outlet-rear-console
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-6-speakers
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-fwd
+    availability: unavailable
+  - feature_id: honda.feature.front-rear-park-assist-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.horsepower-hp-1-fwd
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-door-panels-front-rear
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-footwells
+    availability: unavailable
+  - feature_id: honda.feature.key-card
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-6-way-manual-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.range-miles-fwd
+    availability: unavailable
+  - feature_id: honda.feature.rear-pedestrian-alert
+    availability: unavailable
+  - feature_id: honda.feature.self-sealing-tires
+    availability: unavailable
+  - feature_id: honda.feature.stabilizer-bar-mm-front-rear-fwd
+    availability: unavailable
+  - feature_id: honda.feature.surround-vision-system
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-2-fwd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-frontrear-fwd
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-door-mirrors
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.prologue.2026.elite-awd
+  features:
+  - feature_id: honda.feature.180-watt-audio-system-with-6-speakers
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-fwd
+    availability: unavailable
+  - feature_id: honda.feature.front-rear-park-assist-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.front-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.horsepower-hp-1-fwd
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-6-way-manual-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.range-miles-fwd
+    availability: unavailable
+  - feature_id: honda.feature.stabilizer-bar-mm-front-rear-fwd
+    availability: unavailable
+  - feature_id: honda.feature.tire-repair-kit
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-2-fwd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-frontrear-fwd
+    availability: unavailable
+- trim_id: honda.prologue.2026.ex-fwd
+  features:
+  - feature_id: honda.feature.110v-power-outlet-rear-console
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-rearview-mirror
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.bose-premium-audio-system-with-12-speakers
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-awd
+    availability: unavailable
+  - feature_id: honda.feature.drivers-seat-with-two-position-memory
+    availability: unavailable
+  - feature_id: honda.feature.dual-motor-all-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.front-rear-park-assist-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.horsepower-hp1-awd
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-door-panels-front-rear
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-footwells
+    availability: unavailable
+  - feature_id: honda.feature.instrument-panel-illumination
+    availability: unavailable
+  - feature_id: honda.feature.key-card
+    availability: unavailable
+  - feature_id: honda.feature.leather-seats
+    availability: unavailable
+  - feature_id: honda.feature.leather-steering-wheel
+    availability: unavailable
+  - feature_id: honda.feature.led-foglights
+    availability: unavailable
+  - feature_id: honda.feature.north-shore-pearl-139p
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-6-way-power-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.power-tailgate-with-hands-free-access-and-programmable-height
+    availability: unavailable
+  - feature_id: honda.feature.range-miles-awd
+    availability: unavailable
+  - feature_id: honda.feature.rear-pedestrian-alert
+    availability: unavailable
+  - feature_id: honda.feature.roof-rails
+    availability: unavailable
+  - feature_id: honda.feature.self-sealing-tires
+    availability: unavailable
+  - feature_id: honda.feature.sonic-gray-pearl-138p
+    availability: unavailable
+  - feature_id: honda.feature.stabilizer-bar-mm-front-rear-awd
+    availability: unavailable
+  - feature_id: honda.feature.surround-vision-system
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-2-awd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-frontrear-awd
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-door-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-rear-kick-sensor
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.panoramic_moonroof
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable
+- trim_id: honda.prologue.2026.touring-fwd
+  features:
+  - feature_id: honda.feature.110v-power-outlet-rear-console
+    availability: unavailable
+  - feature_id: honda.feature.180-watt-audio-system-with-6-speakers
+    availability: unavailable
+  - feature_id: honda.feature.automatic-dimming-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.curb-weight-lbs-awd
+    availability: unavailable
+  - feature_id: honda.feature.dual-motor-all-wheel-drive
+    availability: unavailable
+  - feature_id: honda.feature.front-rear-park-assist-4-front-4-rear
+    availability: unavailable
+  - feature_id: honda.feature.heated-wiper-zone
+    availability: unavailable
+  - feature_id: honda.feature.horsepower-hp1-awd
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-beverage-holders-front-console
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-door-panels-front-rear
+    availability: unavailable
+  - feature_id: honda.feature.illuminated-footwells
+    availability: unavailable
+  - feature_id: honda.feature.key-card
+    availability: unavailable
+  - feature_id: honda.feature.passenger-seat-with-6-way-manual-adjustment
+    availability: unavailable
+  - feature_id: honda.feature.power-folding-sideview-mirrors
+    availability: unavailable
+  - feature_id: honda.feature.range-miles-awd
+    availability: unavailable
+  - feature_id: honda.feature.rear-pedestrian-alert
+    availability: unavailable
+  - feature_id: honda.feature.self-sealing-tires
+    availability: unavailable
+  - feature_id: honda.feature.stabilizer-bar-mm-front-rear-awd
+    availability: unavailable
+  - feature_id: honda.feature.surround-vision-system
+    availability: unavailable
+  - feature_id: honda.feature.torque-lb-ft-2-awd
+    availability: unavailable
+  - feature_id: honda.feature.weight-distribution-frontrear-awd
+    availability: unavailable
+  - feature_id: honda.feature.welcome-light-door-mirrors
+    availability: unavailable
+  - feature_id: universal.feature.head_up_display
+    availability: unavailable
+  - feature_id: universal.feature.heated_steering_wheel
+    availability: unavailable
+  - feature_id: universal.feature.ventilated_front_seats
+    availability: unavailable

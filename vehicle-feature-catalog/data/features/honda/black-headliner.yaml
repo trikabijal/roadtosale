@@ -1,0 +1,8 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.black-headliner
+display_name: Black Headliner
+category: general
+brand_scope: honda
+cue_phrases:
+- Black Headliner
+synonyms: []

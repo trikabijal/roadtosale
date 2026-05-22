@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.curb-weight-lbs-fwd
+display_name: Curb Weight (lbs) [fwd]
+category: general
+brand_scope: honda
+cue_phrases:
+- Curb Weight (lbs) [fwd]
+synonyms:
+- Curb Weight (lbs) [FWD]

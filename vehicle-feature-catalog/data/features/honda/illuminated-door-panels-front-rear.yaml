@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.illuminated-door-panels-front-rear
+display_name: Illuminated Door Panels (front & Rear)
+category: general
+brand_scope: honda
+cue_phrases:
+- Illuminated Door Panels (front & Rear)
+synonyms:
+- Illuminated Door Panels (Front & Rear)

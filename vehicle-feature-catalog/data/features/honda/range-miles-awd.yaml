@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.range-miles-awd
+display_name: Range (miles) - AWD
+category: drivetrain
+brand_scope: honda
+cue_phrases:
+- Range (miles) - AWD
+synonyms:
+- Range (Miles) - AWD

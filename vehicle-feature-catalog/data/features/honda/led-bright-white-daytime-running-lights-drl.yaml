@@ -1,0 +1,9 @@
+# Auto-emitted from Honda US brochure. cue_phrases is a seed — expand with rep-natural variants before relying on voice matching.
+id: honda.feature.led-bright-white-daytime-running-lights-drl
+display_name: LED Bright White Daytime Running Lights (drl)
+category: lighting
+brand_scope: honda
+cue_phrases:
+- LED Bright White Daytime Running Lights (drl)
+synonyms:
+- LED Bright White Daytime Running Lights (DRL)
