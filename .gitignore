@@ -12,6 +12,10 @@ demo/auditpro-rn-showcase/node_modules/
 voice-engine/lab/reports/
 voice-engine/lab/fixtures/generated/
 
+# Vehicle feature catalog — downloaded brochures (large binaries, not source)
+vehicle-feature-catalog/data-cache/
+vehicle-feature-catalog/.venv-scraper/
+
 # Python
 __pycache__/
 *.py[cod]

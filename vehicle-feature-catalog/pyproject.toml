@@ -19,6 +19,11 @@ dev = [
     "pytest>=8.0",
     "mypy>=1.8",
 ]
+scrapers = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pdfplumber>=0.11",
+]
 
 [tool.setuptools]
 package-dir = { "" = "src/python" }
@@ -29,7 +34,7 @@ include = ["vehicle_feature_catalog*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests/python"]
-pythonpath = ["src/python"]
+pythonpath = ["src/python", "."]
 addopts = "-ra"
 
 [tool.mypy]
