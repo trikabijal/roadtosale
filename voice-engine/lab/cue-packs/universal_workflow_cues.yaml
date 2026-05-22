@@ -1,11 +1,14 @@
-# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+# v1 seed data — verify against authoritative source (NADA Road to Sale + Honda US dealer training) before relying on accuracy.
 # Universal workflow cues — brand-agnostic, NOT tied to any vehicle feature.
-# These cues correspond to phases of the Road to the Sale (greet, discovery, vehicle match,
-# front-line ready, trade, handoff, finance). They are loaded by the voice-engine lab
-# alongside feature cues from the vehicle-feature-catalog.
+# These cover the NADA Road to the Sale across all steps. The lab loads these alongside
+# feature cues from vehicle-feature-catalog. Categories follow the NADA step taxonomy:
+#   greet, discovery, vehicle_match, walkaround, test_drive, trial_close,
+#   trade, pencil, manager_to, buyers_order, finance, delivery, follow_up
 cues:
+
+  # ─── Greet ─────────────────────────────────────────────────────────────
   - id: workflow.hospitality_offer
-    display_name: Hospitality offer
+    display_name: Hospitality offer (coffee / water / drink)
     category: greet
     cue_phrases:
       - coffee or water
@@ -26,7 +29,31 @@ cues:
       - I am Marcus
       - this is me
       - welcome to
+      - I'll be helping you
+      - happy to help you today
     synonyms: []
+  - id: workflow.customer_name_use
+    display_name: Customer name acknowledgment (rep using customer's first name)
+    category: greet
+    cue_phrases:
+      - Hi Sarah
+      - Hi there Sarah
+      - good to meet you Sarah
+      - thanks for coming in Sarah
+      - nice to meet you
+    synonyms: []
+  - id: workflow.test_drive_offer
+    display_name: Offer of a test drive
+    category: greet
+    cue_phrases:
+      - take it for a spin
+      - go for a drive
+      - get you behind the wheel
+      - take a quick drive
+      - let's go drive it
+    synonyms: []
+
+  # ─── Discovery / Needs Analysis ────────────────────────────────────────
   - id: workflow.discovery_school_runs
     display_name: Family / school runs signal
     category: discovery
@@ -36,6 +63,7 @@ cues:
       - school pickup
       - kids in the car
       - dropping the kids
+      - school drop-off
     synonyms: []
   - id: workflow.discovery_highway_commute
     display_name: Highway commute signal
@@ -46,9 +74,10 @@ cues:
       - on the highway every day
       - long highway drives
       - commuting on the highway
+      - I drive a lot of highway
     synonyms: []
   - id: workflow.discovery_better_mileage
-    display_name: Better mileage signal
+    display_name: Better mileage / fuel economy signal
     category: discovery
     cue_phrases:
       - better mileage
@@ -56,6 +85,8 @@ cues:
       - better gas mileage
       - save on gas
       - more efficient on fuel
+      - better MPG
+      - higher mileage
     synonyms: []
   - id: workflow.discovery_family_use
     display_name: General family use signal
@@ -66,9 +97,57 @@ cues:
       - the family
       - room for the family
       - everyone in the car
+      - hauling the kids
+      - daily family driving
     synonyms: []
+  - id: workflow.discovery_weekend_use
+    display_name: Weekend / recreational use signal
+    category: discovery
+    cue_phrases:
+      - weekend trips
+      - weekend driving
+      - weekend getaways
+      - road trips
+      - camping trips
+      - heading to the lake
+    synonyms: []
+  - id: workflow.discovery_work_use
+    display_name: Work / commercial use signal
+    category: discovery
+    cue_phrases:
+      - for work
+      - work vehicle
+      - work commute
+      - to and from work
+      - business use
+    synonyms: []
+  - id: workflow.discovery_towing_cargo
+    display_name: Towing or cargo capacity signal
+    category: discovery
+    cue_phrases:
+      - towing
+      - tow capacity
+      - haul stuff
+      - pulling a trailer
+      - lots of cargo
+      - cargo space
+    synonyms: []
+  - id: workflow.discovery_budget_signal
+    display_name: Customer budget or payment range signal
+    category: discovery
+    cue_phrases:
+      - budget
+      - monthly payment
+      - what's the payment
+      - around five hundred a month
+      - keep it under
+      - price range
+      - looking to spend
+    synonyms: []
+
+  # ─── Vehicle Match / Recommendation ────────────────────────────────────
   - id: workflow.recommendation_logic
-    display_name: Vehicle recommendation logic
+    display_name: Vehicle recommendation logic (rep tying need → vehicle)
     category: vehicle_match
     cue_phrases:
       - that's why I picked this one
@@ -78,10 +157,62 @@ cues:
       - this is the right fit
       - that's why I'm showing you
       - since you need
+      - based on what you said
+      - best fit for your needs
+    synonyms: []
+
+  # ─── Walkaround / Feature Presentation ─────────────────────────────────
+  - id: workflow.walkaround_opening
+    display_name: Walkaround opening / "let me show you"
+    category: walkaround
+    cue_phrases:
+      - let me show you
+      - let me walk you around
+      - starting here at the
+      - we'll start over here
+      - take a look at this
+      - check this out
+    synonyms: []
+  - id: workflow.exterior_focus
+    display_name: Exterior feature callout
+    category: walkaround
+    cue_phrases:
+      - exterior
+      - on the outside
+      - the front of the car
+      - the rear
+      - the wheels
+      - the body style
+    synonyms: []
+  - id: workflow.interior_focus
+    display_name: Interior feature callout
+    category: walkaround
+    cue_phrases:
+      - inside
+      - in the interior
+      - hop in
+      - the cabin
+      - the front seats
+      - the touchscreen
+      - look at the screen
+      - the dashboard
+    synonyms: []
+
+  # ─── Test Drive ─────────────────────────────────────────────────────────
+  - id: workflow.test_drive_opening
+    display_name: Test drive opening / "let's go"
+    category: test_drive
+    cue_phrases:
+      - let's go drive
+      - take it out
+      - let's get on the road
+      - hop in and drive
+      - take the wheel
+      - feel how it drives
     synonyms: []
   - id: workflow.front_line_ready
     display_name: Front-line-ready vehicle confirmation
-    category: front_line_ready
+    category: test_drive
     cue_phrases:
       - fueled up
       - full tank
@@ -89,7 +220,23 @@ cues:
       - staged out front
       - she's ready to go
       - pulled around front
+      - keys are right here
     synonyms: []
+
+  # ─── Trial Close ───────────────────────────────────────────────────────
+  - id: workflow.trial_close
+    display_name: Trial close / "what do you think"
+    category: trial_close
+    cue_phrases:
+      - what do you think
+      - how does it feel
+      - is this the one
+      - could you see yourself in this
+      - this work for you
+      - feels right
+    synonyms: []
+
+  # ─── Trade Appraisal ───────────────────────────────────────────────────
   - id: workflow.trade_in_dent
     display_name: Trade-in dent / scratch condition mention
     category: trade
@@ -100,6 +247,7 @@ cues:
       - scratch on the rear quarter
       - scratch on the door
       - a ding
+      - small scratch
     synonyms: []
   - id: workflow.trade_in_tires
     display_name: Trade-in tire condition mention
@@ -112,10 +260,68 @@ cues:
       - tires getting worn
       - tires will need attention
       - tread depth
+      - rear tires
     synonyms: []
+  - id: workflow.trade_in_mileage
+    display_name: Trade-in mileage / odometer mention
+    category: trade
+    cue_phrases:
+      - sixty thousand miles
+      - hundred thousand miles
+      - mileage on the trade
+      - odometer
+      - how many miles
+      - low mileage
+    synonyms: []
+  - id: workflow.trade_in_condition_overall
+    display_name: Trade-in overall condition mention
+    category: trade
+    cue_phrases:
+      - overall condition
+      - good shape
+      - clean trade
+      - well-maintained
+      - service history
+      - any accidents
+    synonyms: []
+
+  # ─── Pencil / Numbers ──────────────────────────────────────────────────
+  - id: workflow.pencil_numbers_intro
+    display_name: Pencil / numbers conversation opening
+    category: pencil
+    cue_phrases:
+      - let me run the numbers
+      - work out the numbers
+      - put some numbers together
+      - here's where we are
+      - the proposal
+      - the pencil
+    synonyms: []
+  - id: workflow.monthly_payment_mention
+    display_name: Monthly payment discussion
+    category: pencil
+    cue_phrases:
+      - monthly payment
+      - payment per month
+      - per month
+      - monthly
+      - over sixty months
+      - over seventy-two months
+    synonyms: []
+  - id: workflow.down_payment_mention
+    display_name: Down payment / cash down discussion
+    category: pencil
+    cue_phrases:
+      - down payment
+      - cash down
+      - putting down
+      - money down
+    synonyms: []
+
+  # ─── Manager Turn-Over ─────────────────────────────────────────────────
   - id: workflow.manager_introduction
     display_name: Sales manager introduction / handoff
-    category: handoff
+    category: manager_to
     cue_phrases:
       - let me introduce you to
       - I'd like you to meet
@@ -123,7 +329,33 @@ cues:
       - this is my manager
       - my sales manager
       - let me grab the manager
+      - meet our sales manager
     synonyms: []
+  - id: workflow.manager_voice_change
+    display_name: Manager-voice change signal (different speaker enters)
+    category: manager_to
+    cue_phrases:
+      - thanks Marcus
+      - I'll take it from here
+      - I'm the sales manager
+      - I'm James
+      - pleasure to meet you
+    synonyms: []
+
+  # ─── Buyer's Order ─────────────────────────────────────────────────────
+  - id: workflow.buyers_order_confirmation
+    display_name: Buyer's order confirmation / sign here
+    category: buyers_order
+    cue_phrases:
+      - buyer's order
+      - sign here
+      - initial here
+      - sign right here
+      - we're good to go
+      - paperwork is ready
+    synonyms: []
+
+  # ─── Finance / F&I Handoff ─────────────────────────────────────────────
   - id: workflow.finance_introduction
     display_name: Finance / F&I manager introduction
     category: finance
@@ -135,4 +367,40 @@ cues:
       - David Chen our finance manager
       - walk you over to finance
       - introduce you to finance
+      - finance office
+    synonyms: []
+  - id: workflow.three_way_intro
+    display_name: Three-way introduction (rep + manager/finance + customer)
+    category: finance
+    cue_phrases:
+      - is taking home the
+      - is buying the
+      - taking delivery today
+      - she'll be driving home
+    synonyms: []
+
+  # ─── Delivery ──────────────────────────────────────────────────────────
+  - id: workflow.delivery_walkthrough
+    display_name: Delivery / final walkthrough of new vehicle
+    category: delivery
+    cue_phrases:
+      - let me walk you through
+      - pair your phone
+      - set up the app
+      - show you the basics
+      - first tank is on us
+      - congratulations on the
+    synonyms: []
+
+  # ─── Follow-up ─────────────────────────────────────────────────────────
+  - id: workflow.follow_up_commitment
+    display_name: Post-sale follow-up commitment
+    category: follow_up
+    cue_phrases:
+      - I'll check in with you
+      - call you next week
+      - any questions just reach out
+      - text me anytime
+      - here's my card
+      - I'm your guy from now on
     synonyms: []

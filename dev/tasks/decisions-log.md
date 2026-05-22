@@ -126,3 +126,9 @@ The user wrote answers directly into `dev/tasks/0001-prd-voice-engine.md` Sectio
 - Lab integration: $14 self-serve trial (30 device licenses) + email `customer@argmaxinc.com` for macOS Local Server binary; then Python via Deepgram-compatible WebSocket on localhost. Fallback: Swift CLI from `argmax-sdk-swift-playground`.
 - DC18 — Argmax lab integration goes through Local Server, not direct Swift CLI, to minimize Swift glue (Python uses Deepgram SDK which is mature).
 - DC19 — Argmax trial purchase + Local Server binary request goes to user (requires payment + email).
+
+### OQ6 — universal workflow cue inventory expansion (delivered)
+- **DC20** — Expanded `voice-engine/lab/cue-packs/universal_workflow_cues.yaml` from 12 starter cues to **33 cues across all 13 NADA Road-to-Sale stages**. Per-stage distribution: greet (4), discovery (8), vehicle_match (1), walkaround (3), test_drive (2), trial_close (1), trade (4), pencil (3), manager_to (2), buyers_order (1), finance (2), delivery (1), follow_up (1).
+- **DC21** — Kept a single file rather than splitting per category. Cues are clearly section-headered for review. Splitting per file can come if the inventory grows past ~60 cues.
+- **DC22** — Phrasing drawn from `demo/auditpro-rn-showcase/src/services/audio/audioScript.ts`, `dev/docs/ROAD_TO_SALE_AUDIO_TEST_MATRIX.md`, `demo/video-packet/VOICEOVER_SCRIPT.md`, and NADA common dealer language. Same v1-seed verification header.
+- **DC23** — New cues introduced beyond starter 12: customer_name_use, test_drive_offer, discovery_weekend_use, discovery_work_use, discovery_towing_cargo, discovery_budget_signal, walkaround_opening, exterior_focus, interior_focus, test_drive_opening, trial_close, trade_in_mileage, trade_in_condition_overall, pencil_numbers_intro, monthly_payment_mention, down_payment_mention, manager_voice_change, buyers_order_confirmation, three_way_intro, delivery_walkthrough, follow_up_commitment.
