@@ -1,0 +1,15 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.honda_sensing_360plus
+display_name: Honda Sensing 360+
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+  - Honda Sensing 360 plus
+  - Honda Sensing 360+
+  - 360 plus driver assistance
+  - top of the line Honda Sensing
+  - Honda Sensing three sixty plus
+synonyms:
+  - 360 plus
+  - Sensing 360+
+  - Sensing 360 plus

@@ -1,0 +1,13 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: toyota.feature.toyota_safety_sense_3
+display_name: Toyota Safety Sense 3.0
+category: driver_assistance
+brand_scope: toyota
+cue_phrases:
+  - Toyota Safety Sense
+  - Toyota Safety Sense 3
+  - Safety Sense 3.0
+  - Toyota Safety Sense three point zero
+synonyms:
+  - TSS
+  - Safety Sense

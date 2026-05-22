@@ -1,0 +1,7 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+make_id: toyota
+entries:
+  - trim_id: toyota.camry.2026.xse
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: toyota.feature.toyota_safety_sense_3, availability: standard }

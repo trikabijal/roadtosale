@@ -1,0 +1,17 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.hands_free_power_tailgate
+display_name: Hands-Free Power Tailgate
+category: convenience
+brand_scope: universal
+cue_phrases:
+  - hands-free power tailgate
+  - hands free tailgate
+  - kick under the bumper
+  - foot under the bumper
+  - tailgate opens hands free
+  - power liftgate
+  - power tailgate
+synonyms:
+  - power tailgate
+  - power liftgate
+  - hands-free liftgate

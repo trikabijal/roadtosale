@@ -1,0 +1,42 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+make_id: honda
+entries:
+  - trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
+      - { feature_id: universal.feature.heated_front_seats, availability: standard }
+      - { feature_id: universal.feature.ventilated_front_seats, availability: standard }
+      - { feature_id: universal.feature.heated_steering_wheel, availability: standard }
+      - { feature_id: universal.feature.panoramic_moonroof, availability: standard }
+      - { feature_id: universal.feature.hands_free_power_tailgate, availability: standard }
+      - { feature_id: universal.feature.wireless_phone_charger, availability: standard }
+      - { feature_id: universal.feature.head_up_display, availability: standard }
+      - { feature_id: universal.feature.led_headlights, availability: standard }
+      - { feature_id: honda.feature.honda_sensing_360plus, availability: standard }
+      - { feature_id: honda.feature.honda_sensing, availability: unavailable }
+      - { feature_id: honda.feature.real_time_awd, availability: standard }
+      - { feature_id: honda.feature.bose_premium_audio_honda, availability: standard }
+      - { feature_id: honda.feature.hondalink, availability: standard }
+      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }
+  - trim_id: honda.cr-v-hybrid-awd.2026.sport-l
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
+      - { feature_id: universal.feature.heated_front_seats, availability: standard }
+      - { feature_id: universal.feature.hands_free_power_tailgate, availability: standard }
+      - { feature_id: universal.feature.wireless_phone_charger, availability: standard }
+      - { feature_id: universal.feature.led_headlights, availability: standard }
+      - { feature_id: honda.feature.honda_sensing, availability: standard }
+      - { feature_id: honda.feature.real_time_awd, availability: standard }
+      - { feature_id: honda.feature.hondalink, availability: standard }
+      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }
+  - trim_id: honda.cr-v-hybrid-awd.2026.sport
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.wireless_android_auto, availability: standard }
+      - { feature_id: universal.feature.led_headlights, availability: standard }
+      - { feature_id: honda.feature.honda_sensing, availability: standard }
+      - { feature_id: honda.feature.real_time_awd, availability: standard }
+      - { feature_id: honda.feature.hondalink, availability: standard }
+      - { feature_id: honda.feature.walk_away_auto_lock, availability: standard }

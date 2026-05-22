@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.bose_premium_audio_honda
+display_name: Bose Premium Audio
+category: audio
+brand_scope: honda
+cue_phrases:
+  - Bose premium audio
+  - Bose sound system
+  - Bose speakers
+  - Bose audio system
+  - twelve speaker Bose
+synonyms:
+  - Bose
+  - Bose audio

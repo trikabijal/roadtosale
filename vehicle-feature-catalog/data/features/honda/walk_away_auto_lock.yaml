@@ -1,0 +1,13 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.walk_away_auto_lock
+display_name: Walk Away Auto Lock
+category: convenience
+brand_scope: honda
+cue_phrases:
+  - walk away auto lock
+  - locks itself when you walk away
+  - car locks automatically as you walk off
+  - auto lock when you step away
+synonyms:
+  - auto lock
+  - walk-away lock

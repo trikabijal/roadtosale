@@ -1,0 +1,5 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.cr-v-hybrid-awd.2026.sport-l
+model_id: honda.cr-v-hybrid-awd
+name: Sport-L
+msrp_range: [37000, 40000]

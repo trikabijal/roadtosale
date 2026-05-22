@@ -1,0 +1,15 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.panoramic_moonroof
+display_name: Panoramic Moonroof
+category: comfort
+brand_scope: universal
+cue_phrases:
+  - panoramic moonroof
+  - panoramic sunroof
+  - full glass roof
+  - moonroof that stretches across
+  - oversized moonroof
+synonyms:
+  - moonroof
+  - sunroof
+  - panoramic roof

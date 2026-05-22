@@ -1,0 +1,12 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.wireless_android_auto
+display_name: Wireless Android Auto
+category: connectivity
+brand_scope: universal
+cue_phrases:
+  - wireless Android Auto
+  - Android Auto wirelessly
+  - Android phone connects without a cable
+  - Android Auto over wireless
+synonyms:
+  - Android Auto

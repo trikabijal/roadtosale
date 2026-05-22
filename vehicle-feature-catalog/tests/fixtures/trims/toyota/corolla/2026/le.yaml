@@ -1,0 +1,4 @@
+id: toyota.corolla.2026.le
+model_id: toyota.corolla
+name: LE
+msrp_range: [22000, 24000]

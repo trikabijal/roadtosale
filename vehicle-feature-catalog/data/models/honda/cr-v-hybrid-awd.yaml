@@ -1,0 +1,6 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.cr-v-hybrid-awd
+make_id: honda
+name: CR-V Hybrid AWD
+year: 2026
+body_style: compact_suv

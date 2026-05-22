@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.head_up_display
+display_name: Head-Up Display
+category: driver_assistance
+brand_scope: universal
+cue_phrases:
+  - head-up display
+  - heads up display
+  - speed projected on the windshield
+  - info on the windshield
+  - HUD on the windshield
+synonyms:
+  - HUD
+  - heads-up

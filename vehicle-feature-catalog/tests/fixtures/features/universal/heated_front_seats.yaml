@@ -1,0 +1,8 @@
+id: universal.feature.heated_front_seats
+display_name: Heated Front Seats
+category: comfort
+brand_scope: universal
+cue_phrases:
+  - heated seats
+  - heated front seats
+synonyms: []

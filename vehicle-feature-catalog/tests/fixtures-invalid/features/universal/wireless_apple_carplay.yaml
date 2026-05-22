@@ -1,0 +1,7 @@
+id: universal.feature.wireless_apple_carplay
+display_name: Wireless Apple CarPlay
+category: connectivity
+brand_scope: universal
+cue_phrases:
+  - wireless Apple CarPlay
+synonyms: []

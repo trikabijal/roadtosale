@@ -1,0 +1,8 @@
+entries:
+  - trim_id: honda.civic.2026.sport
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.does_not_exist, availability: standard }
+  - trim_id: honda.civic.2026.ghost
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }

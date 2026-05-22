@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.heated_front_seats
+display_name: Heated Front Seats
+category: comfort
+brand_scope: universal
+cue_phrases:
+  - heated front seats
+  - heated seats up front
+  - warm the seats
+  - seats heat up
+  - heater built into the seat
+synonyms:
+  - heated seats
+  - seat heaters

@@ -1,0 +1,13 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.led_headlights
+display_name: LED Headlights
+category: exterior
+brand_scope: universal
+cue_phrases:
+  - LED headlights
+  - full LED lighting
+  - LEDs up front
+  - LED low and high beams
+synonyms:
+  - LEDs
+  - LED lights

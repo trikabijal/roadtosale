@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vehicle-feature-catalog"
+version = "0.1.0"
+description = "Brand-extensible catalog of vehicle Makes, Models, Trims, Features, and the sparse trim-to-feature availability matrix."
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Trika" }]
+license = { text = "Proprietary" }
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "mypy>=1.8",
+]
+
+[tool.setuptools]
+package-dir = { "" = "src/python" }
+
+[tool.setuptools.packages.find]
+where = ["src/python"]
+include = ["vehicle_feature_catalog*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/python"]
+pythonpath = ["src/python"]
+addopts = "-ra"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["src/python"]

@@ -1,0 +1,16 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.wireless_apple_carplay
+display_name: Wireless Apple CarPlay
+category: connectivity
+brand_scope: universal
+cue_phrases:
+  - wireless Apple CarPlay
+  - wireless CarPlay
+  - connects wirelessly
+  - phone connects without a cable
+  - hop on CarPlay wirelessly
+  - CarPlay over wireless
+  - no cable for CarPlay
+synonyms:
+  - CarPlay
+  - Apple CarPlay

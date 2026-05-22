@@ -1,0 +1,9 @@
+id: universal.feature.lane_keep_assist
+display_name: Lane Keep Assist
+category: driver_assistance
+brand_scope: universal
+cue_phrases:
+  - lane keep assist
+  - lane keeping
+synonyms:
+  - LKA

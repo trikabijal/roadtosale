@@ -1,0 +1,6 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: toyota.camry
+make_id: toyota
+name: Camry
+year: 2026
+body_style: midsize_sedan

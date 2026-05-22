@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.honda_sensing
+display_name: Honda Sensing
+category: driver_assistance
+brand_scope: honda
+cue_phrases:
+  - Honda Sensing
+  - Honda Sensing suite
+  - Honda's safety suite
+  - Honda Sensing is standard
+  - Honda Sensing handles the lane
+synonyms:
+  - Sensing
+  - Honda safety suite

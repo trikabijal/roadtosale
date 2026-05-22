@@ -1,0 +1,13 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.hondalink
+display_name: HondaLink
+category: connectivity
+brand_scope: honda
+cue_phrases:
+  - HondaLink
+  - HondaLink app
+  - remote start through HondaLink
+  - HondaLink connected services
+  - lock the car from HondaLink
+synonyms:
+  - Honda Link

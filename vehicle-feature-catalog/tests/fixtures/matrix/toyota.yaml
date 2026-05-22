@@ -1,0 +1,5 @@
+entries:
+  - trim_id: toyota.corolla.2026.le
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.lane_keep_assist, availability: standard }

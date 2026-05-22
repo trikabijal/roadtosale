@@ -1,0 +1,5 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.cr-v-hybrid-awd.2026.sport-touring
+model_id: honda.cr-v-hybrid-awd
+name: Sport Touring
+msrp_range: [40000, 43000]

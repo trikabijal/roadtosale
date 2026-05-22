@@ -1,0 +1,12 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.heated_steering_wheel
+display_name: Heated Steering Wheel
+category: comfort
+brand_scope: universal
+cue_phrases:
+  - heated steering wheel
+  - the wheel heats up
+  - warm the steering wheel
+  - heated wheel
+synonyms:
+  - heated steering

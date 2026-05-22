@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.ventilated_front_seats
+display_name: Ventilated Front Seats
+category: comfort
+brand_scope: universal
+cue_phrases:
+  - ventilated front seats
+  - cooled seats
+  - seats blow cool air
+  - air-conditioned seats
+  - ventilated seats up front
+synonyms:
+  - ventilated seats
+  - cooled front seats

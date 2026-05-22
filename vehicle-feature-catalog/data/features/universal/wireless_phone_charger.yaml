@@ -1,0 +1,15 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: universal.feature.wireless_phone_charger
+display_name: Wireless Phone Charger
+category: connectivity
+brand_scope: universal
+cue_phrases:
+  - wireless phone charger
+  - wireless charging pad
+  - drop your phone on the pad
+  - charges your phone wirelessly
+  - Qi charging pad
+synonyms:
+  - wireless charger
+  - wireless charging
+  - phone charging pad

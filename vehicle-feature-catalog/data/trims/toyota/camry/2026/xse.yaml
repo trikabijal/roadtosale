@@ -1,0 +1,5 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: toyota.camry.2026.xse
+model_id: toyota.camry
+name: XSE
+msrp_range: [33000, 36000]

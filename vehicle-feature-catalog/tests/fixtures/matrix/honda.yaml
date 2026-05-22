@@ -1,0 +1,12 @@
+entries:
+  - trim_id: honda.civic.2026.sport
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.lane_keep_assist, availability: standard }
+      - { feature_id: universal.feature.heated_front_seats, availability: optional }
+  - trim_id: honda.civic.2026.touring
+    features:
+      - { feature_id: universal.feature.wireless_apple_carplay, availability: standard }
+      - { feature_id: universal.feature.heated_front_seats, availability: standard }
+      - { feature_id: universal.feature.lane_keep_assist, availability: standard }
+      - { feature_id: honda.feature.honda_sensing_360plus, availability: standard }

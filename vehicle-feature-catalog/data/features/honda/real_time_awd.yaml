@@ -1,0 +1,14 @@
+# v1 seed data — verify against authoritative source (Honda US 2026 brochure) before relying on accuracy
+id: honda.feature.real_time_awd
+display_name: Real Time AWD
+category: drivetrain
+brand_scope: honda
+cue_phrases:
+  - Real-Time AWD
+  - Real Time all-wheel drive
+  - Honda's Real Time AWD
+  - all-wheel drive shifts in real time
+  - AWD that reacts in real time
+synonyms:
+  - Real Time AWD
+  - RT-AWD
