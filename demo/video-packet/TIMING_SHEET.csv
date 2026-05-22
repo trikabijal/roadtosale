@@ -1,0 +1,11 @@
+scene_id,start_sec,end_sec,screen,key_action,voiceover_anchor
+crm_queue,0,15,Dashboard,Open Sarah Mitchell appointment,"CRM-fed appointments and live queue"
+greet,15,35,Greet,Wait for refreshment offer and confirm greet timing,"Audio listens for sales-process cues"
+discovery,35,60,Discovery Sheet,Allow use-case signals to populate,"Discovery confirms real customer needs"
+vehicle_match,60,80,Vehicle Recommendation,Wait for Honda digital features loaded,"Inventory-aware recommendation logic"
+front_line_ready,80,90,Front-Line Ready,Capture exterior and interior photos,"Vehicle readiness and proof"
+walkaround,90,110,Show While Parked,Let static features turn green and red,"In-the-moment coaching while parked"
+test_drive,110,125,Show During Test Drive,Let driving features turn green and red,"Live feature coaching during the drive"
+trade_in,125,138,Trade-In Photos,Capture four trade photos and reveal analysis,"Condition detection from images"
+proposal_and_bo,138,148,Proposal and Buyer's Order,Mark first pencil and capture BO,"Timestamps and continuity into finance"
+summary,148,155,Rep Coaching Summary,Hold on final scorecard,"Self-coaching plus manager dashboard"

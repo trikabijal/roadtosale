@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AuditPro — Manager BI Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--br:#1D52E8;--gr:#27500A;--grl:#EAF3DE;--grb:#639922;--re:#A32D2D;--rel:#FCEBEB;--reb:#E24B4A;--am:#633806;--aml:#FAEEDA;--f:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
+
+/* TOP NAV */
+.topnav{background:#fff;border-bottom:0.5px solid #ddd;padding:0 2rem;display:flex;align-items:center;justify-content:space-between;height:52px;position:sticky;top:0;z-index:100}
+.nav-logo{display:flex;align-items:center;gap:8px}
+.nav-lm{width:24px;height:24px;background:var(--br);border-radius:6px;display:flex;align-items:center;justify-content:center}
+.nav-lm svg{width:13px;height:13px}
+.nav-lt{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#000;letter-spacing:-.3px}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-dealer{font-size:13px;color:#555;font-weight:500}
+.nav-user{width:30px;height:30px;border-radius:50%;background:var(--br);display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700}
+
+/* LAYOUT */
+.wrap{max-width:1100px;margin:0 auto;padding:1.5rem 2rem}
+
+/* PAGE HEADER */
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
+.ph-left h1{font-size:20px;font-weight:600;color:#000}
+.ph-left p{font-size:13px;color:#666;margin-top:2px}
+.ph-right{display:flex;align-items:center;gap:10px}
+.sel{font-size:13px;padding:7px 12px;border-radius:8px;border:0.5px solid #ccc;background:#fff;color:#000;cursor:pointer}
+
+/* TABS */
+.tabs{display:flex;border-bottom:0.5px solid #ddd;margin-bottom:1.25rem}
+.tab{padding:9px 20px;font-size:13px;font-weight:500;color:#666;cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all .15s}
+.tab.on{color:var(--br);border-bottom-color:var(--br)}
+.scr{display:none}.scr.on{display:block}
+
+/* METRICS */
+.mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
+.mc{background:#fff;border-radius:10px;padding:14px 16px;border:0.5px solid #e5e5e5}
+.mcl{font-size:12px;color:#888;margin-bottom:4px}
+.mcv{font-size:26px;font-weight:600;color:#000;font-family:'Syne',sans-serif}
+.mcv.gr{color:var(--gr)}.mcv.re{color:var(--re)}.mcv.am{color:var(--am)}
+
+/* SECTION HEADERS */
+.sh{font-size:13px;font-weight:600;color:#000;margin:1.25rem 0 4px}
+.shsub{font-size:12px;color:#888;margin-bottom:10px}
+
+/* CARDS */
+.card{background:#fff;border-radius:12px;border:0.5px solid #e5e5e5;overflow:hidden;margin-bottom:1.25rem}
+.card-pad{background:#fff;border-radius:12px;border:0.5px solid #e5e5e5;padding:16px;margin-bottom:1.25rem}
+
+/* DATEBAR */
+.datebar{display:flex;align-items:center;gap:8px;margin-bottom:1.25rem;flex-wrap:wrap}
+.chip{font-size:12px;padding:5px 14px;border-radius:20px;border:0.5px solid #ccc;background:#fff;color:#666;cursor:pointer;transition:all .15s}
+.chip.on{background:#E6F1FB;border-color:var(--br);color:#0C447C;font-weight:500}
+
+/* PRIORITY GRID */
+.pgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:1.25rem}
+.pgcard{background:var(--grl);border:0.5px solid #3B6D11;border-radius:12px;padding:14px 16px}
+.pg-lbl{font-size:9px;font-weight:700;color:#3B6D11;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.pg-gap{font-size:32px;font-weight:700;color:var(--gr);line-height:1;font-family:'Syne',sans-serif}
+.pg-gap span{font-size:16px;font-weight:500}
+.pg-step{font-size:13px;font-weight:600;color:#173404;margin-top:5px}
+.pg-note{font-size:11px;color:var(--gr);margin-top:3px;line-height:1.4}
+
+/* COACHING BOXES */
+.cbox{border-radius:12px;padding:14px 16px;margin-bottom:10px}
+.cbox.gr{background:var(--grl);border:0.5px solid #3B6D11}
+.cbox.am{background:var(--aml);border:0.5px solid #BA7517}
+.cbox.re{background:var(--rel);border:0.5px solid var(--re)}
+.ct{font-size:13px;font-weight:600;margin-bottom:6px}
+.ct.gr{color:#173404}.ct.am{color:#412402}.ct.re{color:#501313}
+.cbody{font-size:12px;line-height:1.6}
+.cbody.gr{color:var(--gr)}.cbody.am{color:var(--am)}.cbody.re{color:var(--re)}
+
+/* LEGEND */
+.leg-row{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:#666;flex-wrap:wrap}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.leg-ln{width:20px;height:2px;border-radius:1px;flex-shrink:0}
+
+@media(max-width:700px){.mrow{grid-template-columns:1fr 1fr}.pgrid{grid-template-columns:1fr}.wrap{padding:1rem}}
+</style>
+</head>
+<body>
+
+<div class="topnav">
+  <div class="nav-logo">
+    <div class="nav-lm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+    <span class="nav-lt">AuditPro</span>
+  </div>
+  <div class="nav-right">
+    <span class="nav-dealer">Riverside Honda</span>
+    <div class="nav-user">MW</div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="ph">
+    <div class="ph-left">
+      <h1>Sales Floor Dashboard</h1>
+      <p>Marcus Webb &middot; Sales Manager &middot; Tuesday, Apr 15</p>
+    </div>
+    <div class="ph-right">
+      <select class="sel">
+        <option>All reps</option><option>M. Webb</option><option>S. Chen</option><option>J. Ruiz</option><option>D. Park</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab on" onclick="showTab(0,this)">Today's floor</button>
+    <button class="tab" onclick="showTab(1,this)">Weekly pattern</button>
+    <button class="tab" onclick="showTab(2,this)">Rep matrix</button>
+  </div>
+
+  <!-- TAB 0 -->
+  <div class="scr on" id="t0">
+    <div class="mrow">
+      <div class="mc"><div class="mcl">Active on floor</div><div class="mcv">3</div></div>
+      <div class="mc"><div class="mcl">Closed today</div><div class="mcv gr">2</div></div>
+      <div class="mc"><div class="mcl">Walked today</div><div class="mcv re">6</div></div>
+      <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">22%</div></div>
+    </div>
+    <div class="sh">All deals today</div>
+    <div class="shsub">Green = step done &middot; Red = step skipped &middot; Active deals shown in progress</div>
+    <div class="card" id="deallist"></div>
+    <div class="sh">Steps most missed on walked deals today</div>
+    <div class="shsub">Sorted by how often step was skipped. Green = done on walked deal. Red = skipped on walked deal.</div>
+    <div class="card" id="stepbars"></div>
+  </div>
+
+  <!-- TAB 1 -->
+  <div class="scr" id="t1">
+    <div class="datebar" id="db1">
+      <span style="font-size:12px;color:#666">Period:</span>
+      <button class="chip" onclick="selChip(this,'db1')">Today</button>
+      <button class="chip on" onclick="selChip(this,'db1')">This week</button>
+      <button class="chip" onclick="selChip(this,'db1')">Last 2 weeks</button>
+    </div>
+    <div class="mrow">
+      <div class="mc"><div class="mcl">Total deals</div><div class="mcv">38</div></div>
+      <div class="mc"><div class="mcl">Closed</div><div class="mcv gr">8</div></div>
+      <div class="mc"><div class="mcl">Walked</div><div class="mcv re">30</div></div>
+      <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">21%</div></div>
+    </div>
+    <div class="sh">This week's coaching priorities</div>
+    <div class="shsub">Steps where closed deals had highest compliance vs walked deals. Fix these first.</div>
+    <div class="pgrid" id="pgrid"></div>
+    <div class="sh">Step compliance gap &mdash; closed vs walked (this week)</div>
+    <div class="shsub">Green = compliance on closed deals. Red = compliance on walked deals. Larger gap = step more decisive to outcome.</div>
+    <div class="card-pad">
+      <div class="leg-row">
+        <div class="leg"><div class="leg-sq" style="background:#639922"></div>Closed deals &mdash; compliance rate</div>
+        <div class="leg"><div class="leg-sq" style="background:#E24B4A"></div>Walked deals &mdash; compliance rate</div>
+      </div>
+      <div style="position:relative;height:360px"><canvas id="gapChart" role="img" aria-label="Step compliance gap comparing closed and walked deals">Manager T.O.: closed 74%, walked 22%</canvas></div>
+    </div>
+    <div class="sh">Daily deals and close ratio &mdash; this week</div>
+    <div class="card-pad">
+      <div class="leg-row">
+        <div class="leg"><div class="leg-sq" style="background:#639922"></div>Closed</div>
+        <div class="leg"><div class="leg-sq" style="background:#E24B4A;opacity:.6"></div>Walked</div>
+        <div class="leg"><div class="leg-ln" style="background:var(--br)"></div>Close ratio %</div>
+      </div>
+      <div style="position:relative;height:200px"><canvas id="trendChart" role="img" aria-label="Daily deals and close ratio this week">Mon 13%, Tue 22%, Wed 13%, Thu 22%, Fri 25%</canvas></div>
+    </div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div class="scr" id="t2">
+    <div class="datebar" id="db2">
+      <span style="font-size:12px;color:#666">Period:</span>
+      <button class="chip" onclick="selChip(this,'db2')">Today</button>
+      <button class="chip on" onclick="selChip(this,'db2')">This week</button>
+      <button class="chip" onclick="selChip(this,'db2')">Last 2 weeks</button>
+    </div>
+    <div class="mrow">
+      <div class="mc"><div class="mcl">Reps tracked</div><div class="mcv">4</div></div>
+      <div class="mc"><div class="mcl">Best close ratio</div><div class="mcv gr">30%</div></div>
+      <div class="mc"><div class="mcl">Lowest close ratio</div><div class="mcv re">11%</div></div>
+      <div class="mc"><div class="mcl">Team average</div><div class="mcv am">21%</div></div>
+    </div>
+    <div class="sh">Rep &times; step compliance &mdash; this week</div>
+    <div class="shsub">Green = strong compliance &middot; Red = needs attention &middot; Blue column headers = highest-gap steps from weekly pattern</div>
+    <div class="card" id="matrix"></div>
+    <div class="sh">Team coaching view</div>
+    <div class="cbox gr"><div class="ct gr">What the whole team does well &mdash; reinforce publicly</div><div class="cbody gr">Greeting (88&ndash;96%), front-line readiness (86&ndash;94%), OTD transparency (84&ndash;92%), and F&amp;I handoff (82&ndash;90%) are strong across all four reps. Call these out in the next team standup &mdash; these habits are holding.</div></div>
+    <div class="cbox am"><div class="ct am">Where most reps are slipping &mdash; team coaching session needed</div><div class="cbody am">Manager T.O. is below 60% for three of four reps: Webb 58%, Ruiz 44%, Park 36%. This single step has the largest gap between closed and walked deals this week (+52pts). Live feature explanation follows the same pattern &mdash; three reps below 55%. One focused session on these two steps would likely move the close ratio within the week.</div></div>
+    <div class="cbox re"><div class="ct re">Individual 1:1 needed this week</div><div class="cbody re">D. Park (11% close ratio): walkaround at 52%, feature depth at 48%, Manager T.O. at 36% &mdash; all significantly below team average. J. Ruiz is trending the same direction at lower severity. Monitor Ruiz through the week; escalate to 1:1 if pattern holds.</div></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+function showTab(n,b){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));b.classList.add('on');document.querySelectorAll('.scr').forEach((s,i)=>s.classList.toggle('on',i===n));}
+function selChip(el,g){document.getElementById(g).querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+
+var steps14=['1.1 Greet','1.2 Refreshment','2.1 Discovery','3.1 Vehicle logic','3.2 Front-line ready','4.1 Walkaround','4.2 Features','5.1 Demo route','5.2 Live explain','6.1 Trade-in walk','7.1 Time to pencil','7.2 OTD figures','8.1 Manager T.O.','9.1 F&I handoff'];
+
+var deals=[
+  {n:'J. Harrison',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,1,1,1,1,1,1],o:'closed',t:'2h ago'},
+  {n:'D. Okafor',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,1,1,1,0,1,1,1,1,1],o:'closed',t:'4h ago'},
+  {n:'M. Nguyen',v:'Civic Sport',r:'D. Park',s:[1,1,1,0,1,0,0,1,0,1,1,1,0,1],o:'walked',t:'1h ago'},
+  {n:'T. Alvarez',v:'HR-V EX',r:'M. Webb',s:[1,1,0,0,1,0,0,1,0,0,1,1,0,1],o:'walked',t:'1.5h ago'},
+  {n:'R. Danes',v:'Accord EX',r:'J. Ruiz',s:[1,1,1,1,1,1,0,1,0,1,1,1,0,1],o:'walked',t:'3h ago'},
+  {n:'L. Friedman',v:'Civic EX',r:'D. Park',s:[1,0,1,0,1,0,0,1,0,1,1,1,0,1],o:'walked',t:'5h ago'},
+  {n:'K. Park',v:'CR-V Sport',r:'S. Chen',s:[1,1,1,0,1,1,0,1,0,0,1,1,0,0],o:'walked',t:'6h ago'},
+  {n:'A. Torres',v:'HR-V',r:'J. Ruiz',s:[1,0,0,0,1,0,0,0,0,0,1,1,0,1],o:'walked',t:'7h ago'},
+  {n:'Sarah Mitchell',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,0,0,0,0,0,0],o:'active',t:'14m'},
+  {n:'Robert Danes',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,0,0,0,0,0,0,0,0,0],o:'active',t:'31m'},
+  {n:'Amy Torres',v:'Civic Sport',r:'J. Ruiz',s:[1,1,1,0,0,0,0,0,0,0,0,0,0,0],o:'active',t:'8m'},
+];
+
+function buildDealList(){
+  var c=document.getElementById('deallist');
+  var hdrs=['Customer','Vehicle','Rep','Steps (14 total)','Outcome','Time'];
+  var hw=['105px','1','60px','140px','65px','52px'];
+  var h='<div style="display:flex;align-items:center;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee">';
+  hdrs.forEach(function(l,i){h+='<div style="'+(hw[i]==='1'?'flex:1':'width:'+hw[i]+';flex-shrink:0')+';font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em'+(i>=4?';text-align:right':'')+'">'+l+'</div>';});
+  h+='</div>';
+  deals.forEach(function(d){
+    var ob=d.o==='closed'?'#EAF3DE':d.o==='walked'?'#FCEBEB':'#E6F1FB';
+    var oc=d.o==='closed'?'#27500A':d.o==='walked'?'#791F1F':'#0C447C';
+    var ol=d.o==='closed'?'Closed':d.o==='walked'?'Walked':'Active';
+    h+='<div style="display:flex;align-items:center;padding:9px 16px;gap:8px;border-top:0.5px solid #f0f0f0;background:'+(d.o==='active'?'rgba(29,82,232,.02)':'#fff')+'">';
+    h+='<div style="font-size:13px;font-weight:500;color:#000;width:105px;flex-shrink:0">'+d.n+'</div>';
+    h+='<div style="font-size:12px;color:#555;flex:1">'+d.v+'</div>';
+    h+='<div style="font-size:12px;color:#555;width:60px;flex-shrink:0">'+d.r+'</div>';
+    h+='<div style="display:flex;gap:2px;width:140px;flex-shrink:0;flex-wrap:wrap">';
+    d.s.forEach(function(st,si){
+      var bg=d.o==='active'?(st?'#639922':'#e0e0e0'):(st?'#639922':'#E24B4A');
+      h+='<div style="width:9px;height:9px;border-radius:1px;background:'+bg+'" title="'+steps14[si]+'"></div>';
+    });
+    h+='</div>';
+    h+='<div style="font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;background:'+ob+';color:'+oc+';width:65px;flex-shrink:0;text-align:center">'+ol+'</div>';
+    h+='<div style="font-size:11px;color:#aaa;width:52px;text-align:right;flex-shrink:0">'+d.t+'</div>';
+    h+='</div>';
+  });
+  h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888;display:flex;gap:14px;flex-wrap:wrap">';
+  [['#639922','Step done'],['#E24B4A','Step skipped (completed deals)'],['#e0e0e0','Not yet reached (active deals)']].forEach(function(s){
+    h+='<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s[0]+'"></span>'+s[1]+'</span>';
+  });
+  h+='</div>';
+  c.innerHTML=h;
+}
+
+function buildStepBars(){
+  var walked=deals.filter(function(d){return d.o==='walked';});
+  var bars=steps14.map(function(s,i){
+    var done=walked.filter(function(d){return d.s[i]===1;}).length;
+    return{step:s,done:done,total:walked.length};
+  }).sort(function(a,b){return a.done-b.done;});
+  var c=document.getElementById('stepbars');
+  var h='<div style="padding:4px 0">';
+  bars.forEach(function(b){
+    var grw=Math.round((b.done/b.total)*100);
+    var rw=100-grw;
+    h+='<div style="display:flex;align-items:center;gap:12px;padding:7px 16px;border-bottom:0.5px solid #f0f0f0">';
+    h+='<div style="font-size:12px;color:#000;width:170px;flex-shrink:0">'+b.step+'</div>';
+    h+='<div style="flex:1;height:12px;border-radius:3px;overflow:hidden;display:flex">';
+    if(grw>0)h+='<div style="width:'+grw+'%;background:#639922;height:100%"></div>';
+    if(rw>0)h+='<div style="width:'+rw+'%;background:#E24B4A;height:100%"></div>';
+    h+='</div>';
+    h+='<div style="font-size:11px;color:#888;width:90px;flex-shrink:0;text-align:right">'+b.done+'/'+b.total+' walked deals</div>';
+    h+='</div>';
+  });
+  h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888;display:flex;gap:14px">';
+  [['#639922','Done on walked deal'],['#E24B4A','Skipped — coaching focus']].forEach(function(s){
+    h+='<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s[0]+'"></span>'+s[1]+'</span>';
+  });
+  h+='</div></div>';
+  c.innerHTML=h;
+}
+
+var topGaps=[
+  {step:'Manager T.O.',gap:52,note:'Closed: 74% · Walked: 22%'},
+  {step:'Live feature explain',gap:47,note:'Closed: 71% · Walked: 24%'},
+  {step:'Features demonstrated',gap:44,note:'Closed: 76% · Walked: 32%'},
+  {step:'Vehicle logic',gap:41,note:'Closed: 84% · Walked: 43%'},
+];
+function buildPGrid(){
+  var c=document.getElementById('pgrid');
+  c.innerHTML=topGaps.map(function(g){
+    return'<div class="pgcard"><div class="pg-lbl">Compliance gap</div><div class="pg-gap">+'+g.gap+'<span>pts</span></div><div class="pg-step">'+g.step+'</div><div class="pg-note">'+g.note+'</div></div>';
+  }).join('');
+}
+
+var gapData=[
+  {step:'Manager T.O.',cl:74,wl:22},
+  {step:'Live feature explain',cl:71,wl:24},
+  {step:'Features demonstrated',cl:76,wl:32},
+  {step:'Vehicle logic',cl:84,wl:43},
+  {step:'6-pos. walkaround',cl:80,wl:42},
+  {step:'Discovery sheet',cl:90,wl:58},
+  {step:'Trade-in walk',cl:85,wl:57},
+  {step:'Front-line ready',cl:92,wl:67},
+  {step:'OTD transparency',cl:90,wl:68},
+  {step:'Demo route',cl:83,wl:65},
+  {step:'Greet',cl:94,wl:80},
+  {step:'Refreshment',cl:88,wl:76},
+  {step:'Time to pencil',cl:89,wl:79},
+  {step:'F&I handoff',cl:87,wl:79},
+].reverse();
+
+var shortS=['Greet','Refresh','Discov.','Logic','FLR','Walk','Feat.','Route','Live','Trade','Pencil','OTD','T.O.','F&I'];
+var hiCols=[3,6,8,12];
+var reps=[
+  {n:'M. Webb',ratio:'25%',deals:'2/8',sc:[92,88,90,84,92,76,70,80,62,82,88,90,58,86]},
+  {n:'S. Chen',ratio:'30%',deals:'3/10',sc:[96,90,94,88,94,86,82,86,74,88,90,92,72,90]},
+  {n:'J. Ruiz',ratio:'18%',deals:'2/11',sc:[88,80,86,74,88,66,58,72,50,74,82,84,44,78]},
+  {n:'D. Park',ratio:'11%',deals:'1/9',sc:[86,76,82,68,86,52,48,68,40,70,78,80,36,74]},
+];
+
+function buildMatrix(){
+  var c=document.getElementById('matrix');
+  var h='<div style="display:flex;background:#f9f9f9;border-bottom:0.5px solid #eee">';
+  h+='<div style="width:110px;flex-shrink:0;padding:7px 14px;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Rep</div>';
+  h+='<div style="width:75px;flex-shrink:0;padding:7px 8px;border-left:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Close</div>';
+  h+='<div style="display:flex;flex:1">';
+  shortS.forEach(function(s,i){
+    var hi=hiCols.indexOf(i)>=0;
+    h+='<div style="flex:1;font-size:9px;font-weight:600;color:'+(hi?'#0C447C':'#888')+';text-align:center;padding:5px 1px;border-left:0.5px solid #eee;line-height:1.3;background:'+(hi?'rgba(29,82,232,.05)':'')+'">'+s+'</div>';
+  });
+  h+='</div></div>';
+  reps.forEach(function(rep){
+    h+='<div style="display:flex;align-items:center;border-top:0.5px solid #f0f0f0">';
+    h+='<div style="width:110px;flex-shrink:0;padding:9px 14px"><div style="font-size:13px;font-weight:500;color:#000">'+rep.n+'</div><div style="font-size:10px;color:#888">'+rep.deals+' closed</div></div>';
+    h+='<div style="width:75px;flex-shrink:0;padding:9px 8px;border-left:0.5px solid #eee"><div style="font-size:15px;font-weight:600;color:#000">'+rep.ratio+'</div></div>';
+    h+='<div style="display:flex;flex:1">';
+    rep.sc.forEach(function(sc,si){
+      var hi=hiCols.indexOf(si)>=0;
+      var bg=sc>=80?'#EAF3DE':sc>=65?'#FEF9C3':sc>=50?'#FAEEDA':'#FCEBEB';
+      var col=sc>=80?'#27500A':sc>=65?'#412402':sc>=50?'#633806':'#791F1F';
+      h+='<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:9px 1px;border-left:0.5px solid #eee;font-size:10px;font-weight:600;background:'+bg+';color:'+col+';position:relative">';
+      if(hi)h+='<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--br)"></div>';
+      h+=sc+'%</div>';
+    });
+    h+='</div></div>';
+  });
+  var h2='<div style="display:flex;align-items:center;border-top:0.5px solid #eee;background:#f9f9f9">';
+  h2+='<div style="width:110px;flex-shrink:0;padding:7px 14px;font-size:11px;font-weight:600;color:#888">Team avg</div>';
+  h2+='<div style="width:75px;flex-shrink:0;padding:7px 8px;border-left:0.5px solid #eee;font-size:12px;font-weight:600;color:#888">21%</div>';
+  h2+='<div style="display:flex;flex:1">';
+  shortS.forEach(function(s,i){
+    var avg=Math.round(reps.reduce(function(a,r){return a+r.sc[i];},0)/reps.length);
+    var hi=hiCols.indexOf(i)>=0;
+    h2+='<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:7px 1px;border-left:0.5px solid #eee;font-size:10px;color:#888;background:'+(hi?'rgba(29,82,232,.03)':'')+'">'+avg+'%</div>';
+  });
+  h2+='</div></div>';
+  h2+='<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:0.5px solid #eee;background:#f9f9f9;flex-wrap:wrap">';
+  [['#EAF3DE','80%+'],['#FEF9C3','65–79%'],['#FAEEDA','50–64%'],['#FCEBEB','<50%']].forEach(function(s){
+    h2+='<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#888"><span style="display:inline-block;width:12px;height:8px;border-radius:1px;background:'+s[0]+'"></span>'+s[1]+'</span>';
+  });
+  h2+='<span style="font-size:10px;color:#0C447C;margin-left:8px">Blue columns = highest-gap steps from weekly pattern</span>';
+  h2+='</div>';
+  c.innerHTML=h+h2;
+}
+
+buildDealList();buildStepBars();buildPGrid();buildMatrix();
+
+new Chart(document.getElementById('gapChart'),{
+  type:'bar',
+  data:{
+    labels:gapData.map(function(d){return d.step;}),
+    datasets:[
+      {label:'Closed deals',data:gapData.map(function(d){return d.cl;}),backgroundColor:'#639922',borderRadius:2},
+      {label:'Walked deals',data:gapData.map(function(d){return d.wl;}),backgroundColor:'#E24B4A',borderRadius:2}
+    ]
+  },
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.raw+'%';}}}},
+    scales:{
+      x:{min:0,max:100,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',callback:function(v){return v+'%'}}},
+      y:{grid:{display:false},ticks:{font:{size:11},color:'#333'}}
+    }
+  }
+});
+
+new Chart(document.getElementById('trendChart'),{
+  data:{
+    labels:['Mon','Tue','Wed','Thu','Fri (partial)'],
+    datasets:[
+      {type:'bar',label:'Closed',data:[1,2,1,2,2],backgroundColor:'#639922',stack:'d',borderRadius:3},
+      {type:'bar',label:'Walked',data:[7,7,7,7,6],backgroundColor:'rgba(226,75,74,.55)',stack:'d',borderRadius:3},
+      {type:'line',label:'Close ratio',data:[13,22,13,22,25],yAxisID:'pct',borderColor:'#1D52E8',borderWidth:2,pointBackgroundColor:'#1D52E8',pointRadius:4,tension:.3,fill:false}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{grid:{display:false},ticks:{font:{size:11},color:'#888'}},
+      y:{stacked:true,min:0,max:12,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',stepSize:2},title:{display:true,text:'Deals',font:{size:10},color:'#888'}},
+      pct:{position:'right',min:0,max:40,grid:{display:false},ticks:{font:{size:11},color:'#1D52E8',callback:function(v){return v+'%'}},title:{display:true,text:'Close ratio',font:{size:10},color:'#1D52E8'}}
+    }
+  }
+});
+</script>
+</body>
+</html>

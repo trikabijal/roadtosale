@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "AuditPro",
+    "slug": "auditpro",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "scheme": "auditpro",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.trika.auditpro",
+      "infoPlist": {
+        "NSCameraUsageDescription": "AuditPro uses your camera to capture vehicle and document photos during the sales audit.",
+        "NSMicrophoneUsageDescription": "AuditPro listens to the sales conversation to auto-confirm process steps.",
+        "NSLocationWhenInUseUsageDescription": "AuditPro tracks the test-drive route to validate Step 5 compliance."
+      }
+    },
+    "android": {
+      "package": "ai.trika.auditpro",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "AuditPro uses your camera to capture vehicle and document photos."
+        }
+      ],
+      "expo-asset"
+    ],
+    "extra": {
+      "appMode": "showcase"
+    }
+  }
+}

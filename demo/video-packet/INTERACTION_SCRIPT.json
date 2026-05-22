@@ -1,0 +1,109 @@
+[
+  {
+    "scene_id": "crm_queue",
+    "duration_sec": 15,
+    "screen": "Dashboard",
+    "actions": [
+      {"type": "click", "target": "Sarah Mitchell appointment"}
+    ],
+    "hold_for_ms": 1200
+  },
+  {
+    "scene_id": "greet",
+    "duration_sec": 20,
+    "screen": "Greet",
+    "actions": [
+      {"type": "wait_for_audio", "target": "hospitality detection"},
+      {"type": "click", "target": "1.1 greet yes"},
+      {"type": "click", "target": "Discovery next"}
+    ]
+  },
+  {
+    "scene_id": "discovery",
+    "duration_sec": 25,
+    "screen": "Discovery Sheet",
+    "actions": [
+      {"type": "wait_for_audio", "target": "family signal"},
+      {"type": "wait_for_audio", "target": "highway signal"},
+      {"type": "wait_for_audio", "target": "efficiency signal"},
+      {"type": "wait_for_audio", "target": "awd signal"},
+      {"type": "click", "target": "Vehicle Match next"}
+    ]
+  },
+  {
+    "scene_id": "vehicle_match",
+    "duration_sec": 20,
+    "screen": "Vehicle Recommendation",
+    "actions": [
+      {"type": "wait_for_animation", "target": "Honda digital features loaded"},
+      {"type": "wait_for_audio", "target": "vehicle logic detection"},
+      {"type": "click", "target": "Front-Line Ready next"}
+    ]
+  },
+  {
+    "scene_id": "front_line_ready",
+    "duration_sec": 10,
+    "screen": "Front-Line Ready",
+    "actions": [
+      {"type": "click", "target": "Exterior photo"},
+      {"type": "click", "target": "Interior photo"},
+      {"type": "click", "target": "Walkaround next"}
+    ]
+  },
+  {
+    "scene_id": "walkaround",
+    "duration_sec": 20,
+    "screen": "Show While Parked",
+    "actions": [
+      {"type": "wait_for_audio", "target": "Apple CarPlay green"},
+      {"type": "wait_for_audio", "target": "Power Tailgate green"},
+      {"type": "wait_for_audio", "target": "Cargo Flexibility green"},
+      {"type": "wait_for_state", "target": "Heated Seats red"},
+      {"type": "click", "target": "Test Drive next"}
+    ]
+  },
+  {
+    "scene_id": "test_drive",
+    "duration_sec": 15,
+    "screen": "Show During Test Drive",
+    "actions": [
+      {"type": "wait_for_audio", "target": "Lane Assist green"},
+      {"type": "wait_for_audio", "target": "Blind Spot Warning green"},
+      {"type": "wait_for_state", "target": "Adaptive Cruise red"},
+      {"type": "click", "target": "Trade-In next"}
+    ]
+  },
+  {
+    "scene_id": "trade_in",
+    "duration_sec": 13,
+    "screen": "Trade-In Photos",
+    "actions": [
+      {"type": "click", "target": "Front trade photo"},
+      {"type": "click", "target": "Rear trade photo"},
+      {"type": "click", "target": "Driver side trade photo"},
+      {"type": "click", "target": "Passenger side trade photo"},
+      {"type": "wait_for_state", "target": "trade analysis complete"},
+      {"type": "click", "target": "Proposal next"}
+    ]
+  },
+  {
+    "scene_id": "proposal_and_bo",
+    "duration_sec": 10,
+    "screen": "First Pencil and Buyer’s Order",
+    "actions": [
+      {"type": "click", "target": "Mark First Pencil Presented"},
+      {"type": "click", "target": "Buyer’s Order next"},
+      {"type": "click", "target": "Capture Buyer’s Order"},
+      {"type": "click", "target": "F&I Handoff next"}
+    ]
+  },
+  {
+    "scene_id": "summary",
+    "duration_sec": 7,
+    "screen": "Rep Coaching Summary",
+    "actions": [
+      {"type": "click", "target": "Audit Complete next"},
+      {"type": "hold", "target": "final scorecard"}
+    ]
+  }
+]

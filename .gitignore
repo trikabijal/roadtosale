@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+
+# Demo / showcase RN app
+demo/auditpro-rn-showcase/dist-*/
+demo/auditpro-rn-showcase/dist/
+demo/auditpro-rn-showcase/web-build/
+demo/auditpro-rn-showcase/.expo/
+demo/auditpro-rn-showcase/node_modules/
+
+# Voice engine — lab reports + generated audio fixtures
+voice-engine/lab/reports/
+voice-engine/lab/fixtures/generated/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node / TS
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Env files
+.env
+.env.local
+*.env
+
+# Build outputs
+build/
+.gradle/
+
+# Editor
+.vscode/
+.idea/

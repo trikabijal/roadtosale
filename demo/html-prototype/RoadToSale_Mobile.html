@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>AuditPro — Sales Process Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --br:#1D52E8;--brd:#1239B8;--brl:#EEF3FF;
+  --gr:#15A354;--grl:#EDFAF4;
+  --re:#DC2525;--rel:#FEF0F0;
+  --bg:#08080F;--sf:rgba(255,255,255,.05);--bd:rgba(255,255,255,.08);
+  --f:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif
+}
+body{font-family:var(--f);background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 5%,rgba(29,82,232,.18) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 85% 95%,rgba(21,163,84,.1) 0%,transparent 50%);pointer-events:none}
+
+/* SETUP */
+.setup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:200;padding:2rem}
+.scard{background:rgba(12,12,22,.97);border:1px solid var(--bd);border-radius:28px;padding:3rem;width:100%;max-width:460px;backdrop-filter:blur(30px);box-shadow:0 40px 80px rgba(0,0,0,.6)}
+.slogo{display:flex;align-items:center;gap:10px;margin-bottom:2.5rem}
+.lm{width:38px;height:38px;background:var(--br);border-radius:11px;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(29,82,232,.5)}
+.lm svg{width:20px;height:20px}
+.logotext{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:#fff;letter-spacing:-.5px}
+.logosub{font-size:11px;color:rgba(255,255,255,.45);margin-top:1px}
+.sh{font-family:'Syne',sans-serif;font-size:28px;font-weight:700;color:#fff;margin-bottom:.4rem;line-height:1.15}
+.sp{font-size:14px;color:rgba(255,255,255,.45);margin-bottom:2rem;line-height:1.55}
+.sf{margin-bottom:1.1rem}
+.sl{font-size:10px;font-weight:600;color:rgba(255,255,255,.25);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;display:block}
+.si{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;color:#fff;font-size:15px;outline:none;transition:border-color .2s;font-family:var(--f)}
+.si:focus{border-color:var(--br)}
+.si::placeholder{color:rgba(255,255,255,.18)}
+.launch-btn{width:100%;background:var(--br);color:#fff;border:none;border-radius:13px;padding:15px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:.75rem;box-shadow:0 6px 20px rgba(29,82,232,.4);transition:all .2s}
+.launch-btn:hover{background:var(--brd);transform:translateY(-1px)}
+
+/* LAYOUT */
+.app{display:none;flex-direction:row;align-items:flex-start;justify-content:center;gap:2.5rem;padding:3rem 2rem;min-height:100vh}
+.app.on{display:flex}
+
+/* LEFT PANEL */
+.lp{width:200px;flex-shrink:0;position:sticky;top:3rem}
+.lpl{display:flex;align-items:center;gap:8px;margin-bottom:2rem}
+.lplm{width:26px;height:26px;background:var(--br);border-radius:7px;display:flex;align-items:center;justify-content:center}
+.lplm svg{width:13px;height:13px}
+.lplt{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff}
+.ib{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:1rem;margin-bottom:1.2rem}
+.ibt{font-size:9px;font-weight:600;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.1em;margin-bottom:.8rem}
+.ibr{margin-bottom:.5rem}
+.ibl{font-size:9px;color:rgba(255,255,255,.25);margin-bottom:1px}
+.ibv{font-size:12px;font-weight:500;color:rgba(255,255,255,.8)}
+.snv{display:flex;flex-direction:column;gap:2px}
+.sni{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;cursor:pointer;transition:background .15s}
+.sni:hover{background:rgba(255,255,255,.04)}
+.sni.on{background:rgba(29,82,232,.15)}
+.snid{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.12);flex-shrink:0;transition:background .2s}
+.sni.on .snid{background:var(--br)}
+.sni.dn .snid{background:var(--gr)}
+.snil{font-size:10px;color:rgba(255,255,255,.3);line-height:1.3;transition:color .2s}
+.sni.on .snil{color:rgba(255,255,255,.88);font-weight:500}
+.sni.dn .snil{color:rgba(255,255,255,.4)}
+
+/* PHONE */
+.pw{display:flex;flex-direction:column;align-items:center}
+.ph{width:355px;background:linear-gradient(160deg,#161620,#0e0e16);border-radius:50px;border:1.5px solid rgba(255,255,255,.14);padding:13px;box-shadow:0 0 0 1px rgba(255,255,255,.05) inset,0 50px 120px rgba(0,0,0,.8),0 20px 40px rgba(29,82,232,.08)}
+.pnotch{width:108px;height:27px;background:linear-gradient(160deg,#161620,#0e0e16);border-radius:0 0 17px 17px;margin:0 auto 6px;display:flex;align-items:center;justify-content:center;gap:7px}
+.pcam{width:9px;height:9px;background:#1a1a26;border-radius:50%;border:1px solid rgba(255,255,255,.08)}
+.pspk{width:42px;height:3px;background:#1a1a26;border-radius:2px}
+.pscr{background:#f1f1f6;border-radius:38px;overflow:hidden;height:710px;display:flex;flex-direction:column;position:relative}
+
+/* STATUS BAR */
+.stb{background:#fff;padding:12px 20px 5px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.stt{font-size:15px;font-weight:700;color:#000}
+.sti{display:flex;align-items:center;gap:4px;font-size:11px;color:#000}
+
+/* APP HEADER */
+.ahd{background:#fff;padding:5px 16px 0;border-bottom:.5px solid #ddd;flex-shrink:0}
+.ahr{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.ahlg{display:flex;align-items:center;gap:5px}
+.ahlm{width:20px;height:20px;background:var(--br);border-radius:5px;display:flex;align-items:center;justify-content:center}
+.ahlm svg{width:10px;height:10px}
+.ahln{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#000}
+.ahsub{font-size:9px;color:#8c8fa2;font-weight:600;letter-spacing:.03em}
+.ahdl{font-size:10px;color:#888}
+.prw{padding-bottom:8px}
+.prm{display:flex;justify-content:space-between;margin-bottom:3px}
+.prl{font-size:10px;color:#888}
+.prp{font-size:10px;font-weight:600;color:var(--br)}
+.prb{height:2px;background:#e5e5ea;border-radius:2px;overflow:hidden}
+.prf{height:100%;background:linear-gradient(90deg,var(--br),#5B8FFF);border-radius:2px;transition:width .45s cubic-bezier(.4,0,.2,1)}
+
+/* SCREENS */
+.scr{display:none;flex-direction:column;flex:1;overflow:hidden;position:relative}
+.scr.on{display:flex}
+/* scrollable screens */
+.scr.scroll .spd{overflow-y:auto}
+.scr.scroll .spd::-webkit-scrollbar{width:0}
+.spd{padding:13px 16px;flex:1;display:flex;flex-direction:column;gap:8px;overflow:hidden;background:linear-gradient(180deg,#f3f3f8 0%,#efeff6 100%)}
+
+/* SCRIPT CARD — consistent on every screen */
+.script{background:#F7F7FB;border-left:3px solid var(--br);border-radius:0 10px 10px 0;padding:9px 12px;display:flex;align-items:flex-start;gap:8px}
+.script-ico{font-size:13px;flex-shrink:0;margin-top:1px}
+.script-body{font-size:11px;color:#3a3a4a;line-height:1.5;font-style:italic}
+.script-label{font-size:9px;font-weight:700;color:var(--br);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;display:block}
+
+/* AUDIO WIDGET */
+.aud{background:linear-gradient(135deg,rgba(29,82,232,.09),rgba(29,82,232,.03));border:1px solid rgba(29,82,232,.18);border-radius:12px;padding:10px 13px;box-shadow:0 1px 4px rgba(29,82,232,.06)}
+.aud-hdr{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.aud-dot{width:7px;height:7px;border-radius:50%;background:#E02525;flex-shrink:0;animation:ap 1.2s infinite}
+@keyframes ap{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.aud-lbl{font-size:10px;font-weight:600;color:var(--br);letter-spacing:.03em}
+.aud-wave{display:flex;align-items:center;gap:2px;height:18px;margin-bottom:6px}
+.aw{width:3px;border-radius:2px;background:rgba(29,82,232,.35);animation:wv 1s ease-in-out infinite}
+.aw:nth-child(1){height:5px;animation-delay:0s}.aw:nth-child(2){height:13px;animation-delay:.1s}.aw:nth-child(3){height:9px;animation-delay:.2s}.aw:nth-child(4){height:17px;animation-delay:.15s}.aw:nth-child(5){height:7px;animation-delay:.3s}.aw:nth-child(6){height:14px;animation-delay:.05s}.aw:nth-child(7){height:11px;animation-delay:.25s}.aw:nth-child(8){height:5px;animation-delay:.35s}
+@keyframes wv{0%,100%{transform:scaleY(1);opacity:.35}50%{transform:scaleY(1.9);opacity:.9}}
+.aud-tx{font-size:11px;color:#555;line-height:1.45;font-style:italic;min-height:30px}
+.aud-tx .trig{color:var(--br);font-weight:600;font-style:normal;background:rgba(29,82,232,.1);padding:1px 4px;border-radius:3px}
+.aud-det{display:none;align-items:center;gap:5px;margin-top:5px;padding-top:5px;border-top:.5px solid rgba(29,82,232,.12)}
+.aud-det-ico{font-size:10px;color:var(--gr)}
+.aud-det-tx{font-size:10px;color:rgba(21,163,84,.85);font-weight:600}
+
+/* YN CARD */
+.ync{background:#fff;border-radius:13px;padding:12px 14px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.ynq{font-size:13px;font-weight:500;color:#000;margin-bottom:10px;line-height:1.4}
+.ynr{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ynb{padding:10px;border-radius:10px;border:1.5px solid #e0e0e8;background:#f7f7fb;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;color:#636370;position:relative;font-family:var(--f)}
+.ynb:hover{border-color:var(--br);color:var(--br);background:var(--brl)}
+.ynb.sy{background:#DFF7EC;border-color:var(--gr);color:var(--gr)}
+.ynb.sn{background:var(--rel);border-color:var(--re);color:var(--re)}
+.atag{display:none;position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--gr);color:#fff;font-size:8px;padding:1px 6px;border-radius:10px;white-space:nowrap;font-weight:700;font-family:var(--f)}
+.ynb.sy .atag{display:block}
+.aud-ov{font-size:9px;color:rgba(21,163,84,.7);text-align:center;margin-top:3px}
+
+/* DASHBOARD */
+.dhero{background:linear-gradient(135deg,var(--br),#3B72F8);padding:16px;position:relative;overflow:hidden;flex-shrink:0}
+.dhero::after{content:'';position:absolute;right:-15px;top:-15px;width:100px;height:100px;background:rgba(255,255,255,.06);border-radius:50%}
+.dhg{font-size:11px;color:rgba(255,255,255,.7);margin-bottom:3px}
+.dhn{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:#fff;margin-bottom:1px;letter-spacing:-.3px}
+.dhd{font-size:11px;color:rgba(255,255,255,.65)}
+.dstg{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:12px 16px;flex-shrink:0}
+.dsc{background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 1px 5px rgba(0,0,0,.08)}
+.dsl{font-size:10px;color:#888;margin-bottom:2px}
+.dsv{font-size:24px;font-weight:700;color:#000;font-family:'Syne',sans-serif;letter-spacing:-.3px}
+.dsv.bl{color:var(--br)}.dsv.gr{color:var(--gr)}.dsv.rd{color:var(--re)}
+.secl{font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;padding:0 16px;margin-bottom:6px}
+.drc{margin:0 16px 8px;background:#fff;border-radius:12px;padding:11px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);cursor:pointer;border:1.5px solid transparent;transition:all .2s;flex-shrink:0}
+.drc:hover{border-color:var(--br)}
+.drt{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.drn{font-size:14px;font-weight:600;color:#000}
+.bdg{font-size:10px;font-weight:600;padding:2px 7px;border-radius:20px;background:#E0EAFF;color:var(--br)}
+.dcar{font-size:12px;color:#636370;margin-bottom:6px}
+.mpg{height:3px;background:#f0f0f5;border-radius:2px;overflow:hidden}
+.mpf{height:100%;background:linear-gradient(90deg,var(--br),#5B8FFF);border-radius:2px}
+.wib{margin:0 16px 16px;background:linear-gradient(135deg,var(--br),#3B72F8);color:#fff;border:none;border-radius:13px;padding:14px;font-size:14px;font-weight:700;cursor:pointer;width:calc(100% - 32px);display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 5px 16px rgba(29,82,232,.3);font-family:'Syne',sans-serif}
+.qcard{margin:0 16px 8px;background:#fff;border-radius:12px;padding:11px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid transparent;cursor:pointer;transition:all .2s;flex-shrink:0}
+.qcard:hover{border-color:var(--br)}
+.qcard.sel{border-color:var(--br);background:linear-gradient(135deg,#fff,#f7faff)}
+.qtop{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.qname{font-size:13px;font-weight:600;color:#000}
+.qtime{font-size:10px;font-weight:700;color:var(--br);background:#E0EAFF;padding:3px 8px;border-radius:20px}
+.qmeta{font-size:11px;color:#636370;line-height:1.4}
+.qtagrow{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.qtag{font-size:9px;padding:2px 7px;border-radius:20px;background:#F1F4FB;color:#466096;font-weight:600}
+.smart-load{background:linear-gradient(135deg,#F1F5FF,#E8F0FF);border:1px solid rgba(29,82,232,.18);border-radius:12px;padding:12px 13px;box-shadow:0 1px 4px rgba(29,82,232,.05)}
+.smart-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;gap:12px}
+.smart-title{font-size:10px;font-weight:700;color:var(--br);text-transform:uppercase;letter-spacing:.08em}
+.smart-badge{font-size:9px;background:var(--br);color:#fff;padding:3px 10px;border-radius:20px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;text-align:center}
+.smart-copy{font-size:11px;color:#35508b;line-height:1.45;font-family:var(--f)}
+.smart-bar{height:6px;background:#dce8ff;border-radius:10px;overflow:hidden;margin-top:8px}
+.smart-fill{height:100%;width:0;background:linear-gradient(90deg,var(--br),#5B8FFF);border-radius:10px;transition:width .8s ease}
+.match-card{background:#fff;border-radius:12px;padding:12px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid #e8edf8;font-family:var(--f)}
+.match-card.best{border-color:var(--br);background:linear-gradient(135deg,#fff,#f8fbff)}
+.match-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.match-name{font-size:13px;font-weight:700;color:#000;font-family:var(--f);letter-spacing:-.02em}
+.match-rank{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:#E0EAFF;color:var(--br)}
+.match-reason{font-size:11px;color:#4d5b78;line-height:1.45;font-family:var(--f)}
+.match-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.match-chip{font-size:9px;padding:3px 8px;border-radius:20px;background:#EEF3FF;color:#3157b8;font-weight:600;font-family:var(--f)}
+.cv-box{background:#fff;border-radius:12px;padding:12px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid #e4ecf8}
+.cv-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.cv-title{font-size:11px;font-weight:700;color:#000}
+.cv-state{font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;background:#EEF3FF;color:var(--br)}
+.cv-line{font-size:11px;color:#45536f;line-height:1.5}
+.cv-line.ok{color:var(--gr);font-weight:600}
+.cv-line.warn{color:var(--re);font-weight:600}
+.cv-line.info{color:#3157b8;font-weight:600}
+.coach-box{background:linear-gradient(135deg,#F7FAFF,#EEF5FF);border:1px solid rgba(29,82,232,.14);border-radius:12px;padding:11px 13px}
+.coach-title{font-size:10px;font-weight:700;color:var(--br);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.coach-copy{font-size:11px;color:#45618d;line-height:1.45}
+
+/* STEP LABEL */
+.stl{font-size:9px;font-weight:700;color:var(--br);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:5px;flex-shrink:0}
+.stl::before{content:'';width:14px;height:2px;background:var(--br);border-radius:1px}
+.sth{font-size:18px;font-weight:700;color:#000;line-height:1.2;flex-shrink:0}
+.sts{font-size:11px;color:#636370;line-height:1.4;flex-shrink:0}
+
+/* DISCOVERY */
+.disc-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.dfd{background:#fff;border-radius:10px;padding:9px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.dfd.full{grid-column:1/-1}
+.dfl{font-size:9px;color:#888;margin-bottom:2px;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.dfv{font-size:13px;font-weight:500;color:#000;line-height:1.35;word-break:break-word}
+.dfi{width:100%;border:none;outline:none;font-size:13px;font-weight:500;color:#000;background:transparent;font-family:var(--f)}
+.dfi::placeholder{color:#c0c0cc;font-weight:400}
+/* inline audio checkbox area */
+.uc-header{font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;justify-content:space-between}
+.uc-audio-mini{display:flex;align-items:center;gap:5px}
+.uc-dot{width:6px;height:6px;border-radius:50%;background:#E02525;animation:ap 1.2s infinite}
+.uc-wave{display:flex;align-items:center;gap:1px;height:12px}
+.uc-w{width:2px;border-radius:1px;background:rgba(29,82,232,.5);animation:wv 1s ease-in-out infinite}
+.uc-w:nth-child(1){height:4px;animation-delay:0s}.uc-w:nth-child(2){height:9px;animation-delay:.12s}.uc-w:nth-child(3){height:6px;animation-delay:.24s}.uc-w:nth-child(4){height:12px;animation-delay:.06s}
+.cbr{display:flex;align-items:center;gap:8px;background:#fff;border-radius:10px;padding:8px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05);cursor:pointer;transition:background .15s}
+.cb{width:18px;height:18px;border-radius:4px;border:2px solid #d0d0dc;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:10px;font-weight:800;color:#fff}
+.cb.ck{background:var(--br);border-color:var(--br)}
+.cb.glow{animation:cbglow .5s ease}
+@keyframes cbglow{0%{box-shadow:0 0 0 0 rgba(21,163,84,.6)}100%{box-shadow:0 0 0 8px rgba(21,163,84,0)}}
+.cbl{font-size:12px;color:#000}
+.aud-tx-mini{font-size:10px;color:#555;font-style:italic;padding:5px 0 2px;line-height:1.4}
+.aud-tx-mini .trig{color:var(--br);font-weight:600;font-style:normal}
+
+/* FEATURE NUDGE */
+.fnc{background:linear-gradient(135deg,var(--br),#3B72F8);border-radius:12px;padding:12px 14px;flex-shrink:0}
+.fnl{font-size:9px;font-weight:600;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.fnt{font-size:14px;font-weight:700;color:#fff;font-family:'Syne',sans-serif;margin-bottom:2px}
+.fns{font-size:11px;color:rgba(255,255,255,.7);line-height:1.35}
+.fi{display:flex;align-items:center;gap:9px;background:#fff;border-radius:10px;padding:9px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05);flex-shrink:0}
+.fi.pass{border:1.5px solid var(--gr);background:var(--grl)}
+.fi.pass .fii{background:rgba(21,163,84,.15)}
+.fi.pass .fin{color:var(--gr)}
+.fi.fail{border:1.5px solid var(--re);background:var(--rel)}
+.fii{width:28px;height:28px;border-radius:7px;background:var(--brl);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px}
+.fi.fail .fii{background:var(--rel)}
+.fin{font-size:12px;font-weight:600;color:#000}
+.fid{font-size:10px;color:#888}
+.fi.fail .fin{color:var(--re)}
+.fic{margin-left:auto;width:19px;height:19px;border-radius:50%;border:2px solid #d0d0dc;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;font-weight:800;transition:all .25s;cursor:pointer}
+.fic.ck{background:var(--gr);border-color:var(--gr)}
+.fic.fail-state{background:var(--rel);border-color:var(--re);color:var(--re);font-size:10px}
+.fail-note{font-size:10px;color:var(--re);font-weight:600;margin-top:2px}
+
+/* PHOTO SLOTS */
+.pg{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.pp{background:#fff;border-radius:10px;aspect-ratio:1;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px dashed #c8c8d4;cursor:pointer;transition:all .2s;overflow:hidden;position:relative}
+.pp:hover{border-color:var(--br)}
+.pp.fl{border-style:solid;border-color:#d0d0dc}
+.ppi{font-size:20px;margin-bottom:4px}
+.ppl{font-size:10px;color:#888;text-align:center}
+.pf{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#EDFAF4,#D6F5E8)}
+.pk{width:32px;height:32px;background:var(--gr);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;font-weight:800}
+.pkl{font-size:9px;color:var(--gr);margin-top:4px;font-weight:600}
+/* camera flash */
+.cam-flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;border-radius:10px}
+.cam-flash.go{animation:flash .35s ease-out}
+@keyframes flash{0%{opacity:0}30%{opacity:.95}100%{opacity:0}}
+/* simulated photo fill */
+.sim-photo{position:absolute;inset:0;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:22px;opacity:0;transition:opacity .3s .2s}
+.sim-photo.show{opacity:1}
+/* photo takebtn */
+.photo-btn{background:var(--br);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-size:12px;font-weight:600;cursor:pointer;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-family:var(--f);transition:opacity .2s}
+.photo-btn:hover{opacity:.9}
+
+/* GPS */
+.gps{background:linear-gradient(135deg,#E4EDF5,#D8EAF2);border-radius:12px;height:110px;position:relative;flex-shrink:0}
+.gpr{position:absolute;top:20px;left:20px;right:20px;bottom:20px;border:2px dashed rgba(29,82,232,.45);border-radius:9px}
+.gpd{position:absolute;width:11px;height:11px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.gpd.s{top:18px;left:18px;background:var(--br)}
+.gpd.c{bottom:40px;right:32px;background:var(--gr)}
+.gpp{position:absolute;bottom:36px;right:28px;width:18px;height:18px;border:2px solid var(--gr);border-radius:50%;opacity:.35;animation:pulse 2s infinite}
+@keyframes pulse{0%{transform:scale(1);opacity:.35}100%{transform:scale(2.4);opacity:0}}
+.gpl{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-size:10px;color:var(--br);font-weight:600}
+
+/* FIGURES / PENCIL */
+.fgt{background:#fff;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);flex-shrink:0}
+.fgh{background:linear-gradient(90deg,#f7f8fc,#f0f2f9);padding:8px 13px;border-bottom:.5px solid #e8e8f2}
+.fght{font-size:10px;font-weight:700;color:#636370;text-transform:uppercase;letter-spacing:.06em}
+.fgr{display:flex;align-items:center;justify-content:space-between;padding:7px 13px;border-bottom:.5px solid #f0f0f5}
+.fgr:last-child{border-bottom:none}
+.fgr.tot{background:linear-gradient(90deg,var(--brl),#E8EFFF);padding:9px 13px}
+.frl{font-size:12px;color:#000}.frl.m{color:#636370;font-size:11px}
+.frv{font-size:12px;font-weight:600;color:#000}
+.frv.pos{color:var(--gr)}.frv.tot{font-size:14px;font-weight:800;color:var(--br);font-family:'Syne',sans-serif}
+
+/* PENCIL CONFIRMED */
+.pcc{background:linear-gradient(135deg,#DFF7EC,#C8F2DC);border:1.5px solid rgba(21,163,84,.3);border-radius:13px;padding:13px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;flex-shrink:0}
+.pci{width:40px;height:40px;background:var(--gr);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;box-shadow:0 4px 12px rgba(21,163,84,.35)}
+.pct{font-size:14px;font-weight:700;color:#0a6e38;font-family:'Syne',sans-serif}
+.pcm{font-size:11px;color:rgba(21,163,84,.8)}
+.mkb{border:none;border-radius:12px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s;background:linear-gradient(135deg,#1a1a2e,#2a2a44);color:#fff;box-shadow:0 5px 16px rgba(0,0,0,.3);width:100%;font-family:'Syne',sans-serif;flex-shrink:0}
+.mkb:hover{transform:translateY(-1px)}
+
+/* MANAGER TO BUTTON (floating) */
+.mgr-float{position:absolute;bottom:75px;right:14px;z-index:50;background:linear-gradient(135deg,#15A354,#1ab860);color:#fff;border:none;border-radius:12px;padding:9px 12px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 4px 14px rgba(21,163,84,.4);font-family:'Syne',sans-serif;animation:bouncein .4s ease}
+@keyframes bouncein{0%{transform:scale(0);opacity:0}70%{transform:scale(1.05)}100%{transform:scale(1);opacity:1}}
+/* MANAGER TO OVERLAY */
+.mgr-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);z-index:100;display:none;flex-direction:column;justify-content:flex-end;border-radius:38px}
+.mgr-overlay.on{display:flex}
+.mgr-sheet{background:#fff;border-radius:20px 20px 0 0;padding:16px;display:flex;flex-direction:column;gap:10px;max-height:70%}
+.mgr-handle{width:36px;height:4px;background:#e0e0e8;border-radius:2px;margin:0 auto -2px}
+.mgr-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#000}
+.close-btn{position:absolute;top:16px;right:16px;background:#f0f0f5;border:none;border-radius:8px;width:28px;height:28px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+
+/* BUYER'S ORDER */
+.bo-prompt{background:#fff;border-radius:13px;padding:20px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border:2px dashed #c8c8d4;cursor:pointer;transition:all .2s;text-align:center;flex-shrink:0}
+.bo-prompt:hover{border-color:var(--br)}
+.bo-prompt-ico{font-size:32px}
+.bo-prompt-title{font-size:14px;font-weight:600;color:#000}
+.bo-prompt-sub{font-size:11px;color:#888}
+.bo-reveal{background:#fff;border-radius:13px;box-shadow:0 2px 8px rgba(0,0,0,.07);overflow:hidden;flex-shrink:0;display:none;border:1.5px solid var(--gr)}
+.bo-reveal.on{display:block}
+.boh{display:flex;align-items:center;gap:7px;padding:10px 13px;background:linear-gradient(135deg,#EDFAF4,#E0F8EE);border-bottom:.5px solid rgba(21,163,84,.2)}
+.boi{font-size:16px}
+.bot{font-size:13px;font-weight:700;color:#000}
+.bol{display:flex;justify-content:space-between;padding:6px 13px;border-bottom:.5px solid #f0f0f5}
+.bol:last-child{border-bottom:none}
+.boll{font-size:11px;color:#636370}
+.bolv{font-size:11px;font-weight:600;color:#000}
+.bo-sig{padding:8px 13px;background:var(--grl);font-size:10px;color:var(--gr);font-style:italic;display:flex;align-items:center;gap:5px;font-weight:500}
+.sbn{background:linear-gradient(135deg,#DFF7EC,#C8F2DC);border:1px solid rgba(21,163,84,.25);border-radius:11px;padding:10px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.sbni{width:22px;height:22px;background:var(--gr);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;flex-shrink:0;font-weight:800}
+.sbnt{font-size:11px;font-weight:500;color:#0a6e38;line-height:1.35}
+
+/* F&I */
+.hhc{background:linear-gradient(135deg,var(--br),#3B72F8);border-radius:13px;padding:14px;text-align:center;flex-shrink:0}
+.hhi{font-size:28px;margin-bottom:6px}
+.hht{font-size:15px;font-weight:800;color:#fff;font-family:'Syne',sans-serif;margin-bottom:5px}
+.hhq{font-size:11px;color:rgba(255,255,255,.8);line-height:1.45;font-style:italic;background:rgba(255,255,255,.12);border-radius:8px;padding:8px}
+.tmb{background:#fff;border-radius:12px;padding:11px;text-align:center;box-shadow:0 1px 5px rgba(0,0,0,.07);flex-shrink:0}
+.tml{font-size:10px;color:#888;margin-bottom:2px}
+.tmv{font-size:30px;font-weight:700;color:var(--br);font-family:'Syne',sans-serif;letter-spacing:-.3px}
+.tmo{font-size:10px;color:var(--gr);font-weight:600}
+.fic2{background:var(--brl);border-radius:11px;padding:10px 13px;border:1.5px solid var(--br);flex-shrink:0}
+.fic2t{display:flex;justify-content:space-between;margin-bottom:2px}
+.fic2n{font-size:13px;font-weight:600;color:#000}
+.fic2m{font-size:10px;color:#888}
+.fic2s{font-size:11px;color:#636370}
+.fic2b{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;background:#DFF7EC;color:var(--gr);font-weight:600;margin-top:4px}
+
+/* AUDIT COMPLETE */
+.acw{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px;overflow-y:auto}
+.acw::-webkit-scrollbar{width:0}
+.asc{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,var(--br),#3B72F8);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 8px 24px rgba(29,82,232,.4)}
+.asn{font-size:28px;font-weight:800;color:#fff;font-family:'Syne',sans-serif;line-height:1}
+.asl{font-size:9px;color:rgba(255,255,255,.65);text-transform:uppercase;letter-spacing:.1em}
+.act{font-size:18px;font-weight:700;color:#000;font-family:'Syne',sans-serif;text-align:center;margin-bottom:3px}
+.acs{font-size:11px;color:#636370;text-align:center;line-height:1.35;margin-bottom:12px}
+.art{width:100%;background:#fff;border-radius:13px;overflow:hidden;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.07)}
+.arr{display:flex;align-items:center;justify-content:space-between;padding:8px 13px;border-bottom:.5px solid #f0f0f5}
+.arr:last-child{border-bottom:none}
+.ars{font-size:12px;color:#000}
+.arp{font-size:11px;font-weight:600;color:var(--gr)}
+.arf{font-size:11px;font-weight:600;color:var(--re)}
+.bdb{width:100%;background:linear-gradient(135deg,var(--br),#3B72F8);color:#fff;border:none;border-radius:13px;padding:13px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 5px 16px rgba(29,82,232,.3);font-family:'Syne',sans-serif}
+
+/* BOTTOM NAV */
+.bnv{background:rgba(248,248,252,.94);backdrop-filter:blur(16px);border-top:.5px solid rgba(0,0,0,.08);padding:8px 14px 16px;display:flex;gap:6px;flex-shrink:0}
+.nb{flex:1;padding:11px;border-radius:11px;border:none;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;font-family:'Syne',sans-serif}
+.nb.bk{background:#f0f0f5;color:#636370}
+.nb.bk:hover{background:#e4e4ec}
+.nb.nx{background:linear-gradient(135deg,var(--br),#3B72F8);color:#fff;box-shadow:0 3px 10px rgba(29,82,232,.28)}
+.nb.nx:hover{transform:translateY(-1px)}
+
+/* RIGHT PANEL */
+.rp{width:200px;flex-shrink:0;position:sticky;top:3rem}
+.rpt{font-size:9px;font-weight:600;color:rgba(255,255,255,.25);text-transform:uppercase;letter-spacing:.12em;margin-bottom:.9rem}
+.rpc{background:var(--sf);border:1px solid var(--bd);border-radius:13px;padding:.9rem;margin-bottom:.9rem}
+.rpct{font-size:11px;font-weight:600;color:rgba(255,255,255,.6);margin-bottom:5px}
+.rpcb{font-size:11px;color:rgba(255,255,255,.38);line-height:1.5}
+.tag{display:inline-block;font-size:9px;padding:2px 7px;border-radius:20px;margin-right:3px;margin-top:5px;font-weight:600}
+.tag.a{background:rgba(29,82,232,.2);color:#93c5fd}
+.tag.m{background:rgba(21,163,84,.2);color:#86efac}
+.tag.g{background:rgba(29,82,232,.2);color:#93c5fd}
+.tag.p{background:rgba(139,92,246,.2);color:#c4b5fd}
+.tag.t{background:rgba(245,158,11,.2);color:#fcd34d}
+
+@media(max-width:920px){.lp,.rp{display:none}.app{padding:1rem}}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="setup" id="setup">
+  <div class="scard">
+    <div class="slogo"><div class="lm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="logotext">Road to Sale</div><div class="logosub">by AuditPro</div></div></div>
+    <div class="sh">Launch guided demo</div>
+    <div class="sp">Use the CRM-fed appointment flow and optional autoplay to record a consistent click-through demo.</div>
+    <div class="sf"><label class="sl">Dealership name</label><input class="si" id="iD" value="Riverside Honda" placeholder="e.g. Riverside Honda"></div>
+    <div class="sf"><label class="sl">Sales rep name</label><input class="si" id="iR" value="Marcus Webb" placeholder="e.g. Marcus Webb"></div>
+    <button class="launch-btn" onclick="start()">Open Interactive Demo &rarr;</button>
+    <button class="launch-btn" style="margin-top:.55rem;background:#11182f" onclick="start(true)">Play Guided Demo &rarr;</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+  <!-- LEFT -->
+  <div class="lp">
+    <div class="lpl"><div class="lplm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="lplt">Road to Sale</span></div>
+    <div class="ib">
+      <div class="ibt">Active Deal</div>
+      <div class="ibr"><div class="ibl">Dealership</div><div class="ibv dn">—</div></div>
+      <div class="ibr"><div class="ibl">Rep</div><div class="ibv rn">—</div></div>
+      <div class="ibr"><div class="ibl">Customer</div><div class="ibv cn">Sarah Mitchell</div></div>
+      <div class="ibr"><div class="ibl">Vehicle</div><div class="ibv vn">Honda CR-V Hybrid AWD</div></div>
+    </div>
+    <div class="snv" id="snv"></div>
+  </div>
+
+  <!-- PHONE -->
+  <div class="pw">
+    <div class="ph">
+      <div class="pnotch"><div class="pcam"></div><div class="pspk"></div><div class="pcam"></div></div>
+      <div class="pscr">
+        <div class="stb"><div class="stt">9:41</div><div class="sti"><span>&#9646;&#9646;&#9646;&#9646;</span><span style="margin-left:4px">WiFi &#128267;</span></div></div>
+        <div class="ahd">
+          <div class="ahr">
+            <div class="ahlg"><div class="ahlm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="ahln">Road to Sale</div><div class="ahsub">by AuditPro</div></div></div>
+            <div class="ahdl dn">—</div>
+          </div>
+          <div class="prw"><div class="prm"><div class="prl" id="pLbl">Dashboard</div><div class="prp" id="pPct">0%</div></div><div class="prb"><div class="prf" id="pFill" style="width:0%"></div></div></div>
+        </div>
+
+        <!-- S0: DASHBOARD -->
+        <div class="scr on" id="s0">
+          <div class="dhero"><div class="dhg">Good morning &#128075;</div><div class="dhn rn">—</div><div class="dhd dn">— &middot; CRM connected</div></div>
+          <div class="dstg"><div class="dsc"><div class="dsl">Deals Today</div><div class="dsv bl">3</div></div><div class="dsc"><div class="dsl">Compliance</div><div class="dsv gr">87%</div></div><div class="dsc"><div class="dsl">Steps Done</div><div class="dsv">21</div></div><div class="dsc"><div class="dsl">Flags</div><div class="dsv rd">2</div></div></div>
+          <div class="secl">Today’s Appointments</div>
+          <div class="qcard sel" onclick="go(1)"><div class="qtop"><div class="qname">Sarah Mitchell</div><div class="qtime">9:00 AM</div></div><div class="qmeta">CR-V shopper &middot; Trade: 2019 RAV4</div><div class="qtagrow"><span class="qtag">Family</span><span class="qtag">Hybrid curious</span><span class="qtag">AWD preferred</span></div></div>
+          <div class="qcard"><div class="qtop"><div class="qname">Robert Danes</div><div class="qtime">11:00 AM</div></div><div class="qmeta">Pilot / 3-row family &middot; Trade: 2020 Highlander</div></div>
+          <div class="qcard"><div class="qtop"><div class="qname">Amy Torres</div><div class="qtime">1:30 PM</div></div><div class="qmeta">Civic commuter &middot; First-time Honda buyer</div></div>
+          <div class="qcard"><div class="qtop"><div class="qname">Kevin Park</div><div class="qtime">3:30 PM</div></div><div class="qmeta">HR-V budget shopper &middot; Lease comparison</div></div>
+          <button class="wib" onclick="go(1)"><span>+</span> New Walk-In</button>
+        </div>
+
+        <!-- S1: GREET -->
+        <div class="scr" id="s1">
+          <div class="spd">
+            <div class="stl">Step 1 &middot; Greet</div>
+            <div class="sth">Customer Arrival</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"Hi <span class="cn">—</span>, welcome to <span class="dn">—</span>! Can I grab you a water or coffee before we head out?"</div></div>
+            <div class="aud" id="aud-1">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio detection active</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-1">Listening...</div>
+              <div class="aud-det" id="ad-1"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Refreshment offer detected &mdash; 1.2 auto-confirmed</div></div>
+            </div>
+            <div class="ync"><div class="ynq">1.1 &mdash; Was customer greeted within 30 seconds?</div><div class="ynr"><button class="ynb" id="g1y" onclick="yn('g1','y')">&#10003; Yes</button><button class="ynb" id="g1n" onclick="yn('g1','n')">&#10007; No</button></div></div>
+            <div class="ync"><div class="ynq">1.2 &mdash; Was a refreshment offered?</div><div class="ynr"><button class="ynb" id="g2y" onclick="yn('g2','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="g2n" onclick="yn('g2','n')">&#10007; No</button></div><div class="aud-ov" id="ao-1" style="display:none">Auto-detected via audio &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(0)">&larr; Back</button><button class="nb nx" onclick="go(2)">Discovery &rarr;</button></div>
+        </div>
+
+        <!-- S2: DISCOVERY (scrollable) -->
+        <div class="scr scroll" id="s2">
+          <div class="spd">
+            <div class="stl">Step 2 &middot; Needs Discovery</div>
+            <div class="sth">Discovery Sheet</div>
+            <div class="disc-grid">
+              <div class="dfd full"><div class="dfl">Customer / CRM record</div><div class="dfv cn">— &middot; replacing 2019 Toyota RAV4</div></div>
+              <div class="dfd full"><div class="dfl">What are you driving now?</div><div class="dfv">2019 Toyota RAV4</div></div>
+              <div class="dfd full"><div class="dfl">How will you mainly use the vehicle?</div><div class="dfv">School runs + highway commute</div></div>
+              <div class="dfd"><div class="dfl">How many people are usually in the car?</div><div class="dfv">Driver + 2 kids</div></div>
+              <div class="dfd"><div class="dfl">Mostly city, highway, or mixed?</div><div class="dfv">Mixed with some highway</div></div>
+              <div class="dfd full"><div class="dfl">Any must-have features or comfort needs?</div><div class="dfv">Better mileage, AWD, easy phone connectivity</div></div>
+            </div>
+            <div class="uc-header">
+              <span>Discovery signals detected</span>
+              <div class="uc-audio-mini"><div class="uc-dot"></div><div class="uc-wave"><div class="uc-w"></div><div class="uc-w"></div><div class="uc-w"></div><div class="uc-w"></div></div></div>
+            </div>
+            <div class="aud-tx-mini" id="at-disc">Listening for use cases...</div>
+            <div class="cbr" onclick="tCb(this)"><div class="cb" id="cb-fam"></div><div class="cbl">Family / school runs</div></div>
+            <div class="cbr" onclick="tCb(this)"><div class="cb" id="cb-hw"></div><div class="cbl">Highway commuting</div></div>
+            <div class="cbr" onclick="tCb(this)"><div class="cb" id="cb-eff"></div><div class="cbl">Efficiency priority</div></div>
+            <div class="cbr" onclick="tCb(this)"><div class="cb" id="cb-awd"></div><div class="cbl">AWD preferred</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(1)">&larr; Back</button><button class="nb nx" onclick="go(3)">Vehicle Match &rarr;</button></div>
+        </div>
+
+        <!-- S3: FEATURE MATCH + 3.1 -->
+        <div class="scr" id="s3">
+          <div class="spd">
+            <div class="stl">Step 3 &middot; Vehicle Match</div>
+            <div class="sth">Vehicle Recommendation</div>
+            <div class="smart-load"><div class="smart-top"><div class="smart-title">Honda digital features loaded</div><div class="smart-badge">Inventory synced</div></div><div class="smart-copy">Road to Sale is matching <span class="cn">—</span>'s needs to current Honda inventory and loading model-specific feature libraries for the presentation.</div><div class="smart-bar"><div class="smart-fill" id="smartFill"></div></div></div>
+            <div class="aud" id="aud-3">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio detection active</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-3">Listening...</div>
+              <div class="aud-det" id="ad-3"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Needs connection detected &mdash; 3.1 auto-confirmed</div></div>
+            </div>
+            <div class="match-card best"><div class="match-head"><div class="match-name">Honda CR-V Hybrid AWD</div><div class="match-rank">Best Match</div></div><div class="match-reason">Best fit for family use, mixed commuting, better fuel economy, and everyday cargo convenience.</div><div class="match-chips"><span class="match-chip">Family fit</span><span class="match-chip">Highway comfort</span><span class="match-chip">Better MPG</span><span class="match-chip">Cargo practicality</span></div></div>
+            <div class="match-card"><div class="match-head"><div class="match-name">Honda HR-V AWD</div><div class="match-rank">Alt 1</div></div><div class="match-reason">Budget-friendly alternative with AWD and easy maneuverability, but smaller for growing-family needs.</div></div>
+            <div class="match-card"><div class="match-head"><div class="match-name">Honda Pilot AWD</div><div class="match-rank">Alt 2</div></div><div class="match-reason">Space-up option if a third row becomes important, but more vehicle than this customer currently needs.</div></div>
+            <div class="ync"><div class="ynq">3.1 &mdash; Did you connect this vehicle's features to her stated needs?</div><div class="ynr"><button class="ynb" id="v1y" onclick="yn('v1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="v1n" onclick="yn('v1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-3" style="display:none">Auto-detected &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(2)">&larr; Back</button><button class="nb nx" onclick="go(4)">Front-Line Ready &rarr;</button></div>
+        </div>
+
+        <!-- S4: FRONT-LINE READY -->
+        <div class="scr" id="s4">
+          <div class="spd">
+            <div class="stl">Step 3.2 &middot; Vehicle Readiness</div>
+            <div class="sth">Front-Line Ready?</div>
+            <div class="aud" id="aud-4">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; timing key handover</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-4">Listening...</div>
+              <div class="aud-det" id="ad-4"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Key handover detected &middot; 47s gap &mdash; vehicle was ready</div></div>
+            </div>
+            <div class="ync"><div class="ynq">3.2 &mdash; Is the car Front-Line Ready? (clean, fueled, staged)</div><div class="ynr"><button class="ynb" id="v2y" onclick="yn('v2','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="v2n" onclick="yn('v2','n')">&#10007; No</button></div><div class="aud-ov" id="ao-4" style="display:none">Timing detected via audio &middot; tap to override</div></div>
+            <div style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Vehicle Photos</div>
+            <div class="pg">
+              <div class="pp" id="pp-ext" onclick="takePhoto(this,'pp-ext','ext')"><div class="ppi">&#128247;</div><div class="ppl">Exterior</div><div class="cam-flash" id="cf-ext"></div></div>
+              <div class="pp" id="pp-int" onclick="takePhoto(this,'pp-int','int')"><div class="ppi">&#128247;</div><div class="ppl">Interior</div><div class="cam-flash" id="cf-int"></div></div>
+            </div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(3)">&larr; Back</button><button class="nb nx" onclick="go(5)">Walkaround &rarr;</button></div>
+        </div>
+
+        <!-- S5: WALKAROUND (no 6-position list, features only, no scroll) -->
+        <div class="scr" id="s5">
+          <div class="spd">
+            <div class="stl">Step 4 &middot; The Walkaround</div>
+            <div class="sth">Show While Parked</div>
+            <div class="aud" id="aud-5">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio detection active</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-5">Listening for walkaround positions and features...</div>
+              <div class="aud-det" id="ad-5"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">3 of 4 positions detected &mdash; one feature missed</div></div>
+            </div>
+            <div class="fi" id="fi-play" onclick="tFeat(this,'fi-play')"><div class="fii">&#128241;</div><div><div class="fin">Wireless Apple CarPlay</div><div class="fid">Live phone connection demo</div></div><div class="fic" id="fic-play"></div></div>
+            <div class="fi" id="fi-tail" onclick="tFeat(this,'fi-tail')"><div class="fii">&#128717;</div><div><div class="fin">Power Tailgate</div><div class="fid">Show cargo access and convenience</div></div><div class="fic" id="fic-tail"></div></div>
+            <div class="fi" id="fi-cargo" onclick="tFeat(this,'fi-cargo')"><div class="fii">&#128230;</div><div><div class="fin">Cargo Flexibility</div><div class="fid">Tie back to school runs and groceries</div></div><div class="fic" id="fic-cargo"></div></div>
+            <div class="fi" id="fi-heat" onclick="tFeat(this,'fi-heat')"><div class="fii">&#10052;</div><div><div class="fin">Heated Seats</div><div class="fid">Missed in this demo to show coaching value</div></div><div class="fic" id="fic-heat"></div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">If a comfort feature is skipped, AuditPro leaves it red and nudges the rep before the drive starts.</div></div>
+            <div class="ync"><div class="ynq">4.1 &mdash; Was the full 6-position walkaround completed?</div><div class="ynr"><button class="ynb" id="w1y" onclick="yn('w1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="w1n" onclick="yn('w1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-5" style="display:none">Auto-detected &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(4)">&larr; Back</button><button class="nb nx" onclick="go(6)">Test Drive &rarr;</button></div>
+        </div>
+
+        <!-- S6: TEST DRIVE -->
+        <div class="scr" id="s6">
+          <div class="spd">
+            <div class="stl">Step 5 &middot; Test Drive</div>
+            <div class="sth">Show During Test Drive</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script — during drive</span>"Notice how the car just nudged us back into the lane? That's Lane Assist — always on at highway speeds."</div></div>
+            <div class="gps"><div class="gpr"></div><div class="gpd s"></div><div class="gpd c"></div><div class="gpp"></div><div class="gpl">&#128205; GPS tracking &mdash; 8.4 km &middot; route match 94%</div></div>
+            <div class="aud" id="aud-6">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">In-vehicle audio active</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-6">Listening...</div>
+              <div class="aud-det" id="ad-6"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Live feature explanation detected &mdash; 5.2 confirmed</div></div>
+            </div>
+            <div class="fi" id="fi-drive-lane" onclick="tFeat(this,'fi-drive-lane')"><div class="fii">&#128737;</div><div><div class="fin">Lane Assist</div><div class="fid">Explain while active in lane</div></div><div class="fic" id="fic-drive-lane"></div></div>
+            <div class="fi" id="fi-drive-blind" onclick="tFeat(this,'fi-drive-blind')"><div class="fii">&#128065;</div><div><div class="fin">Blind Spot Warning</div><div class="fid">Point out mirror indicator live</div></div><div class="fic" id="fic-drive-blind"></div></div>
+            <div class="fi" id="fi-drive-cruise" onclick="tFeat(this,'fi-drive-cruise')"><div class="fii">&#128663;</div><div><div class="fin">Adaptive Cruise</div><div class="fid">Not demonstrated in this drive</div></div><div class="fic" id="fic-drive-cruise"></div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">Drive-time features should be demonstrated while the vehicle is active. If the rep skips one, AuditPro leaves it red so the gap is obvious before the next sale.</div></div>
+            <div class="ync"><div class="ynq">5.2 &mdash; Did you explain a feature while it was active?</div><div class="ynr"><button class="ynb" id="dr1y" onclick="yn('dr1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="dr1n" onclick="yn('dr1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-6" style="display:none">Auto-detected &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(5)">&larr; Back</button><button class="nb nx" onclick="go(7)">Trade-In &rarr;</button></div>
+        </div>
+
+        <!-- S7: TRADE-IN (scrollable, audio at top) -->
+        <div class="scr scroll" id="s7">
+          <div class="spd">
+            <div class="stl">Step 6 &middot; Trade-In Appraisal</div>
+            <div class="sth">Trade-In Photos</div>
+            <div class="aud" id="aud-7">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; auto-filling condition notes</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-7">Listening for condition mentions...</div>
+              <div class="aud-det" id="ad-7"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Audio cues detected &mdash; condition notes are combining voice + photo analysis</div></div>
+            </div>
+            <div class="pg">
+              <div class="pp" id="pp-t1" onclick="takePhoto(this,'pp-t1','&#128663;&#128252;')"><div class="ppi">&#128247;</div><div class="ppl">Front</div><div class="cam-flash" id="cf-t1"></div></div>
+              <div class="pp" id="pp-t2" onclick="takePhoto(this,'pp-t2','&#128663;&#128249;')"><div class="ppi">&#128247;</div><div class="ppl">Rear</div><div class="cam-flash" id="cf-t2"></div></div>
+              <div class="pp" id="pp-t3" onclick="takePhoto(this,'pp-t3','&#129307;')"><div class="ppi">&#128247;</div><div class="ppl">Driver side</div><div class="cam-flash" id="cf-t3"></div></div>
+              <div class="pp" id="pp-t4" onclick="takePhoto(this,'pp-t4','&#129309;')"><div class="ppi">&#128247;</div><div class="ppl">Pass. side</div><div class="cam-flash" id="cf-t4"></div></div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Condition Notes (auto-filled)</div>
+            <textarea style="width:100%;background:#fff;border:1.5px solid #e0e0e8;border-radius:10px;padding:10px;font-size:12px;color:#000;resize:none;outline:none;font-family:var(--f);min-height:58px;transition:border-color .2s" id="trade-notes" placeholder="Audio will auto-fill defects..."></textarea>
+            <div class="cv-box" id="tradeCv"><div class="cv-head"><div class="cv-title">Trade condition analysis</div><div class="cv-state">Audio + Photo</div></div><div class="cv-line info">Conversation cues are building the condition story now.</div><div class="cv-line">Capture all four angles to unlock image-based condition findings.</div></div>
+            <div class="dfd"><div class="dfl">Appraisal Value (after 4 photos)</div><input class="dfi" value="$18,500"></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(6)">&larr; Back</button><button class="nb nx" onclick="go(8)">The Proposal &rarr;</button></div>
+        </div>
+
+        <!-- S8: PENCIL + FLOATING MANAGER TO -->
+        <div class="scr" id="s8">
+          <div class="spd">
+            <div class="stl">Step 7 &middot; The Proposal</div>
+            <div class="sth">First Pencil</div>
+            <div class="fgt">
+              <div class="fgh"><div class="fght">Quote &middot; <span class="cn">—</span></div></div>
+              <div class="fgr"><div class="frl">Vehicle Price (MSRP)</div><div class="frv">$41,250</div></div>
+              <div class="fgr"><div class="frl m">Trade-in Allowance</div><div class="frv pos">&minus;$18,500</div></div>
+              <div class="fgr"><div class="frl m">Sales Tax (8.5%)</div><div class="frv">$1,934</div></div>
+              <div class="fgr"><div class="frl m">Doc Fee</div><div class="frv">$599</div></div>
+              <div class="fgr"><div class="frl m">Registration</div><div class="frv">$385</div></div>
+              <div class="fgr tot"><div class="frl" style="font-weight:700">Out-the-Door Total</div><div class="frv tot">$25,668</div></div>
+            </div>
+            <div id="pPre"><button class="mkb" onclick="markPencil()">&#10002; &nbsp;Mark First Pencil Presented</button></div>
+            <div id="pDone" style="display:none"><div class="pcc"><div class="pci">&#10003;</div><div class="pct">First Pencil Presented</div><div class="pcm">Logged 2:14 PM &middot; Today</div></div></div>
+            <div class="coach-box"><div class="coach-title">Manager T.O.</div><div class="coach-copy">This screen is a natural place for a manager touchpoint. The button stays visible so the demo can show the handoff being logged instead of implied.</div></div>
+          </div>
+          <!-- Floating Manager TO button -->
+          <button class="mgr-float" id="mgrBtn" onclick="openMgr()">&#129309; Manager T.O.</button>
+          <!-- Manager TO Overlay -->
+          <div class="mgr-overlay" id="mgrOverlay">
+            <div class="mgr-sheet">
+              <div class="mgr-handle"></div>
+              <div style="display:flex;align-items:center;justify-content:space-between"><div class="mgr-title">Manager T.O.</div><button class="close-btn" onclick="closeMgr()">&#10005;</button></div>
+              <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"<span class="cn">—</span>, I'd like you to meet James — our Sales Manager. James, <span class="cn">—</span> is interested in the <span class="vn">—</span>."</div></div>
+              <div class="aud" id="aud-mgr">
+                <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Listening for manager voice + introduction</div></div>
+                <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+                <div class="aud-tx" id="at-mgr">Listening for new voice...</div>
+                <div class="aud-det" id="ad-mgr"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">New voice + name intro detected &mdash; T.O. confirmed 2:19 PM</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(7)">&larr; Back</button><button class="nb nx" onclick="go(9)">Buyer's Order &rarr;</button></div>
+        </div>
+
+        <!-- S9: BUYER'S ORDER -->
+        <div class="scr" id="s9">
+          <div class="spd">
+            <div class="stl">Step 7.2 &middot; OTD Transparency</div>
+            <div class="sth">Buyer's Order</div>
+            <div class="sts">Photograph the signed order to confirm OTD figures and start the F&amp;I timer</div>
+            <div class="bo-prompt" id="boPrompt" onclick="captureBO()">
+              <div class="cam-flash" id="cf-bo" style="border-radius:13px"></div>
+              <div class="bo-prompt-ico">&#128196;&#128247;</div>
+              <div class="bo-prompt-title">Tap to photograph buyer's order</div>
+              <div class="bo-prompt-sub">Computer vision will confirm signature and line items</div>
+            </div>
+            <div class="bo-reveal" id="boReveal">
+              <div class="boh"><div class="boi">&#128196;</div><div class="bot">Buyer's Order &middot; <span class="cn">—</span></div></div>
+              <div class="bol"><div class="boll">Vehicle</div><div class="bolv vn">—</div></div>
+              <div class="bol"><div class="boll">Selling Price</div><div class="bolv">$41,250</div></div>
+              <div class="bol"><div class="boll">Trade Allowance</div><div class="bolv">&minus;$18,500</div></div>
+              <div class="bol"><div class="boll">Tax + Fees</div><div class="bolv">$2,918</div></div>
+              <div class="bol" style="background:var(--grl)"><div class="boll" style="font-weight:700;color:#000;font-size:12px">Total OTD</div><div class="bolv" style="font-weight:800;color:var(--br);font-size:13px">$25,668</div></div>
+              <div class="bo-sig">&#10003; Signed &middot; Captured 2:31 PM &middot; Signature confirmed by CV</div>
+            </div>
+            <div class="sbn" id="boBanner" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Buyer's order captured &middot; F&amp;I 20-min timer started 2:31 PM</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(8)">&larr; Back</button><button class="nb nx" onclick="go(10)">F&amp;I Handoff &rarr;</button></div>
+        </div>
+
+        <!-- S10: F&I HANDOFF -->
+        <div class="scr" id="s10">
+          <div class="spd">
+            <div class="stl">Step 9 &middot; F&amp;I Handover</div>
+            <div class="sth">Warm Hand-off</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"<span class="cn">—</span>, let me introduce you to David Chen, our Finance Manager. David, this is <span class="cn">—</span> &mdash; taking home the <span class="vn">—</span>."</div></div>
+            <div class="aud" id="aud-10">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; detecting three-way intro</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-10">Listening...</div>
+              <div class="aud-det" id="ad-10"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Three-way intro confirmed &mdash; 9.1 logged</div></div>
+            </div>
+            <div class="tmb"><div class="tml">Time since buyer's order signed</div><div class="tmv">00:07</div><div class="tmo">&#10003; Within 20-minute window</div></div>
+            <div class="fic2"><div class="fic2t"><div class="fic2n">David Chen &mdash; F&amp;I Manager</div><div class="fic2m">2:31 PM</div></div><div class="fic2s">Deal picked up &middot; <span class="cn">—</span></div><div class="fic2b" id="fi-badge" style="display:none">In F&amp;I Office &#10003;</div></div>
+            <div class="sbn" id="fi-confirm" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Warm hand-off confirmed &mdash; both devices timestamped within 2 minutes</div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">The F&amp;I handoff is a relationship moment, not a routing moment. AuditPro keeps the introduction visible and ties the timestamp back to the deal audit.</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(9)">&larr; Back</button><button class="nb nx" onclick="go(11)">Audit Complete &rarr;</button></div>
+        </div>
+
+        <!-- S11: AUDIT COMPLETE -->
+        <div class="scr" id="s11">
+          <div class="acw">
+            <div class="asc"><div class="asn">84%</div><div class="asl">Score</div></div>
+            <div class="act">Rep Coaching Summary</div>
+            <div class="acs"><span class="cn">—</span> &middot; <span class="vn">—</span></div>
+            <div class="art">
+              <div class="arr"><div class="ars">1.1 Meet &amp; Greet</div><div class="arp">&#10003; Pass</div></div>
+              <div class="arr"><div class="ars">1.2 Refreshment</div><div class="arp">&#10003; Auto</div></div>
+              <div class="arr"><div class="ars">2.1 Discovery Sheet</div><div class="arp">&#10003; Complete</div></div>
+              <div class="arr"><div class="ars">3.1 Vehicle Logic</div><div class="arp">&#10003; Auto</div></div>
+              <div class="arr"><div class="ars">3.2 Front-Line Ready</div><div class="arp">&#10003; Auto</div></div>
+              <div class="arr"><div class="ars">4.1 Walkaround</div><div class="arp">&#10003; Auto</div></div>
+              <div class="arr"><div class="ars">4.2 Static Features</div><div class="arf">&#9873; Heated Seats missed</div></div>
+              <div class="arr"><div class="ars">5.1 Demo Route</div><div class="arp">&#10003; GPS</div></div>
+              <div class="arr"><div class="ars">5.2 In-drive Feature Coaching</div><div class="arf">&#9873; Adaptive Cruise missed</div></div>
+              <div class="arr"><div class="ars">6.1 Trade-In Walk</div><div class="arp">&#10003; Photo</div></div>
+              <div class="arr"><div class="ars">7.1 Time to Pencil</div><div class="arp">&#10003; 11 mins</div></div>
+              <div class="arr"><div class="ars">7.2 OTD Transparency</div><div class="arp">&#10003; Photo+CV</div></div>
+              <div class="arr"><div class="ars">8.1 Manager T.O.</div><div class="arf">&#9873; Opportunity to improve</div></div>
+              <div class="arr"><div class="ars">9.1 F&amp;I Hand-off</div><div class="arp">&#10003; Auto</div></div>
+              <div class="arr"><div class="ars">9.2 F&amp;I Wait Time</div><div class="arp">&#10003; 7 mins</div></div>
+            </div>
+            <div class="coach-box" style="margin:12px 16px 0"><div class="coach-title">Self-coaching takeaway</div><div class="coach-copy">Next time, complete all comfort features before the drive and finish the manager touchpoint earlier. Saved to manager dashboard for trend tracking.</div></div>
+            <button class="bdb" onclick="go(0)">&larr; Back to Dashboard</button>
+          </div>
+        </div>
+
+      </div><!-- /pscr -->
+    </div><!-- /ph -->
+  </div><!-- /pw -->
+
+  <!-- RIGHT -->
+  <div class="rp">
+    <div class="rpt">How it's captured</div>
+    <div id="rpC"><div class="rpc"><div class="rpct">Dashboard</div><div class="rpcb">Active deals, compliance score, new walk-in flow.</div></div></div>
+  </div>
+</div>
+
+<script>
+const STEPS=[
+  {l:'Dashboard',p:0,rp:{t:'Dashboard',b:'Active deals, compliance score, new walk-in flow.',tags:[]}},
+  {l:'1.1&ndash;1.2 &middot; Greet',p:8,rp:{t:'Steps 1.1 &amp; 1.2',b:'1.1 self-reported. 1.2 auto-detected via audio — refreshment offer phrase triggers Y button.',tags:['a','m']}},
+  {l:'2.1 &middot; Discovery',p:16,rp:{t:'Step 2.1 &amp; 2.2',b:'A dealership-style discovery sheet captures replacement vehicle, use case, passengers, drive type, and must-have needs while audio confirms the key lifestyle cues.',tags:['a','m']}},
+  {l:'3.1 &middot; Vehicle Match',p:24,rp:{t:'Step 3.1 — Vehicle Logic',b:'AuditPro loads Honda digital feature libraries, matches customer needs to live inventory, and listens for phrases like “because you mentioned” and “that’s why I picked this one.”',tags:['a','m']}},
+  {l:'3.2 &middot; Front-Line Ready',p:33,rp:{t:'Step 3.2 — Readiness',b:'Audio detects key handover and measures time gap. Photos confirm vehicle condition.',tags:['a','p']}},
+  {l:'4.1 &middot; Walkaround',p:41,rp:{t:'Steps 4.1 &amp; 4.2',b:'Static features are coached separately from in-drive features. Demonstrated items turn green, while missed features stay red to coach the rep in the moment.',tags:['a','m']}},
+  {l:'5.1 &middot; Test Drive',p:50,rp:{t:'Steps 5.1 &amp; 5.2',b:'GPS tracks the demo route while in-vehicle audio listens for live explanation language like “right now” and “notice how” tied to safety tech.',tags:['g','a']}},
+  {l:'6.1 &middot; Trade-In',p:58,rp:{t:'Steps 6.1 &amp; 6.2',b:'Four required trade photos unlock condition analysis. Audio and image cues populate defects like scratches and tire wear into the appraisal notes.',tags:['a','p']}},
+  {l:'7.1 &middot; First Pencil',p:66,rp:{t:'Steps 7.1 &amp; 8.1',b:'Timestamp on mark. Manager T.O. is a floating button — triggers anytime. Audio detects new voice + intro.',tags:['t','a']}},
+  {l:'7.2 &middot; Buyer\'s Order',p:75,rp:{t:'Steps 7.2 &amp; 9.2',b:'Photo prompt first, then order reveals. CV confirms signature and OTD items. Timestamp starts F&amp;I window.',tags:['p','t']}},
+  {l:'9.1 &middot; F&amp;I Handoff',p:83,rp:{t:'Steps 9.1 &amp; 9.2',b:'Script card + audio detects three-way intro. Dual-device timestamps confirm timing of hand-off.',tags:['a','t']}},
+  {l:'Audit Complete',p:100,rp:{t:'Rep Coaching Summary',b:'The rep sees strengths, misses, and self-coaching cues immediately. The same signals roll into the manager BI dashboard for intervention tracking.',tags:[]}}
+];
+
+const AUDIO={
+  1:{delay:2500,lines:[
+    {t:0,txt:'Listening...'},
+    {t:1200,txt:'"Hi Sarah, welcome to Riverside Honda..."'},
+    {t:2400,txt:'"...can I grab you a <span class=trig>coffee or water</span> before we head out?"'},
+    {t:3400,btn:'g2',det:'ad-1',ov:'ao-1'}
+  ]},
+  2:{delay:2500,lines:[
+    {t:0,txt:'Listening for dealership discovery cues...'},
+    {t:1400,txt:'"Mostly <span class=trig>school runs</span> and weekday errands..."',cb:'cb-fam'},
+    {t:2800,txt:'"...plus a lot of <span class=trig>highway commuting</span> during the week..."',cb:'cb-hw'},
+    {t:3800,txt:'"...I’d really like <span class=trig>better mileage</span> than my RAV4..."',cb:'cb-eff'},
+    {t:4800,txt:'"...and <span class=trig>AWD would be nice</span> when the weather turns..."',cb:'cb-awd'}
+  ]},
+  3:{delay:2500,lines:[
+    {t:0,txt:'Honda digital features loaded. Matching needs to inventory...'},
+    {t:800,fill:'smartFill'},
+    {t:1200,txt:'"...because you mentioned school runs and better mileage..."'},
+    {t:2400,txt:'"...<span class=trig>that\'s why I picked this one</span> — the CR-V Hybrid fits best..."'},
+    {t:3400,txt:'"...<span class=trig>since you need</span> AWD confidence and cargo flexibility..."'},
+    {t:4200,btn:'v1',det:'ad-3',ov:'ao-3'}
+  ]},
+  4:{delay:2500,lines:[
+    {t:0,txt:'Timing key handover...'},
+    {t:1400,txt:'"...let me just <span class=trig>grab the keys</span>..." [47s gap measured]'},
+    {t:2800,txt:'"...here we go, she\'s <span class=trig>fueled up</span> and staged out front..."'},
+    {t:3800,btn:'v2',det:'ad-4',ov:'ao-4'}
+  ]},
+  5:{delay:2500,lines:[
+    {t:0,txt:'Listening for static feature demonstrations...'},
+    {t:1200,txt:'"...let me show you <span class=trig>wireless Apple CarPlay</span>..."',feat:'fic-play',passEl:'fi-play'},
+    {t:2200,txt:'"...here’s the <span class=trig>power tailgate</span> for groceries and strollers..."',feat:'fic-tail',passEl:'fi-tail'},
+    {t:3200,txt:'"...and this cargo area is why it works for <span class=trig>school runs</span>..."',feat:'fic-cargo',passEl:'fi-cargo'},
+    {t:4200,det:'ad-5'},
+    {t:4500,failEl:'fi-heat'},
+    {t:4700,btn:'w1',ov:'ao-5'}
+  ]},
+  6:{delay:2500,lines:[
+    {t:0,txt:'Listening...'},
+    {t:1400,txt:'"...notice how the car just nudged us back — that\'s <span class=trig>Lane Assist active right now</span>..."',feat:'fic-drive-lane',passEl:'fi-drive-lane'},
+    {t:2800,txt:'"...you can see the <span class=trig>blind spot warning right now</span> on your mirror..."',feat:'fic-drive-blind',passEl:'fi-drive-blind'},
+    {t:3800,btn:'dr1',det:'ad-6',ov:'ao-6'}
+  ]},
+  7:{delay:2500,lines:[
+    {t:0,txt:'Listening for condition mentions...'},
+    {t:1400,txt:'"...there\'s a <span class=trig>small dent</span> on the rear quarter..."',note:'Small dent — rear quarter panel. '},
+    {t:2800,txt:'"...and the <span class=trig>front tyres</span> are below 4mm threshold..."',note:'Small dent — rear quarter panel. Front tyres below 4mm — flagged for reconditioning.'},
+    {t:3800,det:'ad-7'}
+  ]},
+  mgr:{delay:800,lines:[
+    {t:0,txt:'Listening for manager voice...'},
+    {t:1400,txt:'"...Sarah, I\'d like you to meet <span class=trig>James</span>..."'},
+    {t:2600,txt:'"...<span class=trig>James</span> — this is <span class=trig>Sarah</span>. [New voice detected]"'},
+    {t:3600,det:'ad-mgr'}
+  ]},
+  10:{delay:2500,lines:[
+    {t:0,txt:'Listening...'},
+    {t:1200,txt:'"...<span class=trig>Sarah</span>, let me introduce you to..."'},
+    {t:2400,txt:'"...this is <span class=trig>David Chen</span>, our Finance Manager..."'},
+    {t:3400,txt:'"...<span class=trig>David</span> — <span class=trig>Sarah</span> is taking home the CR-V today..."'},
+    {t:4300,det:'ad-10'},
+    {t:4600,showEl:'fi-badge'},
+    {t:4700,showEl:'fi-confirm'}
+  ]}
+};
+
+const DEMO = {
+  customer: 'Sarah Mitchell',
+  vehicle: 'Honda CR-V Hybrid AWD',
+  firstName: 'Sarah',
+};
+
+const PHOTO_ASSETS = {
+  ext: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2026/CR-V/Feature-Blades/Exterior/Utility/Exterior_07_L.jpg?hash=C20CFBD18BE42DB075C23ABDD1EDEB73&sc_lang=en&w=900',
+  int: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2026/CR-V/Feature-Blades/Interior/Cabin/Interior_02_L.jpg?hash=F5A148BE5AB5235DCEC280C413A24969&sc_lang=en&w=900',
+  t1: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-01-front-end-1140-2x.jpg?hash=6E5D3B52DB445C7A75A4C9511284A708&w=900',
+  t2: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-02-RUGGED-1140-2x.jpg?hash=F821BB638DC8C61FD5724F326F4E8E79&w=900',
+  t3: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-03-profile-1140-2x.jpg?hash=11D33F7D54B433E0A0E7072414185FC1&w=900',
+  t4: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-04-LED-tail-1140-2x.jpg?hash=242A48C3719850F8B029BA251C2298E7&w=900',
+};
+
+let cur=0,timers=[],autoTimers=[],autoMode=false,tradePhotoCount=0;
+let preloadedPhotoUrls = new Set();
+
+function start(playAuto){
+  const d=document.getElementById('iD').value||'Riverside Honda';
+  const r=document.getElementById('iR').value||'Marcus Webb';
+  const c=DEMO.customer;
+  const v=DEMO.vehicle;
+  document.querySelectorAll('.dn').forEach(e=>e.textContent=d);
+  document.querySelectorAll('.rn').forEach(e=>e.textContent=r.split(' ')[0]);
+  document.querySelectorAll('.cn').forEach(e=>e.textContent=c);
+  document.querySelectorAll('.vn').forEach(e=>e.textContent=v);
+  preloadPhotoAssets();
+  document.getElementById('setup').style.display='none';
+  document.getElementById('app').classList.add('on');
+  buildNav();updateUI(0);
+  autoMode=Boolean(playAuto);
+  if(autoMode) queueAutoDemo();
+}
+
+function buildNav(){
+  const nav=document.getElementById('snv');nav.innerHTML='';
+  STEPS.forEach((s,i)=>{
+    const el=document.createElement('div');
+    el.className='sni'+(i===0?' on':'');el.id='n'+i;
+    el.innerHTML='<div class="snid"></div><div class="snil">'+s.l+'</div>';
+    el.onclick=()=>go(i);nav.appendChild(el);
+  });
+}
+
+function go(n){
+  clearAll();
+  document.getElementById('s'+cur).classList.remove('on');
+  const old=document.getElementById('n'+cur);
+  old.classList.remove('on');
+  if(cur<n)old.classList.add('dn');
+  cur=n;
+  document.getElementById('s'+n).classList.add('on');
+  updateUI(n);
+  document.querySelector('.pscr').scrollTop=0;
+  // Map screen index to audio key
+  const keys={1:1,2:2,3:3,4:4,5:5,6:6,7:7,10:10};
+  if(keys[n]!==undefined){
+    const k=keys[n];
+    const cfg=AUDIO[k];
+    if(cfg)setTimeout(()=>runAudio(k),cfg.delay);
+  }
+}
+
+function clearAll(){timers.forEach(t=>clearTimeout(t));timers=[];}
+
+function runAudio(key){
+  const cfg=AUDIO[key];if(!cfg)return;
+  const txEl=document.getElementById('at-'+key)||document.getElementById('at-disc');
+  cfg.lines.forEach(line=>{
+    const t=setTimeout(()=>{
+      if(line.txt&&txEl)txEl.innerHTML=line.txt;
+      if(line.note){const tn=document.getElementById('trade-notes');if(tn)tn.value=line.note;}
+      if(line.feat){
+        const fc=document.getElementById(line.feat);
+        if(fc&&!fc.classList.contains('ck')){fc.classList.add('ck');fc.textContent='✓';}
+      }
+      if(line.cb){
+        const cb=document.getElementById(line.cb);
+        if(cb){cb.classList.add('ck');cb.textContent='✓';cb.classList.add('glow');}
+      }
+      if(line.btn){
+        const yb=document.getElementById(line.btn+'y');
+        if(yb){yb.className='ynb sy';yb.style.transition='all .4s';}
+      }
+      if(line.fill){
+        const fill=document.getElementById(line.fill);
+        if(fill)fill.style.width='100%';
+      }
+      if(line.det&&line.det!=='ad-disc-placeholder'){
+        const d=document.getElementById(line.det);
+        if(d)d.style.display='flex';
+      }
+      if(line.ov){const ov=document.getElementById(line.ov);if(ov)ov.style.display='block';}
+      if(line.passEl){const pe=document.getElementById(line.passEl);if(pe)pe.classList.add('pass');}
+      if(line.showEl){const se=document.getElementById(line.showEl);if(se)se.style.display=line.showEl==='fi-badge'?'inline-block':'flex';}
+      if(line.failEl){
+        const fe=document.getElementById(line.failEl);
+        if(fe){fe.classList.add('fail');}
+        const ficId=line.failEl.replace('fi-','fic-');
+        const fic2=document.getElementById(ficId);
+        if(fic2){fic2.className='fic fail-state';fic2.textContent='!';}
+        const fidd=fe?fe.querySelector('.fid'):null;
+        if(fidd)fidd.textContent='Not detected — confirm manually';
+      }
+    },line.t);
+    timers.push(t);
+  });
+}
+
+function updateUI(n){
+  const s=STEPS[n];
+  document.getElementById('pFill').style.width=s.p+'%';
+  document.getElementById('pLbl').innerHTML=s.l;
+  document.getElementById('pPct').textContent=s.p+'%';
+  document.querySelectorAll('.sni').forEach((el,i)=>{el.classList.remove('on');if(i===n)el.classList.add('on');});
+  const tagMap={a:'&#127908; Audio',m:'&#9997; Manual',g:'&#128205; GPS',p:'&#128247; Photo',t:'&#128336; Timestamp'};
+  const tags=s.rp.tags.map(t=>`<span class="tag ${t}">${tagMap[t]}</span>`).join('');
+  document.getElementById('rpC').innerHTML=`<div class="rpc"><div class="rpct">${s.rp.t}</div><div class="rpcb">${s.rp.b}</div><div style="margin-top:4px">${tags}</div></div>`;
+}
+
+function yn(id,v){
+  document.getElementById(id+'y').className='ynb'+(v==='y'?' sy':'');
+  document.getElementById(id+'n').className='ynb'+(v==='n'?' sn':'');
+}
+function tCb(el){
+  const cb=el.querySelector('.cb');
+  if(cb.classList.contains('ck')){cb.classList.remove('ck');cb.textContent='';}
+  else{cb.classList.add('ck');cb.textContent='✓';}
+}
+function tFeat(el,id){
+  const fic=el.querySelector('.fic');
+  if(!fic||fic.classList.contains('fail-state'))return;
+  fic.classList.toggle('ck');
+  fic.textContent=fic.classList.contains('ck')?'✓':'';
+}
+
+function takePhoto(el,id,emoji){
+  if(el.classList.contains('fl'))return;
+  // Flash
+  const flash=el.querySelector('.cam-flash');
+  if(flash){flash.classList.add('go');setTimeout(()=>flash.classList.remove('go'),400);}
+  // Reveal photo after flash
+  setTimeout(()=>{
+    el.classList.add('fl');
+    const assetKey = id.replace('pp-','');
+    const photoUrl = PHOTO_ASSETS[emoji] || PHOTO_ASSETS[assetKey];
+    const hasLoadedPhoto = photoUrl && preloadedPhotoUrls.has(photoUrl);
+    const bgStyle = hasLoadedPhoto
+      ? `background-image:linear-gradient(rgba(0,0,0,.08),rgba(0,0,0,.08)),url('${photoUrl}');background-size:cover;background-position:center;`
+      : 'background:linear-gradient(135deg,#e8f0e8,#d0e8d0)';
+    const badgeColor = hasLoadedPhoto ? '#fff' : 'var(--gr)';
+    const badgeBg = hasLoadedPhoto ? 'rgba(0,0,0,.32)' : 'rgba(255,255,255,.72)';
+    const badgeText = hasLoadedPhoto ? 'Captured' : 'Processing';
+    el.innerHTML=`<div class="pf" style="${bgStyle}"><div class="pkl" style="color:${badgeColor};background:${badgeBg};padding:3px 8px;border-radius:20px">${badgeText} &#10003;</div></div><div class="cam-flash" id="${id.replace('pp-','cf-')}"></div>`;
+    if(id.startsWith('pp-t')){
+      tradePhotoCount+=1;
+      maybeRevealTradeCv();
+    }
+  },250);
+}
+
+function markPencil(){
+  document.getElementById('pPre').style.display='none';
+  document.getElementById('pDone').style.display='block';
+  // Show manager button
+  document.getElementById('mgrBtn').style.display='flex';
+}
+
+function openMgr(){
+  document.getElementById('mgrOverlay').classList.add('on');
+  const cfg=AUDIO['mgr'];
+  if(cfg)setTimeout(()=>runAudioMgr(),cfg.delay);
+}
+
+function runAudioMgr(){
+  const cfg=AUDIO['mgr'];if(!cfg)return;
+  const txEl=document.getElementById('at-mgr');
+  cfg.lines.forEach(line=>{
+    const t=setTimeout(()=>{
+      if(line.txt&&txEl)txEl.innerHTML=line.txt;
+      if(line.det){const d=document.getElementById(line.det);if(d)d.style.display='flex';}
+    },line.t);
+    timers.push(t);
+  });
+}
+
+function closeMgr(){document.getElementById('mgrOverlay').classList.remove('on');}
+
+function captureBO(){
+  const prompt=document.getElementById('boPrompt');
+  const flash=document.getElementById('cf-bo');
+  flash.classList.add('go');
+  setTimeout(()=>flash.classList.remove('go'),400);
+  setTimeout(()=>{
+    prompt.style.display='none';
+    document.getElementById('boReveal').classList.add('on');
+    document.getElementById('boBanner').style.display='flex';
+  },350);
+}
+
+function maybeRevealTradeCv(){
+  if(tradePhotoCount < 4) return;
+  const box=document.getElementById('tradeCv');
+  if(!box) return;
+  box.innerHTML='<div class="cv-head"><div class="cv-title">Trade condition analysis</div><div class="cv-state">Audio + Photo complete</div></div><div class="cv-line info">&#127908; Audio cue: "small dent" and "front tires" captured from conversation</div><div class="cv-line ok">&#128247; Four-angle photo requirement complete</div><div class="cv-line warn">&#9873; Image cue: surface scratch detected on rear quarter panel</div><div class="cv-line warn">&#9873; Image cue: front tire wear flagged for reconditioning</div><div class="cv-line">Combined notes added to the appraisal record automatically.</div>';
+}
+
+function scheduleAuto(delay, fn){
+  const t=setTimeout(fn, delay);
+  autoTimers.push(t);
+}
+
+function preloadPhotoAssets(){
+  Object.values(PHOTO_ASSETS).forEach((url)=>{
+    if(preloadedPhotoUrls.has(url)) return;
+    const img = new Image();
+    img.onload = ()=>preloadedPhotoUrls.add(url);
+    img.src = url;
+  });
+}
+
+function queueAutoDemo(){
+  autoTimers.forEach(t=>clearTimeout(t));
+  autoTimers=[];
+  scheduleAuto(1400, ()=>go(1));
+  scheduleAuto(9800, ()=>yn('g1','y'));
+  scheduleAuto(11200, ()=>go(2));
+  scheduleAuto(20500, ()=>go(3));
+  scheduleAuto(29200, ()=>go(4));
+  scheduleAuto(35000, ()=>takePhoto(document.getElementById('pp-ext'),'pp-ext','ext'));
+  scheduleAuto(35600, ()=>takePhoto(document.getElementById('pp-int'),'pp-int','int'));
+  scheduleAuto(40500, ()=>go(5));
+  scheduleAuto(45800, ()=>go(6));
+  scheduleAuto(53200, ()=>go(7));
+  scheduleAuto(59000, ()=>takePhoto(document.getElementById('pp-t1'),'pp-t1','&#128663;&#128252;'));
+  scheduleAuto(59600, ()=>takePhoto(document.getElementById('pp-t2'),'pp-t2','&#128663;&#128249;'));
+  scheduleAuto(60200, ()=>takePhoto(document.getElementById('pp-t3'),'pp-t3','&#129307;'));
+  scheduleAuto(60800, ()=>takePhoto(document.getElementById('pp-t4'),'pp-t4','&#129309;'));
+  scheduleAuto(63600, ()=>go(8));
+  scheduleAuto(68400, ()=>markPencil());
+  scheduleAuto(70600, ()=>go(9));
+  scheduleAuto(74800, ()=>captureBO());
+  scheduleAuto(77600, ()=>go(10));
+  scheduleAuto(85800, ()=>go(11));
+}
+</script>
+</body>
+</html>
