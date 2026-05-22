@@ -217,8 +217,12 @@ class CatalogEmitter:
             entries_by_trim[trim_id] = self._dedupe_cells(cells)
             result.matrix_cells_added += len(entries_by_trim[trim_id])
 
+        # Honda press-release extractor may attach an ``extraction_confidence``
+        # tag to the ExtractedBrochure. When it's "low", we annotate every
+        # matrix entry we write so the operator can grep for review candidates.
+        confidence = getattr(extracted, "extraction_confidence", None)
         if not dry_run and entries_by_trim:
-            self._append_matrix_entries(entries_by_trim)
+            self._append_matrix_entries(entries_by_trim, extraction_confidence=confidence)
         result.matrix_entries_added = len(entries_by_trim)
         return result
 
@@ -323,7 +327,11 @@ class CatalogEmitter:
             result.new_feature_files.append(target)
         return new_id
 
-    def _append_matrix_entries(self, entries_by_trim: Mapping[str, list[dict]]) -> None:
+    def _append_matrix_entries(
+        self,
+        entries_by_trim: Mapping[str, list[dict]],
+        extraction_confidence: str | None = None,
+    ) -> None:
         existing: dict = {"make_id": "honda", "entries": []}
         if self._matrix_path.exists():
             try:
@@ -345,8 +353,14 @@ class CatalogEmitter:
                 old_cells = existing_by_trim[trim_id].get("features") or []
                 merged = self._dedupe_cells(list(old_cells) + cells)
                 existing_by_trim[trim_id]["features"] = merged
+                if extraction_confidence == "low":
+                    existing_by_trim[trim_id]["extraction_confidence"] = "low"
+                    existing_by_trim[trim_id]["needs_review"] = True
             else:
-                new_entry = {"trim_id": trim_id, "features": cells}
+                new_entry: dict = {"trim_id": trim_id, "features": cells}
+                if extraction_confidence == "low":
+                    new_entry["extraction_confidence"] = "low"
+                    new_entry["needs_review"] = True
                 existing["entries"].append(new_entry)
                 existing_by_trim[trim_id] = new_entry
 

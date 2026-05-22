@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<!--
+  Synthetic hondanews.com press-release fixture for tests. Structure
+  mirrors what we observe in real saved-page HTML:
+
+  * A <title> with the model name.
+  * An <article> wrapper.
+  * An <h1> with the model + headline.
+  * An <h2>"Trim Levels"</h2> followed by a <ul> of trim names.
+  * An <h2>"Features"</h2> followed by a <table> with trim columns and
+    feature rows. Cells use a mix of glyphs and the literal words
+    "Standard" / "Optional" / "N/A".
+  * A second per-trim "Standard Equipment" section (Sport heading +
+    bullet list).
+
+  Anything Honda-confidential is omitted; this is a fictitious 2026 Civic
+  shape only meaningful for parser exercising.
+-->
+<html lang="en">
+  <head>
+    <title>2026 Honda Civic: Press Information</title>
+  </head>
+  <body>
+    <article>
+      <h1>2026 Honda Civic Press Kit</h1>
+      <p>Honda's 2026 Civic builds on the platform with new tech and trims.</p>
+
+      <h2>Trim Levels</h2>
+      <ul>
+        <li>LX</li>
+        <li>Sport</li>
+        <li>EX</li>
+        <li>Touring</li>
+      </ul>
+
+      <h2>Features</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>LX</th>
+            <th>Sport</th>
+            <th>EX</th>
+            <th>Touring</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Honda Sensing</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+          </tr>
+          <tr>
+            <td>Wireless Apple CarPlay</td>
+            <td>&mdash;</td>
+            <td>S</td>
+            <td>S</td>
+            <td>Standard</td>
+          </tr>
+          <tr>
+            <td>Heated Front Seats</td>
+            <td>N/A</td>
+            <td>&#9675;</td>
+            <td>O</td>
+            <td>Standard</td>
+          </tr>
+          <tr>
+            <td>Wireless Phone Charger</td>
+            <td>&mdash;</td>
+            <td>&mdash;</td>
+            <td>Optional</td>
+            <td>&#9679;&#9679;</td>
+          </tr>
+          <tr>
+            <td>LED Headlights</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+            <td>&#9679;</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>Sport Standard Equipment</h2>
+      <ul>
+        <li>Sport-tuned suspension</li>
+        <li>18-inch alloy wheels</li>
+        <li>Honda Sensing</li>
+      </ul>
+
+      <h2>Touring Standard Equipment</h2>
+      <ul>
+        <li>Bose Premium Audio</li>
+        <li>Wireless Phone Charger</li>
+        <li>Heated Steering Wheel</li>
+      </ul>
+    </article>
+  </body>
+</html>

@@ -20,6 +20,7 @@ from .discover import BrochureDiscoverer
 from .download import BrochureDownloader
 from .emit import CatalogEmitter
 from .extract import BrochureExtractor
+from .extract_hondanews import extract_from_hondanews_html
 
 
 # Hand-curated display names and body styles per slug, so we can write the
@@ -74,6 +75,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--year", type=int, default=DEFAULT_YEAR, help="Model year (default: 2026).")
     p.add_argument(
+        "--source",
+        choices=("brochure-pdf", "hondanews-html"),
+        default="brochure-pdf",
+        help=(
+            "Where the data comes from. 'brochure-pdf' (default) preserves the "
+            "original discover-download-extract pipeline against automobiles.honda.com "
+            "PDFs. 'hondanews-html' reads operator-saved press-release HTML files "
+            "from --hondanews-dir."
+        ),
+    )
+    p.add_argument(
+        "--hondanews-dir",
+        type=Path,
+        default=Path(__file__).resolve().parents[2] / "data-cache" / "hondanews" / "2026",
+        help=(
+            "Directory containing operator-saved hondanews.com press releases "
+            "named <slug>.html. Only used when --source=hondanews-html."
+        ),
+    )
+    p.add_argument(
         "--data-dir",
         type=Path,
         default=Path(__file__).resolve().parents[2] / "data",
@@ -114,6 +135,97 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
+def _run_hondanews_html(
+    args: argparse.Namespace,
+    slugs: list[str],
+    emitter: CatalogEmitter,
+) -> int:
+    """Ingest saved hondanews.com press-release HTML files.
+
+    For each requested slug we expect ``<hondanews-dir>/<slug>.html``. Missing
+    files are skipped with a clear per-model message; the batch continues.
+    """
+    hondanews_dir: Path = args.hondanews_dir
+    print(f"Source: hondanews-html (reading from {hondanews_dir})")
+
+    if not hondanews_dir.exists():
+        print(
+            f"No files found: {hondanews_dir} does not exist. "
+            f"Save press-release HTML files there as <slug>.html and re-run.",
+            file=sys.stderr,
+        )
+        return 0
+
+    emitted_models: list[str] = []
+    failed: dict[str, str] = {}
+    download_paths: dict[str, Path] = {}
+    total_new_feature_files = 0
+    total_matrix_cells = 0
+
+    for slug in slugs:
+        html_path = hondanews_dir / f"{slug}.html"
+        if not html_path.exists():
+            msg = f"hondanews: no HTML at {html_path} (skip)"
+            print(f"[{slug}] {msg}")
+            failed[slug] = msg
+            continue
+        download_paths[slug] = html_path
+        try:
+            extracted = extract_from_hondanews_html(html_path)
+        except Exception as exc:  # noqa: BLE001
+            failed[slug] = f"extract crashed: {exc}"
+            continue
+        if not extracted.is_useful():
+            failed[slug] = (
+                "extract: not useful — "
+                + "; ".join(extracted.warnings[-2:] or ["no diagnostic"])
+            )
+            continue
+        display_name, body_style = MODEL_META[slug]
+        result = emitter.emit(
+            model_slug=slug,
+            model_display_name=display_name,
+            body_style=body_style,
+            extracted=extracted,
+            dry_run=args.dry_run,
+        )
+        if result.model_file is None and not result.matrix_cells_added:
+            failed[slug] = "emit produced no output"
+            continue
+        emitted_models.append(slug)
+        total_new_feature_files += len(result.new_feature_files)
+        total_matrix_cells += result.matrix_cells_added
+        confidence = getattr(extracted, "extraction_confidence", "high")
+        print(
+            f"[{slug}] trims={len(result.trim_files)}, "
+            f"matrix_entries={result.matrix_entries_added}, "
+            f"cells={result.matrix_cells_added}, "
+            f"new_features={len(result.new_feature_files)}, "
+            f"unmatched={len(result.unmatched_labels)}, "
+            f"confidence={confidence}"
+        )
+
+    if not download_paths:
+        print(
+            f"No <slug>.html files found in {hondanews_dir} for any of: {slugs}. "
+            "Operator should save press-release pages there and re-run."
+        )
+
+    report = RunReport(
+        discovered={},
+        download_paths=download_paths,
+        emitted_models=emitted_models,
+        failed_models=failed,
+        total_new_feature_files=total_new_feature_files,
+        total_matrix_cells=total_matrix_cells,
+    )
+    print()
+    print(report.format())
+    # Exit 0 even when nothing was emitted -- "no files cached yet" is the
+    # documented pre-condition for this source, not a failure.
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     logging.basicConfig(
@@ -127,10 +239,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Unknown model slug(s): {unknown}. Known: {sorted(MODEL_META)}", file=sys.stderr)
         return 2
 
+    emitter = CatalogEmitter(data_dir=args.data_dir, year=args.year)
+
+    # Branch: hondanews HTML source uses a totally different ingestion path
+    # (no network, no PDFs). Hand off and return.
+    if args.source == "hondanews-html":
+        return _run_hondanews_html(args, slugs, emitter)
+
     discoverer = BrochureDiscoverer(year=args.year)
     downloader = BrochureDownloader(cache_root=args.cache_dir, year=args.year)
     extractor = BrochureExtractor()
-    emitter = CatalogEmitter(data_dir=args.data_dir, year=args.year)
 
     # Parse --from-pdf overrides up front.
     pdf_overrides: dict[str, Path] = {}

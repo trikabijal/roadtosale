@@ -59,12 +59,71 @@ CLI flags:
 |---|---|
 | `--models civic,accord,...` | Comma-separated slugs. Default: `civic,accord,hr-v,pilot,passport,odyssey,ridgeline,prologue` |
 | `--year 2026` | Model year (only affects path layout / IDs; does not change the brochure URL) |
+| `--source brochure-pdf\|hondanews-html` | Data source. Default `brochure-pdf` preserves existing behavior; `hondanews-html` reads operator-saved press-release HTML files (see "Source: hondanews press releases" below) |
+| `--hondanews-dir <path>` | Directory of operator-saved hondanews HTML files. Only used with `--source hondanews-html`. Defaults to `../data-cache/hondanews/2026` |
 | `--data-dir <path>` | Where YAML output goes. Defaults to `../data` |
 | `--cache-dir <path>` | Where PDFs are cached. Defaults to `../data-cache` |
 | `--dry-run` | Run discovery + download + extract; do NOT write YAML |
 | `--skip-discover` | Skip discovery; use whatever is already in the cache |
 | `--from-pdf SLUG=PATH` | Override discovery+download for one model with a local PDF. Repeatable |
 | `--verbose` | INFO logging |
+
+## Source: hondanews press releases
+
+Brochures from `automobiles.honda.com` carry trim *names* but no
+trim x feature matrix — that detail lives in the corresponding press
+release on `hondanews.com`. `hondanews.com` is also Akamai-blocked, so
+the operator downloads each press release in their browser and the
+extractor consumes the saved HTML.
+
+### Workflow
+
+1. Operator opens each hondanews press-release URL in a browser:
+   - `https://hondanews.com/.../2026-honda-accord-...`
+   - `https://hondanews.com/.../2026-honda-civic-...`
+   - `https://hondanews.com/.../2026-honda-hr-v-...`
+   - `https://hondanews.com/.../2026-honda-pilot-...`
+   - `https://hondanews.com/.../2026-honda-passport-...`
+   - `https://hondanews.com/.../2026-honda-odyssey-...`
+   - `https://hondanews.com/.../2026-honda-ridgeline-...`
+   - `https://hondanews.com/.../2026-honda-prologue-...`
+2. **File → Save Page As → Web Page, Complete** (or **Source**) and save
+   to `vehicle-feature-catalog/data-cache/hondanews/2026/<slug>.html`.
+   - Chrome / Firefox / Safari all emit slightly different DOMs from
+     "Save Page As" — the extractor is structural and is resilient to
+     all three.
+3. Run:
+   ```bash
+   python3 -m scrapers.honda_us.cli --source hondanews-html --verbose
+   ```
+   Per-model error handling: any missing `<slug>.html` is **skipped with
+   a clear message** — the batch continues.
+
+### Confidence flag and the manual-review fallback
+
+The extractor tags each `ExtractedModel` with one of `high` / `medium` /
+`low`:
+
+- **`high`** — a comparison table with >= 5 cells was found and parsed.
+- **`medium`** — only per-trim "Standard Equipment" lists were found
+  (no matrix table), or the table was small.
+- **`low`** — no table and no per-trim lists; the extractor fell back to
+  free-text scanning, OR no feature rows were recovered at all.
+
+When confidence is `low`, every matrix entry written to
+`data/matrix/honda.yaml` for that model is annotated:
+
+```yaml
+- trim_id: honda.civic.2026.lx
+  features: [...]
+  extraction_confidence: low
+  needs_review: true
+```
+
+`grep -n needs_review data/matrix/honda.yaml` is the operator's review
+queue. The loader ignores these extra keys (they're not part of the
+schema), so the catalog still validates — but the human review step is
+non-optional before trusting low-confidence cells.
 
 ## Honda blocks us
 
@@ -126,9 +185,10 @@ scrapers/honda_us/
 ├── __init__.py           Defaults (user-agent, default model list, headers)
 ├── discover.py           BrochureDiscoverer + the pure extract_brochure_url helper
 ├── download.py           BrochureDownloader — idempotent PDF cache
-├── extract.py            BrochureExtractor — pdfplumber-driven matrix recovery
+├── extract.py            BrochureExtractor — pdfplumber-driven matrix recovery (brochure PDFs)
+├── extract_hondanews.py  extract_from_hondanews_html — BeautifulSoup parser for saved press-release HTML
 ├── emit.py               CatalogEmitter — feature resolution + YAML writes
-├── cli.py                Command-line entry point
+├── cli.py                Command-line entry point (--source brochure-pdf | hondanews-html)
 └── README.md             This file
 ```
 
