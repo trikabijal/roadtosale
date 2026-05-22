@@ -14,6 +14,7 @@ voice-engine/lab/fixtures/generated/
 voice-engine/lab/fixtures/youtube/*.wav
 voice-engine/lab/fixtures/youtube/*.m4a
 voice-engine/lab/fixtures/youtube/*.mp3
+voice-engine/lab/fixtures/synthesized/*.wav
 
 # Vehicle feature catalog — downloaded brochures (large binaries, not source)
 vehicle-feature-catalog/data-cache/
