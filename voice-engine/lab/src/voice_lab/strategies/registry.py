@@ -50,6 +50,7 @@ def _bootstrap_default_strategies() -> None:
     from voice_lab.strategies.apple_sfspeechrecognizer import (
         AppleSFSpeechRecognizerStrategy,
     )
+    from voice_lab.strategies.whisperkit import WhisperKitStrategy
 
     if "mock" not in _REGISTRY:
         register_strategy(MockTranscriptionStrategy.empty())
@@ -62,3 +63,9 @@ def _bootstrap_default_strategies() -> None:
         register_strategy(AppleSpeechTranscriberStrategy())
     if "apple_sfspeechrecognizer_vocab" not in _REGISTRY:
         register_strategy(AppleSFSpeechRecognizerStrategy())
+
+    # WhisperKit (open-source Whisper, MIT). Free path; sibling subprocess
+    # CLI under voice-engine/native/apple/WhisperKitSTT. Same registration
+    # discipline as the Apple wrappers — construction is side-effect free.
+    if "whisperkit" not in _REGISTRY:
+        register_strategy(WhisperKitStrategy())

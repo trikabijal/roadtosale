@@ -4,6 +4,34 @@ Last updated: `2026-05-22`
 
 Owner of question: OQ2 in `dev/tasks/0001-prd-voice-engine.md`.
 
+## Update: WhisperKit (open source, MIT) is now wired into the lab
+
+`2026-05-22` — WhisperKit, Argmax's open-source MIT-licensed on-device
+Whisper SDK, is now registered in the voice-engine lab as the
+`whisperkit` strategy. It runs a sibling Swift CLI
+(`voice-engine/native/apple/WhisperKitSTT/`) and emits the same JSONL
+event format as the AppleSTT wrappers. No payment, no Local Server
+binary, no $14 trial — model downloads on first use from
+HuggingFace and runs fully offline thereafter.
+
+**For macOS lab evaluation, WhisperKit is the recommended free path.**
+The paid Pro SDK path documented below remains the **Android cross-
+platform option** (open-source WhisperKit is Apple-only) and is still
+the right answer when:
+
+- We need real-time Confirmed + Hypothesis streaming (a first-party
+  API on Pro; on open-source WhisperKit we synthesize partials from
+  the decoder progress callback)
+- We need hard custom-vocabulary boosting (up to 3,000 keywords on
+  Pro; on open-source WhisperKit we use a soft decoder `promptTokens`
+  bias)
+- We need a Deepgram-WebSocket-compatible Local Server for a Python
+  client that isn't this lab
+
+Tradeoffs are summarized in
+`voice-engine/native/apple/WhisperKitSTT/README.md`. Everything below
+this section is the original Pro SDK research brief, unchanged.
+
 ## Bottom line
 
 Argmax Pro SDK 2 went GA **April 7, 2026**. Ships strictly on-device on iOS, macOS (Apple Silicon, M1+), and Android (API 24+, NPU via LiteRT). Models: NVIDIA Parakeet (default streaming) and OpenAI Whisper. Exposes a dual `Confirmed` + `Hypothesis` real-time stream (satisfies our binding rule). Supports up to **3,000 custom-vocab keywords**. There are no official Python bindings — only Swift (SPM) and Kotlin (Maven) SDKs, with a Node.js client for the Argmax Local Server (Python client "coming soon"). For a macOS Python lab, the realistic path is `subprocess` to either the Argmax Local Server (Deepgram-WebSocket-compatible) or a small Swift CLI built from `argmax-sdk-swift-playground`. Pricing is **$1.00–$1.33/device/month** with a **$14, 14-day, 30-device-license trial** that's self-serve at app.argmaxinc.com — **no sales call needed for evaluation**. Linux/Windows are explicitly not supported.

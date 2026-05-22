@@ -1,0 +1,10 @@
+.build/
+.swiftpm/
+*.xcodeproj/
+Package.resolved
+DerivedData/
+# WhisperKit downloads CoreML model bundles into a cache directory on
+# first run. If a local cache lands inside the package directory (e.g.
+# during ad-hoc experimentation) keep it out of git.
+Models/
+*.mlmodelc/
