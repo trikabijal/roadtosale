@@ -1,0 +1,72 @@
+# Auto-generated from a public YouTube dealer walkaround transcript.
+# Step boundaries and cue annotations are best-effort — review before
+# relying on them for scoring.
+id: youtube_5h5eokRcqr4
+title: All-New 2026 Honda CR-V — full review and test drive
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: youtube_transcript
+  url: https://www.youtube.com/watch?v=5h5eokRcqr4
+  video_id: 5h5eokRcqr4
+  fetched_at: '2026-05-23T19:50:20Z'
+  fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+segments:
+- step: greet
+  text: '[Music] Hello everyone, welcome back. The Auto01 2026 Honda CRV. Honda''s latest take on its
+    bestselling compact SUV. Is it really better than before? Let''s find out. Cut to channel intro animation.'
+  expected_cues: []
+- step: walkaround
+  text: Logo if you have one. Exterior. Wide shots circling the car. Close-ups of headlights, grill, wheels.
+    First up, the design. The 2026 CRV gets a subtle but modern refresh. Honda's gone for a more rugged,
+    squared off look this time with sharper lines, a bolder grill, and sleeker LED headlights. Point to
+    details. These new 19-in wheels on the top trim look fantastic. And check out the integrated roof
+    rails. They're standard now on most trims. Step back. Overall, it's not a dramatic redesign, but it
+    feels more upscale and tougher, keeping up with rivals like the Rob 4 in Tucson. Interior and tech,
+    open doors, sit inside, film dash, screens, seats. Inside is where the CRV has really leveled up.
+    Honda's latest cabin design is clean and minimalist. You get a standard 9-in touchscreen with wireless
+    Apple CarPlay and Android Auto. Show screen. Demonstrate Apple CarPlay if you want. This layout is
+    super intuitive. Honda's even added a new fully digital instrument cluster and higher trims get a
+    head-up display. Touch materials. Materials are soft touch where it matters with tasteful metal accents.
+    Even the base trim doesn't feel cheap. Rear seat space still one of the best in class. Show rear seats.
+    Leg room. Cargo area. Plenty of leg room and a flat floor for the middle passenger. The cargo area
+    is massive for a compact SUV with easy fold seats for extra space. Performance CC driving shots, camera
+    on dash, exterior tracking, steering. Now, let's talk performance. The 2026 CRV keeps the familiar
+    1.5 L turbocharged engine making about 190 horsepower. It's not a sports car, but it's more than enough
+    for daily driving. driving PA. The CVT is smoother than before with simulated shift points to reduce
+    droning, and there's also the hybrid option now with improved power and up to 42 MPG combined, making
+    it the smart choice for commuters. Switch to hybrid if available. Handling is typical Honda. Light,
+    precise steering, a comfortable ride. It's not sporty like a Mazda CX-5, but it's extremely refined.
+    Show different drive modes. Honda also added snow and sport modes, giving you a bit more control in
+    different conditions. Features and safety. Show dashboard. Honda sensing buttons. 360 camera HUD if
+    available. Honda didn't skimp on features either. The 2026 CRV comes standard with Honda Sensing,
+    which includes adaptive cruise control, lane keeping assist, and blind spot monitoring. Show camera
+    view. Top trims get a 360°ree camera, a panoramic sunroof, and heated ventilated seats. There's even
+    a new hands-free power tailgate. It's clear Honda wants the CRV to feel premium without pushing into
+    luxury SUV pricing. Pricing and verdict film with the car in the background. So, pricing starts around
+    $31,000 for the base model with hybrids and higher trims reaching the mid-40s. It's competitive, especially
+    considering Honda's reputation for resale value and reliability. Cut to walking around car. Verdict.
+    The 2026 CRV doesn't reinvent the wheel, but it polishes everything that makes it a top seller. It's
+    practical, comfortable, efficient, and now a little more stylish and techsavvy. If you're shopping
+    for a family SUV, this one definitely deserves a spot on your short
+  expected_cues:
+  - cue_id: workflow.exterior_focus
+    approx_ms: 0
+  - cue_id: universal.feature.led_headlights
+    approx_ms: 18801
+  - cue_id: honda.feature.roof-rails
+    approx_ms: 26321
+  - cue_id: workflow.interior_focus
+    approx_ms: 41521
+  - cue_id: universal.feature.wireless_apple_carplay
+    approx_ms: 54161
+  - cue_id: universal.feature.wireless_android_auto
+    approx_ms: 54161
+  - cue_id: universal.feature.head_up_display
+    approx_ms: 66881
+  - cue_id: honda.feature.honda_sensing
+    approx_ms: 148881
+  - cue_id: universal.feature.ventilated_front_seats
+    approx_ms: 170081
+  - cue_id: universal.feature.panoramic_moonroof
+    approx_ms: 170081
+negative_cues: []

@@ -1,0 +1,83 @@
+# Auto-generated from a public YouTube dealer walkaround transcript.
+# Step boundaries and cue annotations are best-effort — review before
+# relying on them for scoring.
+id: youtube_Xk4to4BIDL4
+title: 2026 Honda Accord — full review and test drive
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: youtube_transcript
+  url: https://www.youtube.com/watch?v=Xk4to4BIDL4
+  video_id: Xk4to4BIDL4
+  fetched_at: '2026-05-23T19:50:26Z'
+  fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+segments:
+- step: greet
+  text: Welcome back to Future Car Updated. Today we're diving into the 2025 Honda Accord, a sedan that
+    has continuously evolved with time and stayed relevant in an everanging automotive landscape. The
+    Accord is more than just a car, it's a symbol of Honda's commitment to innovation, reliability, and
+    comfort. First introduced in 1976, the Accord quickly became a household name thanks to its blend
+    of practicality and performance. It was originally developed in Japan, but over the decades, it has
+    been tailored specifically to meet the needs of American drivers, making the United States not only
+    the largest market, but also the top selling country for the Honda Accord. The 2025 Honda Accord is
+    a bold step forward, pushing the boundaries of what a midsize sedan can be. It continues to hold strong
+    popularity among families, professionals, and commuters in the US for its affordability, fuel efficiency,
+    and trusted performance. The latest model builds on this legacy by incorporating next-gen tech, improved
+    hybrid systems, and a more dynamic driving experience. Americans love the Accord because it offers
+    the luxury of a premium vehicle without the premium price tag, and its reputation for longevity and
+    low maintenance costs has made it a go-to choice for millions. Performance-wise, the 2025 Accord comes
+    with two main powertrains, a refined 1.5 L turbocharged engine that delivers smooth acceleration and
+    excellent daily drivability, and a more advanced 2.0 L hybrid system that's been tuned for both power
+    and efficiency. The hybrid model is especially appealing with a combined output of 204 horsepower
+    and a refined ECVT transmission that provides seamless power delivery. With tight steering and a well-
+    balanced chassis, the Accord offers confident handling. Whether you're cruising down the highway or
+    weaving through city traffic, fuel efficiency is another strong point for the 2025 Honda Accord. The
+    hybrid variant boasts an impressive EPA rating of up to 48 m per gallon in the city and 47 on the
+    highway, making it a top choice for those looking to save at the pump without sacrificing comfort
+    or performance. Even the gas-only version is frugal with fuel economy numbers that stay competitive
+    in the midsize sedan segment. When it comes to capability, the Accord isn't trying to be an SUV, and
+    that's a good thing. It sticks to its strengths, offering spacious seating for five, a large trunk
+    with over 16
+  expected_cues: []
+- step: discovery
+  text: cubic feet of cargo space, and a well-designed interior that emphasizes usability. The 2025 model
+    features improved suspension for a smoother ride and additional insulation to reduce road noise, creating
+    a more refined
+  expected_cues:
+  - cue_id: workflow.discovery_towing_cargo
+    approx_ms: 0
+- step: walkaround
+  text: experience for everyone inside. Inside the cabin, key features set the Accord apart from its competitors.
+    A 12.3 in touchscreen infotainment system comes standard on most trims, offering wireless Apple CarPlay
+    and Android Auto. Honda's new Google built-in system is available on the higher trims, giving users
+    access to apps like Google Maps and Assistant without needing a phone. The driver display is fully
+    digital, and comfort features like dual zone climate control, heated and ventilated seats, and a premium
+    12 speakeraker Bose sound system are available depending on the trim level. Safety is also a top priority.
+    The 2025 Accord comes equipped with the Honda Sensing suite as standard, which includes collision
+    mitigation braking, lane keeping assist, adaptive cruise control, traffic sign recognition, and more.
+    These features not only help protect passengers, but also make everyday driving easier and more stress-free.
+    Price-wise, the 2025 Accord remains one of the best values in its class. The base LX model starts
+    around $28,000, while the top-of-the-line Touring Hybrid pushes just above $38,000. That's a wide
+    range that gives buyers flexibility depending on their needs and budget. Whether they're looking for
+    a simple commuter car or a fully loaded, techsavvy ride. What truly sets the Accord apart in 2025
+    is its ability to combine innovation with everyday usability. It's not trying to be flashy. Instead,
+    it focuses on delivering where it counts, comfort, efficiency, technology, and long-term value. This
+    balance is what continues to make it one of America's favorite sedans. So, if you're in the market
+    for a midsize car that doesn't cut corners, the 2025 Honda Accord should be at the top of your list.
+    Thanks for watching Future Car Updated. Don't forget to like, subscribe, and hit the bell for more
+    insights into tomorrow's vehicles today.
+  expected_cues:
+  - cue_id: workflow.interior_focus
+    approx_ms: 0
+  - cue_id: universal.feature.wireless_apple_carplay
+    approx_ms: 11920
+  - cue_id: universal.feature.wireless_android_auto
+    approx_ms: 11920
+  - cue_id: universal.feature.ventilated_front_seats
+    approx_ms: 27679
+  - cue_id: honda.feature.bose_premium_audio_honda
+    approx_ms: 29679
+  - cue_id: honda.feature.honda_sensing
+    approx_ms: 39200
+  - cue_id: workflow.discovery_budget_signal
+    approx_ms: 73200
+negative_cues: []

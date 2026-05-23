@@ -1,0 +1,303 @@
+# Auto-generated from a public YouTube dealer walkaround transcript.
+# Step boundaries and cue annotations are best-effort — review before
+# relying on them for scoring.
+id: youtube_4Q1Qq8SwPeM
+title: 2026 Honda CR-V Hybrid mechanic review and walkaround
+target_trim_id: honda.cr-v-hybrid-awd.2026.sport-touring
+source:
+  type: youtube_transcript
+  url: https://www.youtube.com/watch?v=4Q1Qq8SwPeM
+  video_id: 4Q1Qq8SwPeM
+  fetched_at: '2026-05-23T19:50:21Z'
+  fair_use_note: Public dealer walkaround used for internal STT evaluation under fair use.
+segments:
+- step: greet
+  text: Hello and welcome to the car king reviews channel and welcome to the 2026 Honda CRV hybrid. And
+    in today's video, we're going to do a proper technical review under the hood. Take a look
+  expected_cues:
+  - cue_id: workflow.self_introduction
+    approx_ms: 0
+- step: walkaround
+  text: underneath it inside and out. Some things we like, some things we do not like. right after this.
+    [music] Let's start our technical review under the hood. Starting with the engine. So, in the hybrid
+    models, we do have a 2 L 4-cylinder engine. In the non-hybrids, we have a 1.5 L turbo. Not going to
+    really focus on the 1.5, although lately it has been making some news. Let's focus on this one. This
+    one is a naturally aspirated 2 L 4-cylinder engine. Interesting that it's naturally aspirated in the
+    hybrid. That is pretty good. Let's talk about some of its mechanical construction. Starting with the
+    very top, we have a plastic valve cover. However, this is a small piece plastic valve cover with a
+    little extension on the side. We'll talk about that in a moment. Underneath that dual overhead cam,
+    nonVTEC engine. That's a pretty interesting thing about this one. So on the intake side, you have
+    electronic variable valve timing or VTC, variable timing control. So that's basically a motor that
+    splines to the middle part of the gear. If that motor speeds up, it's going to turn that inner gear
+    and then when it spins at the same speed, it's going to hold. And then if you want to kind of back
+    off the timing, you're going to slow it down. and it'll turn that inner gear and then it'll stop.
+    This system sounds like a disaster waiting to happen, but it's actually very simple. Got a little
+    motor on the side and the the gear. That's about it. There's no oil, no none of that. It's very nice.
+    On the exhaust side though, you do have oil control with just regular oil control valve and whatnot.
+    This engine is a timing chain engine. It is, dare I say it, and I'm going to say it right now, pretty
+    simple engine. There isn't much to it. This engine does have EGR. And what I love about this one is
+    why can't all manufacturers do it this way? And look at the location of the EGR right there. The valve
+    takes you no more than five minutes to remove. Cooler 10 minutes. The whole system 15 minutes. Why
+    can't they all make it like that? Namely Toyota with their this is the main competitor of this car.
+    I mean they love to over complicate this stuff. Why can't we make it like this? This is very nice.
+    This is as simple as an EGR system is going to get. This engine is also direct injected only. That's
+    the only thing I wish was dual injection, but it is direct injection only. However, usually with direct
+    injection cars, you're going to have the high pressure fuel pump, which is driven by the cam, sit
+    right on the valve cover. So, when you want to remove the valve cover, you have to remove that as
+    well. Remember, we talked about that little extension on the side. That's where the high pressure
+    fuel pump is. So, if you want to remove the valve cover, it's business as usual. Just pull the valve
+    cover. There's nothing attached to it. That's pretty smart. I really like that cooling system in this
+    engine is also simple. You have a thermostat, no fancy valves, no nothing. Water pump is is electric
+    and it sits on the outside. Interestingly though, it's a very similar water pump to other manufacturers
+    cuz it's an as pump. We see this in many cars, hybrids that use an electric pump. Very interesting.
+    It sits exactly where a normal, you know, belt driven pump is. So, this engine does not have a drive
+    belt because it also does not have a alternator because it's a hybrid. Speaking of the hybrid, let's
+    dive into the hybrid system because very interesting hybrid system. So, Honda did not just go out
+    and copy other people. They did not just make something that barely works and just to not be like
+    others. They made their own unique hybrid system. And I love how it works. Let's talk about it. So,
+    this is a two- hybrid system. The transmission is basically a no transmission if that makes sense.
+    You have two big motors. One of them can drive the car and can generate. One of them can start the
+    engine and also generate. We just described the Toyota hybrid system right now. But this is so different.
+    It's unique. This is our own design. Has nothing to do with the Toyota hybrid system. That is pretty
+    brilliant. Here's how this works. So one motor is connected to the engine, it can start the engine
+    and when the engine starts, it turns that motor and it can generate. And then another motor is connected
+    to the wheels. It can drive the wheels or when you're regenerative braking, the wheels will turn it
+    and it'll generate. Then you have two clutches. It's the interesting part. You can engage the engine
+    or you can engage the big motor and they can work either or can have both. That's the interesting
+    part. And the way shifts happen is you have a low and a high range and that middle clutch kind of
+    changes between them. You don't have a planetary gear set per se. So here's how the modes of operation
+    will be. EV mode, which this one does have a little bit of more of an extended EV mode. You can just
+    shut off the engine. The second motor is not doing anything. You're applying power to the big motor
+    and that's driving the car. But then when we need more power and the battery is kind of coming low,
+    the engine will not come on and help drive the car. That's the interesting part. That's the catch
+    of the system. The engine is actually going to come on, turn the one motor to generate only, and that
+    generation will drive the other motor to drive the car. When you want to to use the engine to drive
+    the car, we're actually going to shut off one motor and use the engine to directly drive the car.
+    And that second motor will just charge the battery or sit idly if the battery is fully charged. So
+    you can't have both engine drive and electric motor drive in this system. That's how it's designed.
+    That's a limitation of it. But it works so well. Super smooth. 2026 at least. 2023 had a few laggy
+    starts here and there, but this one very smooth. That's the first thing. Second thing, the way it
+    feels. So this is technically an ECBT. it it has a continuously variable transmission, meaning it
+    can vary the ratio infinitely. But it's not like a normal CVT. That's very important that we realize
+    that. Here's how this works. Sometimes you you drive it, the engine will come on, you hear the engine,
+    you know, rev up and come down like normal shifts. It feels perfectly simulated. You know why that
+    is? Because the engine is actually not even driving the car. The the simulation is basically the engine
+    revving up and then coming down by a computer command. That's the interesting part. And when the engine
+    does drive the car, you immediately feel that that good feeling kind of takes a back seat because
+    the engine most sometimes is not even driving the car and you hear it shifting like normal. It's fully
+    simulated, folks. But the end result of that is the system is super smooth and it doesn't feel like
+    it has that typical drone of an ECBT hybrid. They did this very well and this is their own system.
+    The only downside is you have clutches inside this transmission. Unlike some like Toyota hybrid system,
+    there's no clutches. This does have clutches and the transmission is a little bit more complicated
+    than usual. But the way it works in the real world, it's actually smoother and more linear if you
+    would. I really like it. Having said that, let's talk about a few things. First, all-wheel drive.
+    Take a look at it in a bit. This is typical all-wheel drive. Like you don't have a electric motor
+    in the back and that's it. No, this has a transfer case and a drive shaft and a rear differential.
+    It's typical like any other gasoline car all-wheel drive. But in 2026, they tweaked everything where
+    now you can have 50/50 distribution of the all-wheel drive. Unlike the previous year, 2025, it was
+    60 in the front, 40 in the rear. That is pretty interesting because now they're going after Subaru
+    with the the symmetrical all-wheel drive. Not quite, but getting pretty close. Interesting. Let's
+    talk about some of the quality of things here and some of the very interesting choices. This particular
+    model is made in the US. It's not a Japanese model. I actually thought it was made in Japan. I'm just
+    going to flat out say before even looked at the vin and everything, just looking around here, quality
+    of things is pretty high. I'm really impressed by this. This is very nice and it makes us very proud
+    that this car is made here in the US. There are some good things and there are some um interesting
+    choices. Let's put it this way. Good things are the cooling system. There is not any plastic that
+    I can see just looking around here. Everything is metal hose clamp proper clamp. No gimmicks, no fuss,
+    no nothing. I really like that. The other thing is the intake manifolds in the back, exhausted in
+    the front. Normally in a turbo engine, that's how you want it. And this one makes the back a little
+    bit more crammed, especially when we have the world's largest afterthought in the world. This is trending
+    on number one for me with the biggest afterthought, the air filter. 99% of cars, the air filter will
+    be somewhere on this side of the car, driver's side, somewhere in this general area. Some of them
+    routed around there. This one has it all the way in the back. Makes the air filter replacement not
+    simple. I mean, it literally sits all the way in the back. Tell me that is not the biggest afterthought
+    in the world. They basically designed this, added the inverter and all that stuff. And where do we
+    put the air filter? Ah, let's throw it in the back. Terrible location. Make that up though by putting
+    a battery under the hood in a normal location. That's a good part. And then the EGR system is I got
+    to say it one more time. It's right there. I mean, why can't all manufacturers do EGR like that? This
+    engine does not have, you know, an alternator, does not have a starter because electric motor starts
+    it and then the alternator DC toDC converter takes a place of that. Speaking of right here in this
+    area, that's when your kind of the brain of the hypers system works. This is what sends power where
+    it needs to go. Switches back and forth. And this has its own cooling system. So you have a second
+    cooling system reservoir right here. It's interesting that it has a radiator cap on it. That is the
+    cooling system for the hyper system. That's pretty interesting. Battery is a lithium ion battery in
+    this one. Does sit all the way in the back. We'll talk about a little bit when we talk about the outside
+    and the inside, but it's not the greatest location for it. I feel like could have optimized it underneath
+    the back seat. That would have been nicer, but it takes up a lot of space. But the biggest thing I
+    have with it is it does not have a filter. And the intake for the air cooled battery is underneath
+    the second row seat, which is not a great spot. I guess uh Toyota learned that the hard way and now
+    Honda I guess will as well because if that gets clogged we're effectively not cooling the battery
+    and that's not good for it. Then the last thing which small the brakes this because it has you know
+    regenerative braking and you're not always using the hydraulic brakes. Usually hybrids will have some
+    kind of a you press the brake pedal, it's going to measure how much brake force you need and then
+    depends on that the computer will either apply the brakes or use regen only or combination of both
+    and how much. This one does the same thing but it does it in a very interesting way. So you have a
+    regular brake actuator connected directly to the pedal and then you have this giant contraption on
+    the other side. Why couldn't we just uh kind of make it a smaller unit, put it on one place, not spread
+    all over the place? That's how it feels like. I feel like you're going to see a 2.0 version of this
+    where things are more condensed. That's the only thing. Overall though, with the exception of a few
+    things that are interesting, clear filter quality here is very impressive. The truth have to be said.
+    Everything, even the plastic stuff, just feels solid. And there is very little of that in the cooling
+    system, which I'm I'm okay with. Let's take a look underneath the 2026 Honda CRV. Everything's covered
+    in the front. I really like the quality of this. It just doesn't doesn't feel like a very cheapo plastic.
+    This part though is not plastic. You do have a metal cover here. This is uh let's just have a small
+    talk here. So, we have this opening. We couldn't extend this opening a little bit. So, when you drain
+    the oil, you have to remove this entire thing. That's I don't understand. Flex pipe right here. I
+    usually don't like flex pipes, but this one is pretty high quality. You got to tell the truth here.
+    Of course, Honda's iconic or not so iconic. Aluminum oil pan that loves to strip if you overtighten
+    it. Now, fairness if you overtighten it. Let's take a look at the front suspension here. steel lower
+    control arm with a separate ball joint. Love this design for service. Two piston calipiber in the
+    front. It's actually for this segment. This is a pretty big caliper and pretty big brakes. Steel knuckle.
+    I like that. I really like that. Then you got a McFersonson strut that goes into the knuckle in this
+    style. Aluminum sway bar. Axles painted in the middle, not painted at the end, which seems to be the
+    trend these days with all auto manufacturers. Then we walk back here to a sea of mixed feelings. Let's
+    talk about love the quality of the exhaust. This is very consistent with what Honda normally does.
+    They're pretty high quality. I really like everything I see here. This being a hybrid. We talked about
+    it. Does have a transfer case and drive shaft that goes all the way to the back. Really love the quality
+    of everything on this drive shaft and everything. But uh we got to talk about the seam sealer application
+    and how this is basically wide open in the middle. Yeah, that's this is my favorite one. If you come
+    around here and look, so we sealed this, but this is all wide open. So everything would go in. So
+    what's the point of this? Oh no. And then there is one spot like you can see this seam. It's literally
+    open. So whatever we were trying to seam seal is not seam sealing. That's I hope that that terminology
+    makes sense. And I love when manufacturers do, they used to use this this type of material a lot more
+    in cars. They don't anymore. They're like very little spots here and there. This part right here,
+    you do have a little bit of a covering, which is nice. They got a little brace here. And this side
+    as well. This is where the fuel tank is. And of course, Honda loves to do this. They'll put a bar
+    around the fuel tank just to protect it. I mean, most other manufacturers wouldn't do anything, but
+    that's what they do here. rear differential or rather a cute little rear differential. Of course,
+    this is not meant for off-road off-road, but here's the interesting thing though, like we talked about,
+    they switched this to be able to do 50/50. So, they're really going after Subaru here because although
+    this is not a 100% like Subaru, but they're going after the 50/50 deal. That's actually pretty interesting,
+    folks, cuz in the previous year, it used to be 60 in the front, 40 in the in the back power. Now,
+    it's 50/50. That's pretty cool. Let's look at the rear suspension which is extremely simple. Aluminum
+    knuckle, steel trailing arm, one control arm is steel, upper control arm is steel. This one is aluminum
+    where the spring sits. Separate shock from the spring. You do have an aluminum sway bar link. You
+    do have a single piston caliper with integrated parking brake in it. And then u the sway bar just
+    kind of runs here. Tiny little sway bar. It's interesting to see that. It's just very small. extends
+    almost all the way. Then we uh look at this missed opportunities. Maybe one of the models had dual
+    exhaust and you have the hanger here, but this is literally wide open. That's what uh wish they would
+    cover it up a little bit. I mean, this one you do have the muffler here, but it's still it's pretty
+    open. That's the only thing. Let's take a look at the outside of the 2026 Honda CRV, which did get
+    a slight update. A little bit uh stuff at the bottom changed, but overall, this still looks it's not
+    over the top. It has a pretty chiseled look. Has a little bit of sophistication to it. That that's
+    the more I look at this. That's the feel you get from it. It is not overstyled where it's over the
+    top, but it's still modern enough where it looks good. giant Honda logo here with the radar sensor
+    right behind it. This is a new trim, the Trail Sport in 2026, proudly displaying the badge here. Interesting
+    color. Not uh not my top choice of color, but again, that's a matter of taste. But if we go around
+    here and we look at this section of the hood, I really like that. It's very subtle. You have this
+    line which continues right here, kind of curves, and then changes its mind and goes back. something
+    subtle, but most of the hood is just flat. And that's why this car will not look horrendous in 5 years
+    from now. It's going to look still good. We look at the side here. Now, this is a Trail Sport model.
+    I understand why they put the cladding and all that stuff and plastic, but I wish it was body color.
+    I think it look good. But, uh, for this particular trim, you do have these pretty aggressive tires
+    for the type of car we're looking at here. Uh, they work. They're actually not loud in this particular
+    one. Slight noise, but nothing over the top. I I like this section. This is a classic CRV look. You
+    see this? If you've seen CRVS before, you will know this is a CRV. They just I like that they establish
+    things like that. Then we look at the back when it gets even more obvious that this is a CRV. Look
+    at this tail light. This is a iconic CRV tail light. They just uh it had a little growth here. Tail
+    lights look pretty good. The back of this car is 100% CRV. You cannot mistake it for anything else.
+    There are a few observations. They don't have a suspended piece here. It's all like built in and it
+    kind of rolls all across it. That's the first thing. Second thing is Trail Sport badge. I get that.
+    Very very They're very proud of this trim, of course, but they're all hybrid. So why do we need to
+    ride hybrid? And I hope you are not buying a Trail Sport meant for off-roading model that is not all-wheel
+    drive. This is literally a sticker. The badging is a little bit. And then lastly, this is Sorry, I'm
+    just harping here. This blacked out. This is blacked out. This is blacked out. But uh this one didn't
+    get the cut. It's when manufacturers don't do things 100%. Look at the back particular one. Power
+    back door. It does have a single motor, not dual. So, that's one is just the shock. You see the wire
+    going right here, not through the headliner, but uh that's also not a great place. We can we can work
+    with that. Let's look at the back here because the hybrid model is actually, in my opinion, kind of
+    compromised with space here because this is not a removable panel cuz the battery sits right here.
+    That's I wish the battery would be a little bit smaller, a little bit more pushed forward. They would
+    make a small storage area because in a car like this that is the important stuff. But if you fold
+    the second row seat now you have a lot of space. However, there is one small thing that I kind of
+    wonder what happened there. You do have this massive hump here. Two things. good because that means
+    this is lower which gives you more space this way but uh you also have less space here. I mean not
+    a lot of cars have this hump here. Let's take a look at the inside of the 2026 CRV. Although majority
+    of it has not changed. A couple things have changed. But let's let's revisit this because the feeling
+    you get when you open the door and step into this car. What a breath of fresh air that we can still
+    make a car that is gimmickless technology-wise is doing good but not over the top and simple. The
+    feeling you get when you step behind the wheel of this car is it's non-intrusive. It just blends in.
+    And some folks will call that boring. I will call that the perfect daily driver because I don't need
+    my car to get in the way of my life. I'm a car guy, but sometimes you just want the car to blend in
+    the background and just do what you need it to do and not have to think about it. This is that car
+    because the execution of this interior is very well. For example, you look at this steering wheel.
+    Extremely simple steering wheel, yet it does everything you want it to do. Even the heated steering
+    wheels in the middle. Love that. Then you look at the center stack here. All physical controls for
+    your HVAC. Everything is physical. Well, I love the sound these make. It's a little stuff, but they
+    do matter. And I love the design of of the vents where you turn the vents, it actually stays the same.
+    This gives it a very clean, chiseled look. Refined is the word. Now, the materials here are nothing
+    earthshattering or over the top, but they feel nice. The plastic feels solid. It doesn't feel like
+    a cheapo in economy interior. Even though it is cheapo economy interior because everything is plastic
+    and no exotic materials or anything, but it feels great. And that's what I mean by no gimmick. The
+    shifter is a normal shifter. It's actually sitting on this side of the of the console, which is strange.
+    Usually sits on this side. This just feels great cuz why change it? Honda's using buttons for everything.
+    Here's a spaceship hybrid with a regular shifter. I love it. No complaints here whatsoever. Now, for
+    2026, they do have a few updates. They changed the gauges. Now, you have a 10.2 inch gauge with two
+    little like the fuel gauge on this case for the hybrid, the uh battery level, and then you have a
+    big screen in the middle. It does a few things, but you know, they got to keep up with the with the
+    times. But I love how the the gauge screens are 2 10.2 in. The infotainment is 9 in. updated infotainment.
+    We don't have the back button anymore, which is very annoying. Love how it works. Works pretty good,
+    but it's not giant screen that runs the length of the dash. It's very small screen, but you know what?
+    It does everything a giant screen does. So, if you're after the gimmicks, other cars will do. If you
+    just want a radio that works and does what you want it to do, radio plays music, Apple CarPlay, Android
+    Auto Wireless, no glitches and problems. This is This does all that. So really aesthetically is the
+    only thing, but it does the same thing. Exactly. I really really appreciate this interior because
+    it is simple, but it has everything you needed to have and it's executed very well. The best part
+    is when you drive this car, it's so smooth and refined. A little bit on the quieter side for this
+    segment. It just feels great. There is no other way to describe it. This feels great to drive. I really,
+    really like this part about this car. Let's take a look at the back seat of the CRV. I'm 5'7. This
+    is my driving position. Got a lot of knee room. Decent head room. This is a very comfortable back
+    seat because look at my thigh angle here. My thigh is resting on the seat, which is really nice. The
+    floor is actually almost flat. So, if you put someone in the middle, they're not going to be kind
+    of feel like they're riding a horse with the thing in the middle. No, it's very comfortable. And that
+    is a nice thing. Really like this back seat. It's very roomy. No gimmicks. You have some vents here.
+    You have some USBC. That's about it. That's all you need in a back seat. I'd rather it have be more
+    usable than all the gimmicks and all this stuff. So, the 2026 Honda CRV. So 2026 we have a midcycle
+    refresh if you would but it's so subtle because this was such a good SUV when they started with that
+    they didn't need to change a lot and that's a beautiful thing and I like how they only change very
+    few things to keep things a little bit updated but they didn't get overboard because why change near
+    perfection because honestly the best way I'll sum up this SUV is it is sophisticated elegant kind
+    of in a higher class if you would. Not from the looks department and the show off and whatnot, but
+    just from the way it feels. You open the door, you get in, everything feels solid, everything smooth,
+    quiet, very easy to operate. It doesn't intrude on your life. That's the feeling you get with this
+    car. It's nothing's over the top. It almost feels like an old school take on cars. Things are simple
+    but not lacking. That's very important that you we find a distinguishing point between the two because
+    on the technology front it's doing pretty good but it's not over the top. Lots of physical buttons
+    for the important stuff but also good technology that works behind the scenes. The hybrid model it
+    is such a smooth and refined hybrid model. Very interesting take on a hybrid system still but the
+    end result of that is it's pretty smooth and it's pretty refined. It's so refined and that's that's
+    I think is the best thing about this car is how refined it is. Even from the looks doesn't look over
+    the top. The inside doesn't look over the top. The way it drives is smooth and refined. It's like
+    a a mature take on one of the best SUVs in this segment. The main rival for this car is the RAV 4.
+    And honestly, before 2026, this is actually nicer than the RAV 4. flat out feels nicer. It feels more
+    mature, more grown up. The RAV 4 2026, however, things may change. 2026 saw some updates here, mainly
+    infotainment. Feel like that was one of our complaints in 2023. They did tweak things and they are
+    better. The only thing that remains is the battery in the hybrid models. I mean, it takes up the entire
+    back space and the lack of a fan filter for the for the cooling of that battery is a concern in the
+    location right underneath the the back seat. Not the greatest location for a family SUV, but overall
+    this is still a very very capable SUV. I mean, in my opinion, and just take my humble two cents, if
+    you're looking at this segment SUVs, there is this and the RAV 4, then there's a very large space
+    than everybody else because this is truly impressive. I mean, this is a no the best the best way I'll
+    I'll finalize this. This is a nonnonsense SUV. It just feels great to drive. Smooth, quiet. It
+  expected_cues:
+  - cue_id: workflow.interior_focus
+    approx_ms: 0
+  - cue_id: workflow.exterior_focus
+    approx_ms: 174401
+  - cue_id: universal.feature.heated_steering_wheel
+    approx_ms: 1269441
+  - cue_id: universal.feature.wireless_apple_carplay
+    approx_ms: 1381761
+  - cue_id: universal.feature.wireless_android_auto
+    approx_ms: 1384880
+- step: trial_close
+  text: just feels right. There is no gimmicks. It's a breath of fresh air when there is no gimmicks.
+    And the update in 2026 is a very subtle one because why change things when they work? Few visual updates,
+    but nothing over the top. I love that and I really like that part. This is a truly impressive SUV.
+    Folks, I hope this video was helpful, informative. I hope you learned something new. If you like it,
+    consider giving a thumbs up. If you're not a subscriber, consider subscribing to the channel. Check
+    out some other videos. Till the next video, folks, may the Lord bless you and keep you.
+  expected_cues:
+  - cue_id: workflow.trial_close
+    approx_ms: 0
+negative_cues: []
