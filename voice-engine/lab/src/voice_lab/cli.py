@@ -128,6 +128,8 @@ def _cmd_run(args: argparse.Namespace) -> int:
     scripts: list[LabScript] = []
     for script_yaml in sorted(scripts_dir.glob("*.yaml")):
         script = _yaml.safe_load(script_yaml.read_text(encoding="utf-8"))
+        if not isinstance(script, dict) or "id" not in script:
+            continue  # skip manifests and non-script YAMLs (e.g. sources.yaml)
         sid = script["id"]
         expected: list[ExpectedCue] = []
         for seg in (script.get("segments") or []):
