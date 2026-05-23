@@ -154,7 +154,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
           f"{len(cue_atoms)} cue atoms...")
 
     use_semantic = getattr(args, "semantic", False)
-    semantic_threshold = float(getattr(args, "semantic_threshold", 0.55))
+    semantic_threshold = float(getattr(args, "semantic_threshold", 0.65))
     orch = Orchestrator(
         engine=engine,
         cue_atoms=cue_atoms,
@@ -255,10 +255,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument(
         "--semantic-threshold",
         type=float,
-        default=0.55,
+        default=0.65,
         metavar="FLOAT",
-        help="Cosine similarity threshold for semantic matching (default: 0.55). "
-             "Higher = fewer but more confident matches.",
+        help="Cosine similarity threshold for semantic matching (default: 0.65). "
+             "Higher = fewer but more confident matches. "
+             "Lab data: 0.55 noisy (+20 lift, 74k raw detections); "
+             "0.65 clean (+11 lift, 6.5k); 0.70 very clean (+6 lift, only clear paraphrases).",
     )
     p_run.set_defaults(func=_cmd_run)
 

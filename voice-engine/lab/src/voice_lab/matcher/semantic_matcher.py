@@ -32,9 +32,16 @@ Runs at ~10 ms per event on CPU; faster on Apple Neural Engine.
 Embeddings are 384-dimensional unit vectors; cosine similarity is a dot product.
 
 Threshold guidance (bge-small-en-v1.5 on short dealer utterances)
-  0.70+  Very confident paraphrase — rarely wrong
-  0.55   Good default — catches most real paraphrases, few false positives
-  0.45   Permissive — use only when tuning recall; watch false positive rate
+Measured on 10 Honda US walkaround YouTube videos, 114 expected cue firings:
+
+  Threshold  FNR     Semantic lift  Pre-class detections  Quality
+  exact only 18.4%   —              2,384                 —
+  0.55        0.9%   +20 (18%)      74,841                noisy — spurious matches present
+  0.65        8.8%   +11 (11%)       6,487                clean — good paraphrases only ← DEFAULT
+  0.70       13.2%   +6  ( 6%)       3,208                very clean — only unambiguous paraphrases
+
+  0.65 is the recommended default: meaningful lift, no obvious garbage.
+  0.70 is appropriate when false positives must be near-zero (e.g., live coaching).
 """
 
 from __future__ import annotations
@@ -49,7 +56,7 @@ from voice_lab.types import CueAtom, CueDetection, TranscriptEvent
 logger = logging.getLogger(__name__)
 
 _DEFAULT_MODEL = "BAAI/bge-small-en-v1.5"
-_DEFAULT_THRESHOLD = 0.55
+_DEFAULT_THRESHOLD = 0.65  # empirically validated on 10 Honda walkaround YouTube videos
 
 # Module-level cache so the model is loaded once per Python process.
 # Key: model_name. The model is large (~33 MB ONNX graph) and slow to load
