@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 Stability = Literal["partial", "final"]
 CueSource = Literal["feature", "workflow"]
+MatchMethod = Literal["exact", "semantic"]
 
 
 @dataclass(frozen=True)
@@ -41,6 +42,10 @@ class CueDetection:
     timestamp_ms: int
     confidence: float | None
     triggering_event: TranscriptEvent
+    # How this detection was found. Defaults to "exact" so existing code
+    # that constructs CueDetection without these fields still works.
+    match_method: MatchMethod = "exact"
+    similarity_score: float | None = None  # cosine similarity; None for exact matches
 
 
 class UnknownStrategyError(Exception):

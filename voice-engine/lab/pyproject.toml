@@ -20,6 +20,9 @@ dev = [
 argmax = [
     "websockets>=12.0",
 ]
+semantic = [
+    "fastembed>=0.3",
+]
 
 [project.scripts]
 voice-lab = "voice_lab.cli:main"

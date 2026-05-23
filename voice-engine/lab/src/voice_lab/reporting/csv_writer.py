@@ -16,6 +16,8 @@ _RESULT_FIELDS = [
     "matched_phrase",
     "detection_timestamp_ms",
     "confidence",
+    "match_method",
+    "similarity_score",
 ]
 
 
@@ -42,6 +44,14 @@ def write_results_csv(
                     "confidence": (
                         c.detection.confidence
                         if c.detection and c.detection.confidence is not None
+                        else ""
+                    ),
+                    "match_method": (
+                        c.detection.match_method if c.detection else ""
+                    ),
+                    "similarity_score": (
+                        c.detection.similarity_score
+                        if c.detection and c.detection.similarity_score is not None
                         else ""
                     ),
                 }

@@ -87,11 +87,16 @@ class Orchestrator:
         cue_atoms: list[CueAtom],
         scripts: list[LabScript],
         strategy_names: list[str],
+        *,
+        use_semantic: bool = False,
+        semantic_threshold: float = 0.55,
     ) -> None:
         self._engine = engine
         self._cue_atoms = cue_atoms
         self._scripts = scripts
         self._strategy_names = strategy_names
+        self._use_semantic = use_semantic
+        self._semantic_threshold = semantic_threshold
 
     def run(self, run_id: str | None = None) -> OrchestratorRun:
         now = datetime.now(timezone.utc)
@@ -133,7 +138,12 @@ class Orchestrator:
                 # ── 2. Cue matching ─────────────────────────────────────────
                 t0 = time.perf_counter()
                 detections = list(
-                    self._engine.match_cues(events_list, self._cue_atoms)
+                    self._engine.match_cues(
+                        events_list,
+                        self._cue_atoms,
+                        use_semantic=self._use_semantic,
+                        semantic_threshold=self._semantic_threshold,
+                    )
                 )
                 matching_ms = (time.perf_counter() - t0) * 1000
 

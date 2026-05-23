@@ -153,7 +153,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
           f"{len(strategy_names) * len(scripts)} transcriptions against "
           f"{len(cue_atoms)} cue atoms...")
 
-    orch = Orchestrator(engine=engine, cue_atoms=cue_atoms, scripts=scripts, strategy_names=strategy_names)
+    use_semantic = getattr(args, "semantic", False)
+    semantic_threshold = float(getattr(args, "semantic_threshold", 0.55))
+    orch = Orchestrator(
+        engine=engine,
+        cue_atoms=cue_atoms,
+        scripts=scripts,
+        strategy_names=strategy_names,
+        use_semantic=use_semantic,
+        semantic_threshold=semantic_threshold,
+    )
     run_id = "run-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M")
     try:
         run = orch.run(run_id=run_id)
@@ -234,6 +243,22 @@ def build_parser() -> argparse.ArgumentParser:
         "--reports-dir",
         default="reports",
         help="Directory under which run-* subfolders are written",
+    )
+    p_run.add_argument(
+        "--semantic",
+        action="store_true",
+        default=False,
+        help="Enable embedding-based semantic matching (requires fastembed). "
+             "Runs exact matching on all events PLUS semantic matching on finals "
+             "for cues the exact layer missed.",
+    )
+    p_run.add_argument(
+        "--semantic-threshold",
+        type=float,
+        default=0.55,
+        metavar="FLOAT",
+        help="Cosine similarity threshold for semantic matching (default: 0.55). "
+             "Higher = fewer but more confident matches.",
     )
     p_run.set_defaults(func=_cmd_run)
 

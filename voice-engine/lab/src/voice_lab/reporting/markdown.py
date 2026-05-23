@@ -55,25 +55,53 @@ def write_summary(
     # ── 1. Outcomes ──────────────────────────────────────────────────────────
     lines.append("## Outcomes per strategy")
     lines.append("")
-    lines.append("| Strategy | Pass | Partial | Fail | False positive | Total | FNR | FPR |")
+    lines.append(
+        "| Strategy | Detected | Not said | FNR | FPR"
+        " | via Exact | via Semantic | Semantic lift |"
+    )
     lines.append("|---|---:|---:|---:|---:|---:|---:|---:|")
     for strategy, classifications in per_strategy.items():
         counts = Counter(c.outcome for c in classifications)
-        total = len(classifications)
         total_expected = counts["pass"] + counts["partial"] + counts["fail"]
-        fnr = counts["fail"] / total_expected if total_expected > 0 else None
+        detected = counts["pass"] + counts["partial"]
+        not_said = counts["fail"]
+        fnr = not_said / total_expected if total_expected > 0 else None
         fpr = counts["false_positive"] / total_expected if total_expected > 0 else None
+
+        # Split detected cues by match method.
+        exact_hits = sum(
+            1 for c in classifications
+            if c.outcome in ("pass", "partial")
+            and c.detection is not None
+            and c.detection.match_method == "exact"
+        )
+        semantic_hits = sum(
+            1 for c in classifications
+            if c.outcome in ("pass", "partial")
+            and c.detection is not None
+            and c.detection.match_method == "semantic"
+        )
+        semantic_lift = (
+            f"+{semantic_hits} ({semantic_hits/detected*100:.0f}%)"
+            if detected > 0 and semantic_hits > 0
+            else ("—" if semantic_hits == 0 else f"+{semantic_hits}")
+        )
         lines.append(
             f"| {strategy}"
-            f" | {counts.get('pass', 0)}"
-            f" | {counts.get('partial', 0)}"
-            f" | {counts.get('fail', 0)}"
-            f" | {counts.get('false_positive', 0)}"
-            f" | {total}"
+            f" | {detected}"
+            f" | {not_said}"
             f" | {_pct(fnr)}"
             f" | {_pct(fpr)}"
+            f" | {exact_hits}"
+            f" | {semantic_hits}"
+            f" | {semantic_lift}"
             f" |"
         )
+    lines.append("")
+    lines.append(
+        "_**Not said** = cue was expected but dealer never said it — coaching finding, not an engine error._"
+        " _**Semantic lift** = extra cues caught only by the embedding layer._"
+    )
     lines.append("")
 
     # ── 2. Engine performance metrics ────────────────────────────────────────

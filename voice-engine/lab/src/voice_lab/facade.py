@@ -9,7 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Iterable
 
-from voice_lab.matcher.cue_matcher import match_cues
+from voice_lab.matcher.cue_matcher import match_cues as _exact_match_cues
 from voice_lab.strategies import registry as _registry
 from voice_lab.strategies.base import TranscriptionStrategy
 from voice_lab.types import CueAtom, CueDetection, TranscriptEvent
@@ -37,6 +37,26 @@ class VoiceEngineLab:
         return strategy.transcribe(Path(audio_path))
 
     def match_cues(
-        self, events: Iterable[TranscriptEvent], cue_atoms: list[CueAtom]
+        self,
+        events: Iterable[TranscriptEvent],
+        cue_atoms: list[CueAtom],
+        *,
+        use_semantic: bool = False,
+        semantic_threshold: float = 0.55,
     ) -> Iterable[CueDetection]:
-        return match_cues(events, cue_atoms)
+        """Match transcript events against cue atoms.
+
+        use_semantic=False (default): exact phrase + synonym matching only.
+            Fast, zero false positives. Use for baseline runs.
+
+        use_semantic=True: exact matching on all events PLUS embedding-based
+            semantic matching on final events for cues exact matching missed.
+            Catches paraphrases ("engine shuts off at lights" → idle-stop).
+            Requires fastembed to be installed.
+        """
+        if use_semantic:
+            from voice_lab.matcher.combined_matcher import match_cues_combined
+            return match_cues_combined(
+                events, cue_atoms, semantic_threshold=semantic_threshold
+            )
+        return _exact_match_cues(events, cue_atoms)
