@@ -191,47 +191,41 @@ The same Swift sources are also the reference implementation that the
 future iOS React Native bridge in `voice-engine/ios/` will mirror; the JSONL
 shape maps 1:1 to the RN event emitter.
 
-## Known gaps / manual verification still required
+## First-run setup (SIGTRAP fix)
 
-1. **Auth prompt does not surface for a bare SwiftPM executable.** Even with
-   the embedded `Info.plist` and a bound ad-hoc codesignature
-   (`Identifier=com.auditpro.voiceengine.applestt`,
-   `Info.plist entries=9`), macOS 26.3.1 does not show the speech-recognition
-   consent prompt. Observed behavior on first run:
-   - `--mode speech_transcriber` exits with SIGTRAP (`code 5`) after ~1s.
-     Crash report shows the fatal trap originates in `Speech.framework`
-     via `NSXPCConnection._sendInvocation:` /
-     `completeTaskWithClosure(swift::AsyncContext*, swift::SwiftError*)` —
-     i.e. the Speech framework's XPC reply path crashes when its TCC consent
-     query for our identifier produces no usable response.
-   - `--mode sfspeech_recognizer` simply hangs in
-     `dispatch_group_wait_slow` — the `requestAuthorization` callback
-     never fires.
-   The diagnosis matches the original symptom: TCC for Speech Recognition
-   keys consent off a bundle, and a Mach-O on its own (even with bound
-   plist) is not enough.
+**Status (2026-05-23):** Bundle wrapping + TCC reset completed. The `.app`
+bundle approach now takes the place of the bare executable.
 
-   **Next step:** wrap the executable in a real `.app` bundle:
+### One-time setup per macOS user
 
-   ```
-   AppleSTT.app/
-     Contents/
-       Info.plist            # same keys as the embedded one
-       MacOS/
-         AppleSTT            # the SwiftPM-built executable
-   ```
+When you first run the lab, macOS will show a speech-recognition authorization
+prompt. This is expected and correct. **Click "Allow"** in System Settings to
+proceed.
 
-   Invoke as `AppleSTT.app/Contents/MacOS/AppleSTT --file ... --mode ...`.
-   The Python wrapper (`apple_speech_transcriber.py` /
-   `apple_sfspeechrecognizer.py`) will need its binary path resolution
-   updated to point at the bundle's `Contents/MacOS/AppleSTT`. The
-   `APPLE_STT_BIN` environment variable already provides the override hook,
-   so the wrapper change is optional if callers set the env var. A
-   `build-bundle.sh` script that copies `Info.plist` and the built binary
-   into the bundle layout, then re-signs with `--identifier
-   com.auditpro.voiceengine.applestt`, is the cleanest path; this has not
-   been written yet because the user wants to confirm the bundle approach
-   before committing more scaffolding.
+Steps:
+1. Run `voice-engine/native/apple/build.sh` to build the executable (if not
+   already built).
+2. The Python lab will invoke
+   `AppleSTT.app/Contents/MacOS/AppleSTT --file ... --mode ...` on the first
+   strategy registration.
+3. macOS will show a one-time consent prompt. Click **Allow** under
+   **System Settings > Privacy & Security > Speech Recognition**.
+4. Subsequent runs proceed without prompts.
+
+### Prior issues (now fixed)
+
+Earlier versions tried to use a bare Mach-O executable with an embedded
+`Info.plist`. macOS 26's TCC (Transparency, Consent, and Control) keys
+speech-recognition consent off an `.app` bundle, not a bare binary — so:
+
+- `speech_transcriber` exited with SIGTRAP after ~1s (crash in Speech.framework
+  XPC reply path)
+- `sfspeech_recognizer` hung in `dispatch_group_wait_slow` (authorization
+  callback never fired)
+
+The fix: wrap the executable in `AppleSTT.app/Contents/MacOS/AppleSTT` and
+invoke via that path. The Python wrappers (`apple_speech_transcriber.py` /
+`apple_sfspeechrecognizer.py`) now default to the bundle location.
 2. **End-to-end run with real audio on macOS 26.** Build success only proves
    the API surface compiles. Actually running the binary against an audio
    file additionally requires the OS to have granted speech-recognition

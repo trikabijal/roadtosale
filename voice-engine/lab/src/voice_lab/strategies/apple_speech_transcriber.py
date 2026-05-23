@@ -29,21 +29,22 @@ from voice_lab.strategies.base import TranscriptionStrategy
 from voice_lab.types import TranscriptEvent, TranscriptionError
 
 
-# Repo-anchored default binary location. Resolved from this file's location
-# so the path is correct regardless of CWD.
+# Repo-anchored default to the .app bundle (required for TCC authorization).
+# Resolved from this file's location so the path is correct regardless of CWD.
 #
 # This file lives at:
 #   voice-engine/lab/src/voice_lab/strategies/apple_speech_transcriber.py
 # We want:
-#   voice-engine/native/apple/AppleSTT/.build/release/AppleSTT
-# which is parents[4]/native/apple/AppleSTT/.build/release/AppleSTT.
+#   voice-engine/native/apple/AppleSTT/AppleSTT.app/Contents/MacOS/AppleSTT
+# which is parents[4]/native/apple/AppleSTT/AppleSTT.app/Contents/MacOS/AppleSTT.
 _DEFAULT_BIN = (
     Path(__file__).resolve().parents[4]
     / "native"
     / "apple"
     / "AppleSTT"
-    / ".build"
-    / "release"
+    / "AppleSTT.app"
+    / "Contents"
+    / "MacOS"
     / "AppleSTT"
 )
 

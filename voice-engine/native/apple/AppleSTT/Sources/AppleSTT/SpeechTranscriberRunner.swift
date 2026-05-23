@@ -36,7 +36,23 @@ final class SpeechTranscriberRunner {
     func run(fileURL: URL) async throws {
         // 1. Authorization. SpeechTranscriber gates on the same Speech
         //    framework authorization as SFSpeechRecognizer.
-        try await Self.ensureAuthorized()
+        // NOTE: This may hang waiting for a TCC prompt. If it does, the process
+        // will need to be terminated. The fix is to manually grant Speech Recognition
+        // access in System Settings > Privacy & Security, then re-run.
+        do {
+            try await Self.ensureAuthorized()
+        } catch let error as NSError where error.code >= 10 && error.code <= 13 {
+            // Authorization error - surface with guidance
+            let guidance = "\nTo fix:\n" +
+                "  1. Open System Settings > Privacy & Security > Speech Recognition\n" +
+                "  2. Grant access to 'AppleSTT' or 'Terminal' (depending on how you're invoking this)\n" +
+                "  3. Re-run the command"
+            throw NSError(
+                domain: error.domain,
+                code: error.code,
+                userInfo: [NSLocalizedDescriptionKey: error.localizedDescription + guidance]
+            )
+        }
 
         // 2. Configure reporting + attribute sets.
         var reporting: Set<SpeechTranscriber.ReportingOption> = []
