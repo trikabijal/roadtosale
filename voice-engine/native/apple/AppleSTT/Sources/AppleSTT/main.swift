@@ -118,6 +118,14 @@ if !FileManager.default.fileExists(atPath: filePath) {
 let locale = Locale(identifier: args.locale)
 let emitter = EventEmitter()
 
+// NOTE: We must NOT use DispatchGroup.wait() here — it blocks the main
+// thread, which prevents SFSpeechRecognizer.requestAuthorization (and
+// SpeechAnalyzer) from delivering their callbacks, causing a deadlock.
+//
+// Instead: spin Task on the cooperative pool, keep the main RunLoop alive
+// with RunLoop.main.run(), and exit() from within the Task when done.
+// The run loop delivers TCC callbacks and framework events on the main thread.
+
 switch mode {
 case "speech_transcriber":
     if #available(macOS 26.0, iOS 26.0, *) {
@@ -126,17 +134,14 @@ case "speech_transcriber":
             enablePartials: args.partials,
             emitter: emitter
         )
-        let group = DispatchGroup()
-        group.enter()
         Task {
-            defer { group.leave() }
             do {
                 try await runner.run(fileURL: fileURL)
+                exit(0)
             } catch {
                 fail("speech_transcriber failed: \(error.localizedDescription)")
             }
         }
-        group.wait()
     } else {
         fail(
             "SpeechTranscriber requires macOS 26 (Tahoe) / iOS 26 or newer. " +
@@ -158,20 +163,19 @@ case "sfspeech_recognizer":
         contextualStrings: vocab,
         emitter: emitter
     )
-    let group = DispatchGroup()
-    group.enter()
     Task {
-        defer { group.leave() }
         do {
             try await runner.run(fileURL: fileURL)
+            exit(0)
         } catch {
             fail("sfspeech_recognizer failed: \(error.localizedDescription)")
         }
     }
-    group.wait()
 
 default:
     fail("unknown --mode value: \(mode) (expected speech_transcriber|sfspeech_recognizer)")
 }
 
-exit(0)
+// Keep the main run loop alive so TCC callbacks and framework events can
+// be delivered on the main thread. The Task above calls exit() when done.
+RunLoop.main.run()

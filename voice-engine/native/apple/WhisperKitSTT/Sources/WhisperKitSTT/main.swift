@@ -111,16 +111,16 @@ let runner = WhisperKitRunner(
     emitter: emitter
 )
 
-let group = DispatchGroup()
-group.enter()
+// NOTE: Do NOT use DispatchGroup.wait() — it blocks the main thread,
+// which prevents URLSession callbacks (model download) and CoreML
+// completion handlers from being delivered. Same fix as AppleSTT:
+// spin the Task, keep RunLoop alive, exit() from within the Task.
 Task {
-    defer { group.leave() }
     do {
         try await runner.run(filePath: filePath)
+        exit(0)
     } catch let error as NSError {
         let code = Int32(error.code)
-        // Normalize NSError-domain codes to our published exit-code set;
-        // anything outside the documented set collapses to 1.
         let mappedCode: Int32
         switch code {
         case 30, 50, 51, 52: mappedCode = code
@@ -131,6 +131,5 @@ Task {
         fail("WhisperKit transcription failed: \(error.localizedDescription)")
     }
 }
-group.wait()
 
-exit(0)
+RunLoop.main.run()

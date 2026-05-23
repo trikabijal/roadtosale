@@ -14,6 +14,7 @@ suitable for the reporting layer.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -43,6 +44,9 @@ class StrategyScriptResult:
     script_id: str
     detections: list[CueDetection]
     classifications: list[CueClassification]
+    transcription_time_ms: float = 0.0
+    matching_time_ms: float = 0.0
+    classification_time_ms: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +56,7 @@ class OrchestratorRun:
     per_script_results: list[StrategyScriptResult]
     classifications_by_strategy: Mapping[str, list[CueClassification]]
     latency_by_strategy: Mapping[str, LatencyStats]
+    timing_by_strategy: Mapping[str, dict[str, float]] = field(default_factory=dict)
 
 
 class Orchestrator:
@@ -80,28 +85,50 @@ class Orchestrator:
         detections_by_strategy: dict[str, list[CueDetection]] = {
             name: [] for name in self._strategy_names
         }
+        timing_by_strategy: dict[str, dict[str, float]] = {
+            name: {"transcription_ms": 0.0, "matching_ms": 0.0, "classification_ms": 0.0, "count": 0}
+            for name in self._strategy_names
+        }
 
         for strategy_name in self._strategy_names:
             for script in self._scripts:
+                t0 = time.perf_counter()
                 events: Iterable = self._engine.transcribe_file(
                     strategy_name, script.audio_path
                 )
+                events_list = list(events)
+                transcription_ms = (time.perf_counter() - t0) * 1000
+
+                t0 = time.perf_counter()
                 detections = list(
-                    self._engine.match_cues(list(events), self._cue_atoms)
+                    self._engine.match_cues(events_list, self._cue_atoms)
                 )
+                matching_ms = (time.perf_counter() - t0) * 1000
+
+                t0 = time.perf_counter()
                 classifications = classify_run(
                     detections, script.expected_cues, script.negative_cues
                 )
+                classification_ms = (time.perf_counter() - t0) * 1000
+
                 per_script_results.append(
                     StrategyScriptResult(
                         strategy_name=strategy_name,
                         script_id=script.id,
                         detections=detections,
                         classifications=classifications,
+                        transcription_time_ms=transcription_ms,
+                        matching_time_ms=matching_ms,
+                        classification_time_ms=classification_ms,
                     )
                 )
                 classifications_by_strategy[strategy_name].extend(classifications)
                 detections_by_strategy[strategy_name].extend(detections)
+
+                timing_by_strategy[strategy_name]["transcription_ms"] += transcription_ms
+                timing_by_strategy[strategy_name]["matching_ms"] += matching_ms
+                timing_by_strategy[strategy_name]["classification_ms"] += classification_ms
+                timing_by_strategy[strategy_name]["count"] += 1
 
         latency_by_strategy: dict[str, LatencyStats] = {
             name: latency_percentiles(dets)
@@ -114,4 +141,5 @@ class Orchestrator:
             per_script_results=per_script_results,
             classifications_by_strategy=classifications_by_strategy,
             latency_by_strategy=latency_by_strategy,
+            timing_by_strategy=timing_by_strategy,
         )

@@ -17,6 +17,7 @@ def write_summary(
     run_id: str,
     per_strategy: Mapping[str, list[CueClassification]],
     latency_by_strategy: Mapping[str, LatencyStats],
+    timing_by_strategy: Mapping[str, dict[str, float]] | None = None,
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     summary_path = out_dir / "summary.md"
@@ -49,6 +50,29 @@ def write_summary(
             f"{stats.p95_ms:.0f} | {stats.p99_ms:.0f} |"
         )
     lines.append("")
+
+    if timing_by_strategy:
+        lines.append("## Timing breakdown per strategy")
+        lines.append("")
+        lines.append("| Strategy | Transcription (ms) | Matching (ms) | Classification (ms) | Total (ms) |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for strategy, timing in timing_by_strategy.items():
+            trans_ms = timing.get("transcription_ms", 0.0)
+            match_ms = timing.get("matching_ms", 0.0)
+            class_ms = timing.get("classification_ms", 0.0)
+            total_ms = trans_ms + match_ms + class_ms
+            count = timing.get("count", 0)
+            if count > 0:
+                trans_avg = trans_ms / count
+                match_avg = match_ms / count
+                class_avg = class_ms / count
+                total_avg = total_ms / count
+            else:
+                trans_avg = match_avg = class_avg = total_avg = 0.0
+            lines.append(
+                f"| {strategy} | {trans_avg:.1f} | {match_avg:.1f} | {class_avg:.1f} | {total_avg:.1f} |"
+            )
+        lines.append("")
 
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     return summary_path

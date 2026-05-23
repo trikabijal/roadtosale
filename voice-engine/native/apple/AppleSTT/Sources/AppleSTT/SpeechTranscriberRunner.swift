@@ -31,30 +31,12 @@ final class SpeechTranscriberRunner {
         self.emitter = emitter
     }
 
-    /// Run the analyzer end-to-end on the file at `url`. Returns when the
+    /// Run the analyzer end-to-end on the file at `fileURL`. Returns when the
     /// audio is fully consumed and the results stream finishes.
     func run(fileURL: URL) async throws {
-        // 1. Authorization. SpeechTranscriber gates on the same Speech
-        //    framework authorization as SFSpeechRecognizer.
-        // NOTE: This may hang waiting for a TCC prompt. If it does, the process
-        // will need to be terminated. The fix is to manually grant Speech Recognition
-        // access in System Settings > Privacy & Security, then re-run.
-        do {
-            try await Self.ensureAuthorized()
-        } catch let error as NSError where error.code >= 10 && error.code <= 13 {
-            // Authorization error - surface with guidance
-            let guidance = "\nTo fix:\n" +
-                "  1. Open System Settings > Privacy & Security > Speech Recognition\n" +
-                "  2. Grant access to 'AppleSTT' or 'Terminal' (depending on how you're invoking this)\n" +
-                "  3. Re-run the command"
-            throw NSError(
-                domain: error.domain,
-                code: error.code,
-                userInfo: [NSLocalizedDescriptionKey: error.localizedDescription + guidance]
-            )
-        }
-
-        // 2. Configure reporting + attribute sets.
+        // 1. Build the transcriber with the correct options.
+        //    .volatileResults = emit partials as they arrive (aggressive path).
+        //    .audioTimeRange  = include audio-relative timestamps per result.
         var reporting: Set<SpeechTranscriber.ReportingOption> = []
         if enablePartials {
             reporting.insert(.volatileResults)
@@ -68,25 +50,19 @@ final class SpeechTranscriberRunner {
             attributeOptions: attributes
         )
 
-        // 3. Open the audio file. Apple handles streaming through its
-        //    SpeechAnalyzer(inputAudioFile:...) initializer.
-        let audioFile = try AVAudioFile(forReading: fileURL)
+        // 2. Ensure the on-device language model is downloaded.
+        //    AssetInventory returns nil if the model is already present.
+        //    On first run this downloads ~100MB; subsequent runs are instant.
+        if let downloader = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try await downloader.downloadAndInstall()
+        }
 
-        let analyzer = try await SpeechAnalyzer(
-            inputAudioFile: audioFile,
-            modules: [transcriber],
-            options: nil,
-            analysisContext: AnalysisContext(),
-            finishAfterFile: true,
-            volatileRangeChangedHandler: nil
-        )
-
+        // 3. Wire up the results consumer BEFORE starting the analyzer so
+        //    no early events are lost.
         let localLocale = self.locale
         let enablePartialsLocal = self.enablePartials
         let emitterLocal = self.emitter
 
-        // 4. Start a consumer task BEFORE we start the analyzer, so we do
-        //    not lose any early results.
         let resultsTask = Task {
             for try await result in transcriber.results {
                 let text = String(result.text.characters)
@@ -94,7 +70,7 @@ final class SpeechTranscriberRunner {
 
                 if !isFinal && !enablePartialsLocal { continue }
 
-                // Audio-relative timestamp from CMTimeRange.
+                // Audio-relative timestamp from the result's CMTimeRange.
                 let audioRelMs = Int(result.range.start.seconds * 1000.0)
 
                 emitterLocal.emit(TranscriptEventOut(
@@ -112,16 +88,18 @@ final class SpeechTranscriberRunner {
             }
         }
 
-        // 5. Reset wall-clock origin right when we start the analyzer.
+        // 4. Initialize the analyzer with the transcriber module and feed the file.
+        //    analyzeSequence(from:) reads the file and returns when all audio
+        //    is fed through. finalizeAndFinish(through:) seals any in-flight
+        //    segments and drains the results stream.
         emitter.resetAudioStart()
+        let audioFile = try AVAudioFile(forReading: fileURL)
+        let analyzer = SpeechAnalyzer(modules: [transcriber])
+        if let lastSample = try await analyzer.analyzeSequence(from: audioFile) {
+            try await analyzer.finalizeAndFinish(through: lastSample)
+        }
 
-        // 6. Run the analyzer end-to-end against the input file.
-        try await analyzer.start(inputAudioFile: audioFile, finishAfterFile: true)
-
-        // 7. Make sure trailing finals are emitted.
-        try await analyzer.finalizeAndFinishThroughEndOfInput()
-
-        // 8. Drain the results consumer.
+        // 5. Drain the results consumer.
         _ = try await resultsTask.value
     }
 
