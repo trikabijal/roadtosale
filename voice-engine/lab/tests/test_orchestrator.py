@@ -21,7 +21,9 @@ def _setup_engine() -> VoiceEngineLab:
     return engine
 
 
-def test_orchestrator_runs_mock_and_classifies_expected_cues():
+def test_orchestrator_runs_mock_and_classifies_v1_style():
+    # v1: Timestamp checking disabled. Verify that detections with confidence > floor
+    # are classified as pass, regardless of timestamp.
     engine = _setup_engine()
     atoms = [
         CueAtom(
@@ -46,8 +48,8 @@ def test_orchestrator_runs_mock_and_classifies_expected_cues():
             id="script-1",
             audio_path=FIXTURE,
             expected_cues=[
-                ExpectedCue("honda.feature.honda_sensing_360plus", expected_timestamp_ms=1500),
-                ExpectedCue("honda.feature.wireless_apple_carplay", expected_timestamp_ms=3100),
+                ExpectedCue("honda.feature.honda_sensing_360plus", expected_timestamp_ms=None),
+                ExpectedCue("honda.feature.wireless_apple_carplay", expected_timestamp_ms=None),
             ],
             negative_cues=[],
         )

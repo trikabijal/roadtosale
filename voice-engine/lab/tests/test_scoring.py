@@ -32,28 +32,46 @@ def _detection(cue_id: str, ts: int, confidence: float | None = 0.9) -> CueDetec
     )
 
 
+# v1: Timestamp checking disabled. These tests verify behavior when
+# expected_timestamp_ms=None (the v1 default).
+
+def test_classify_pass_when_detected_and_confident():
+    # v1: Detection + confidence > floor = pass (timestamp irrelevant)
+    expected = ExpectedCue("a", expected_timestamp_ms=None)
+    result = classify(_detection("a", 4000, confidence=0.9), expected)
+    assert result.outcome == "pass"
+
+
+def test_classify_partial_when_low_confidence():
+    # v1: Low confidence downgrades to partial regardless of detection
+    expected = ExpectedCue("a", expected_timestamp_ms=None)
+    result = classify(_detection("a", 1000, confidence=0.2), expected)
+    assert result.outcome == "partial"
+
+
+def test_classify_fail_when_no_detection():
+    # v1: No detection = fail (timestamp irrelevant)
+    expected = ExpectedCue("a", expected_timestamp_ms=None)
+    result = classify(None, expected)
+    assert result.outcome == "fail"
+
+
+# v2: Tests for timestamp checking (kept for future reference).
+# These verify that when expected_timestamp_ms is set, timestamp checking
+# works correctly. Disabled in v1 lab runs.
+
 def test_classify_pass_within_tolerance():
+    # If timestamp checking is enabled and detection within tolerance = pass
     expected = ExpectedCue("a", expected_timestamp_ms=1000)
     result = classify(_detection("a", 1500), expected)
     assert result.outcome == "pass"
 
 
 def test_classify_partial_when_timestamp_drifts():
+    # If timestamp checking enabled and detection drifts > tolerance = partial
     expected = ExpectedCue("a", expected_timestamp_ms=1000)
     result = classify(_detection("a", 4000), expected)
     assert result.outcome == "partial"
-
-
-def test_classify_partial_when_low_confidence():
-    expected = ExpectedCue("a", expected_timestamp_ms=1000)
-    result = classify(_detection("a", 1000, confidence=0.2), expected)
-    assert result.outcome == "partial"
-
-
-def test_classify_fail_when_no_detection():
-    expected = ExpectedCue("a", expected_timestamp_ms=1000)
-    result = classify(None, expected)
-    assert result.outcome == "fail"
 
 
 def test_classify_run_marks_negative_cues_as_false_positive():

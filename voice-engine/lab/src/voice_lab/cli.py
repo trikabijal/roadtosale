@@ -132,7 +132,12 @@ def _cmd_run(args: argparse.Namespace) -> int:
         expected: list[ExpectedCue] = []
         for seg in (script.get("segments") or []):
             for ec in (seg.get("expected_cues") or []):
-                expected.append(ExpectedCue(cue_id=ec["cue_id"], expected_timestamp_ms=int(ec.get("approx_ms") or 0)))
+                # v1: timestamp checking disabled. Hand-written approx_ms estimates
+                # don't match synthesized audio cadence (varies per voice). Timestamp
+                # accuracy is a v2 concern once we have real recorded audio with
+                # verified ground truth. For v1, we measure "did the engine catch
+                # the phrase" (pass/partial/fail), not "did it catch at the right time".
+                expected.append(ExpectedCue(cue_id=ec["cue_id"], expected_timestamp_ms=None))
         negatives = list(script.get("negative_cues") or [])
         for wav in sorted(audio_dir.glob(f"{sid}__*.wav")):
             scripts.append(LabScript(id=f"{sid}::{wav.stem.split('__', 1)[1]}",
