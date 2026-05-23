@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
     "PyYAML>=6.0",
     "youtube-transcript-api>=1.0",
+    "vehicle-feature-catalog",
 ]
 
 [project.optional-dependencies]

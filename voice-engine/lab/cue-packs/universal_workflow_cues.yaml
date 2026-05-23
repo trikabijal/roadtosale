@@ -72,8 +72,11 @@ cues:
       - highway commuting
       - highway commute
       - on the highway every day
+      - on the highway most mornings
+      - on the highway for the commute
       - long highway drives
       - commuting on the highway
+      - mostly highway
       - I drive a lot of highway
     synonyms: []
   - id: workflow.discovery_better_mileage
