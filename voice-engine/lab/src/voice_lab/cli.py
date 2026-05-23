@@ -163,6 +163,7 @@ def _cmd_run(args: argparse.Namespace) -> int:
     write_summary(out_dir, run_id=run_id,
                   per_strategy=run.classifications_by_strategy,
                   latency_by_strategy=run.latency_by_strategy,
+                  engine_metrics_by_strategy=run.engine_metrics_by_strategy,
                   timing_by_strategy=run.timing_by_strategy)
     for name in strategy_names:
         results = [r for r in run.per_script_results if r.strategy_name == name]
