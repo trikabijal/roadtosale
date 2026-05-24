@@ -247,11 +247,39 @@ cues:
       - small dent
       - dent on the rear quarter
       - dent back here
+      - dent in the rear
+      - dent in the back
+      - dent in the quarter
+      - dent in the panel
+      - rear panel dent
+      - dent in the door
       - scratch on the rear quarter
       - scratch on the door
+      - scratch on the panel
+      - scratch in the paint
+      - paint scratch
+      - paint chip
       - a ding
+      - small ding
       - small scratch
-    synonyms: []
+      - minor dent
+      - minor scratch
+      - cosmetic damage
+      - body damage
+      - little damage
+      - some damage
+      - body work needed
+      - cosmetic issue
+      - surface damage
+      - fender ding
+      - bumper scuff
+      - scuff on the
+    synonyms:
+      - dent
+      - scratch
+      - ding
+      - body damage
+      - cosmetic damage
   - id: workflow.trade_in_tires
     display_name: Trade-in tire condition mention
     category: trade
