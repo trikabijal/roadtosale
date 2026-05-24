@@ -13,10 +13,17 @@ cd voice-engine/lab
 ./build.sh           # pip install -e . + runs pytest
 ```
 
-Install the vehicle feature catalog too (optional — adds 270+ feature cues):
+Install extras as needed:
 
 ```bash
+# Vehicle feature catalog (optional — adds 270+ feature cues)
 pip install -e ../../vehicle-feature-catalog/src/python
+
+# Semantic matching (optional — fastembed + bge-small-en-v1.5)
+pip install -e ".[semantic]"
+
+# DNS64 neural denoiser (optional — Facebook Research, MIT, pulls torch)
+pip install -e ".[denoise]"
 ```
 
 ---
