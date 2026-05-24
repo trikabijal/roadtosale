@@ -377,6 +377,61 @@ This recommendation is time-sensitive. Speech infrastructure is evolving quickly
 - publication dates of the cited sources
 - whether Apple, Argmax, or Android-native options have materially changed since the last review
 
+---
+
+## Lab-to-iOS Production Gap (2026-05-24)
+
+The lab runs on macOS. iOS production is in-process Swift inside the app. This section documents what is portable and what needs to be built.
+
+### STT Layer — portable, ~90% identical
+
+| Component | Lab (macOS) | iOS Production | Delta |
+|---|---|---|---|
+| Apple SpeechTranscriber | Same Swift API | Same Swift API | Audio source only |
+| WhisperKit AudioStreamTranscriber | Same Swift package | Same Swift package | Audio source only |
+| CoreML models | macOS Apple Silicon | iPhone Neural Engine | None — same .mlpackage |
+
+**Audio source** is the only real difference. Lab CLIs feed audio from a file path. iOS production feeds audio from `AVAudioSession` → live microphone tap. The `WhisperKitLiveSTT` binary demonstrates this exact pattern (live mic + `AudioStreamTranscriber`) — that same Swift code compiles and runs on iOS unchanged.
+
+The key thing the lab CLIs cannot test is **real microphone conditions**: background noise, competing voices, Bluetooth audio, interruptions (phone calls, Siri). Those require testing on a real device.
+
+### Matching Layer — NOT portable, needs Swift port
+
+The Python cue matcher does not run on iOS. This is the production gap.
+
+| Component | Lab | iOS Production (TO BE BUILT) | Effort |
+|---|---|---|---|
+| **Exact matcher** | `voice_lab/matcher/cue_matcher.py` | Swift: `transcript.localizedCaseInsensitiveContains(phrase)` | Trivial (~50 LOC) |
+| **Cue pack loading** | `CueAtom` YAML → Python dataclass | `CueAtom` JSON → Swift `Codable` struct | Small |
+| **Semantic matcher** | `fastembed` + `bge-small-en-v1.5` (ONNX) | CoreML embedding model + dot-product in Swift | Medium |
+
+#### Semantic matcher — iOS path
+
+```
+bge-small-en-v1.5 (HuggingFace ONNX, ~130 MB)
+       ↓  coremltools.convert()   [~30-line Python script]
+bge-small-en-v1.5.mlpackage  [~90 MB, ships in app bundle]
+       ↓  CoreML inference
+CueMatcher.swift
+  - at app launch: embed all cue phrases → Float32 matrix (one row per cue)
+  - per final event: embed transcript text → vector
+  - cosine similarity vs each row → fire on any cue above 0.65
+```
+
+Neural Engine inference for a 384-dim embedding model is fast — comparable to or faster than the 8 ms measured in the lab.
+
+#### Implementation sequence for iOS production
+
+1. Convert `bge-small-en-v1.5` to CoreML (`coremltools`) — one-time script, output committed to repo
+2. Build `CueAtom.swift` + `CuePack.swift` — Swift equivalents of the Python types
+3. Build `ExactCueMatcher.swift` — substring matching on partials
+4. Build `SemanticCueMatcher.swift` — CoreML embedding + cosine similarity on finals
+5. Build `CueDetectionStrategy` protocol + `TwoLayerCueMatcher` implementation
+6. Wire `TranscriptionStrategy` output → `CueDetectionStrategy` input inside `RoadToSaleAudioOrchestrator`
+7. Test on device with the Honda walkaround cue pack
+
+Steps 1–4 are independent and can be parallelized. Step 6 is the integration point that requires the orchestrator to exist.
+
 ## Recommended Implementation Sequence
 
 1. Build the orchestrator and capture layer.
