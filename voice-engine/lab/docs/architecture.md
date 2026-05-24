@@ -191,27 +191,15 @@ This decision constrains the lab: it must run on macOS (for Apple Silicon Swift 
 
 ---
 
-### Decision 7: DNS64 denoiser is lab-only — production uses platform-native noise suppression
+### Decision 7: The lab tests raw audio — noise suppression is hardware-only on iPhone
 
-The lab's DNS64 neural denoiser (`synthesis/denoise.py`) is an **offline batch tool**. It processes pre-recorded audio to generate `_nr` variants and answer the question: *"would noise suppression help our STT strategies at showroom noise levels?"*
+The lab does **not** apply any software noise suppression. Every WAV file is fed to the STT strategies as-is: clean, or with white Gaussian noise added at a fixed SNR.
 
-DNS64 **must not** run synchronously in the production fast lane. Two reasons:
+**Why:** The target platform is iPhone. On iPhone, noise suppression is not a software choice — it is always active in the hardware audio capture pipeline before any PCM frame reaches user space. `AUVoiceProcessingIO` runs in the kernel audio session layer; the app never sees raw microphone samples. There is no equivalent API that can be applied to a WAV file offline on macOS. Any software denoiser applied to files (e.g., DNS64) runs a different algorithm at file-level granularity and produces results that do not represent what the iPhone hardware does on 16–20 ms frame windows.
 
-1. **Latency**: DNS64 is an encoder-decoder neural network. At 120-second chunk granularity on CPU it takes ~45 min per 39-min file. Even at 1-second chunk granularity it adds hundreds of milliseconds of processing before the audio reaches the STT strategy — breaking the TTFT < 300 ms budget.
-2. **Battery**: Running a neural model continuously on device (CPU) for the duration of a 30-minute walk-around would drain the battery by 20–40%. Unacceptable for a background-running coaching app.
+**Consequence for lab numbers:** The FNR figures in the lab (e.g., 8.2% for WhisperKit at SNR +5 dB showroom noise) are a **conservative lower bound**. In production on iPhone, the hardware voice processor will always be active; actual FNR at showroom noise will be lower than the lab figures by some amount that can only be measured with a real device test.
 
-**Production substitute:**
-
-| Platform | API | Mechanism | Battery cost |
-|---|---|---|---|
-| iOS | `AUVoiceProcessingIO` Audio Unit | Hardware DSP on the Qualcomm/Apple Silicon audio subsystem. Identical to FaceTime noise suppression. | ~0 (runs on dedicated DSP, not CPU/GPU/ANE) |
-| Android | `android.media.audiofx.NoiseSuppressor` | Hardware-accelerated AudioEffect; falls back to software on unsupported chips. | Minimal (DSP where available) |
-
-**How it plugs in:** Platform noise suppression operates in the audio capture pipeline, *before* the app receives PCM frames. The `AVAudioSession` or `AudioRecord` session is configured once at session start, and every chunk that reaches the `SpeechTranscriber` / `sherpa-onnx` is already denoised — no code in the hot path.
-
-**Lab → production gap:** The lab's DNS64 results (WhisperKit snr+5 dB FNR: 20.0% → 7.2% after denoising) are an optimistic *ceiling* for what platform-native noise suppression can achieve. DNS64 was trained on the DNS Challenge corpus; `AUVoiceProcessingIO` is tuned for voice calls, not speech recognition. Platform results will differ — Phase 2 of the lab should run real-world noise (DNS Challenge clips) against `AUVoiceProcessingIO` audio captures to measure the gap.
-
-**Synthesis/denoise.py role:** Stays as a lab fixture generator only. It answers counterfactual questions and benchmarks what a strong denoiser would do. It does not exist in the production binary.
+**How to measure the gap:** Record the lab's noisy WAV fixtures through an actual iPhone microphone (with `AVAudioSession` configured as the production app configures it), capture those recordings, and add them as lab fixtures (e.g., `snr5db_iphone.wav`). The reporting layer will pick them up automatically via the `_collect_audio_variants()` naming convention. This is a device test task, not a lab code task.
 
 ---
 
@@ -266,7 +254,7 @@ runs/results/run-20260524-0829/noise_comparison.md      ← aggregated
 | Absent | Reason |
 |---|---|
 | Live microphone input | Lab is offline-only. Live mic is the production path on device. The Swift CLIs accept `--input` file only. |
-| Real-time denoising | DNS64 runs offline batch. Production uses `AUVoiceProcessingIO` (iOS) / `NoiseSuppressor` (Android) — hardware DSP in the audio capture pipeline, transparent to the app. See Decision 7. |
+| Hardware noise suppression | `AUVoiceProcessingIO` is a kernel-level audio unit tied to the iPhone hardware session — it cannot be applied to WAV files on macOS. The lab tests raw audio only. See Decision 7 for what this means for the numbers. |
 | Speaker diarization | Not implemented in the free tier strategies. Planned for `argmax_pro` (Parakeet, paid). |
 | Multi-tenant isolation | Lab is a single-researcher tool. Production multi-tenancy is handled by the server-side facade, not the lab. |
 | Streaming results | The orchestrator processes files end-to-end. Streaming is a production concern. |

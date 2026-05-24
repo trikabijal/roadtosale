@@ -25,9 +25,6 @@ argmax = [
 semantic = [
     "fastembed>=0.3",
 ]
-denoise = [
-    "denoiser>=0.1",   # Facebook DNS64 neural denoiser (MIT); pulls torch
-]
 
 [project.scripts]
 voice-lab = "voice_lab.cli:main"

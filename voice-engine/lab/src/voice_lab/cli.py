@@ -3,7 +3,6 @@
 Subcommands:
   synth              synthesize fixtures (ElevenLabs)
   generate-noise     add white Gaussian noise at target SNR levels to clean WAVs
-  denoise            apply DNS64 neural noise suppression to snr*db.wav files
   run                run a comparison matrix
   validate-catalog   delegates to vehicle-feature-catalog validator
   ingest-youtube     pull YouTube transcripts into script YAML schema
@@ -144,51 +143,6 @@ def _cmd_generate_noise(args: argparse.Namespace) -> int:
     return 0 if n_failed == 0 else 1
 
 
-def _cmd_denoise(args: argparse.Namespace) -> int:
-    """Apply DNS64 neural denoiser to all snr*db.wav files, writing snr*db_nr.wav."""
-    from voice_lab.synthesis.denoise import denoise_wav
-
-    lab_root = _lab_root()
-    audio_base = Path(args.audio_base) if getattr(args, "audio_base", None) else lab_root / "data" / "audio"
-    source_types: set[str] = {s.strip() for s in args.source_types.split(",") if s.strip()}
-    force: bool = bool(args.force)
-
-    # Collect all snr*db.wav files (skip already-denoised _nr files).
-    noisy_wavs: list[Path] = []
-    if "synthesized" in source_types:
-        noisy_wavs.extend(sorted((audio_base / "synthesized").glob("*/snr*db.wav")))
-    if "youtube" in source_types:
-        noisy_wavs.extend(sorted((audio_base / "youtube").glob("*/snr*db.wav")))
-    # Exclude already-denoised files (e.g. if glob picks up snr*db_nr.wav by mistake).
-    noisy_wavs = [p for p in noisy_wavs if not p.stem.endswith("_nr")]
-
-    if not noisy_wavs:
-        print(f"No snr*db.wav files found under {audio_base}. Run `generate-noise` first.", file=sys.stderr)
-        return 2
-
-    n_created = n_skipped = n_failed = 0
-    for src in noisy_wavs:
-        dst = src.parent / (src.stem + "_nr.wav")
-        if dst.exists() and dst.stat().st_size > 0 and not force:
-            n_skipped += 1
-            print(f"  [skip]    {dst.relative_to(lab_root)}")
-            continue
-        try:
-            print(f"  [denoise] {src.relative_to(lab_root)} → {dst.name}", flush=True)
-            denoise_wav(src, dst)
-            n_created += 1
-            print(f"  [done]    {dst.relative_to(lab_root)}")
-        except Exception as exc:
-            n_failed += 1
-            print(f"  [FAILED]  {src.relative_to(lab_root)}: {exc}", file=sys.stderr)
-
-    print(
-        f"\ndenoise: created={n_created} skipped={n_skipped} failed={n_failed} "
-        f"({len(noisy_wavs)} source files)",
-        file=sys.stderr,
-    )
-    return 0 if n_failed == 0 else 1
-
 
 def _try_import_catalog() -> Any | None:
     try:
@@ -216,10 +170,10 @@ def _load_workflow_cue_atoms(path: Path) -> list:
 
 
 def _audio_variants(wav_dir: Path) -> list[tuple[Path, str]]:
-    """Return (path, noise_level) tuples for clean + snr + denoised variants.
+    """Return (path, noise_level) tuples for clean + snr + processed variants.
 
     Order: clean → snr15db → snr15db_nr → snr5db → snr5db_nr → snr0db → snr0db_nr
-    (each noisy level immediately followed by its denoised counterpart).
+    (each noisy level immediately followed by its processed counterpart, e.g. iPhone-recorded).
 
     Files that don't exist are silently skipped.
     """
@@ -511,25 +465,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate even if the noisy file already exists.",
     )
     p_noise.set_defaults(func=_cmd_generate_noise)
-
-    # ── denoise ──────────────────────────────────────────────────────────────
-    p_dn = sub.add_parser(
-        "denoise",
-        help="Apply DNS64 neural denoiser to snr*db.wav files → writes snr*db_nr.wav",
-    )
-    p_dn.add_argument(
-        "--audio-base", default=None,
-        help="Base audio dir (default: data/audio/). Expects synthesized/ and youtube/ subdirs.",
-    )
-    p_dn.add_argument(
-        "--source-types", default="synthesized,youtube",
-        help="Which source types to denoise (default: synthesized,youtube).",
-    )
-    p_dn.add_argument(
-        "--force", action="store_true",
-        help="Re-denoise even if the _nr file already exists.",
-    )
-    p_dn.set_defaults(func=_cmd_denoise)
 
     # ── run ──────────────────────────────────────────────────────────────────
     p_run = sub.add_parser("run", help="Run a strategy comparison matrix")
