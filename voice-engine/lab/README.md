@@ -125,16 +125,25 @@ lab/
 
 ---
 
-## Lab results at a glance (run-20260524-0829)
+## Lab results at a glance (run-20260524-1051)
 
-2 strategies × 64 audio fixtures (16 clean + 48 noisy). 220 expected cue firings per noise level.
+2 strategies × 112 audio fixtures (16 sources × 7 variants: clean + SNR +15/+5/0 dB + denoised). 220 expected cue firings per noise level. All 224 transcripts cached.
 
 | | Apple SpeechTranscriber | WhisperKit |
 |---|---|---|
-| **Clean FNR** | 4.5% | 1.4% |
-| **SNR +15 dB FNR** | 4.5% | 2.7% |
-| **SNR +5 dB FNR** | 8.6% | 20.0% |
-| **SNR 0 dB FNR** | 18.6% | 27.3% |
+| **Clean FNR** | 4.5% | **1.4%** |
+| **SNR +15 dB FNR** | 4.5% | **2.7%** |
+| **SNR +15 dB + DNS64 FNR** | 4.5% | 5.9% ⚠️ denoiser hurts |
+| **SNR +5 dB FNR (showroom)** | 8.6% | **8.2%** |
+| **SNR +5 dB + DNS64 FNR** | 12.3% ⚠️ | 9.1% ⚠️ denoiser hurts |
+| **SNR 0 dB FNR** | 18.6% | 18.6% |
+| **SNR 0 dB + DNS64 FNR** | 20.5% ⚠️ | 16.8% (−1.8 pp) |
 | **FPR (all levels)** | 0.0% | 0.0% |
+| **TTFT P50 / P95** | **64 ms / 167 ms** | 81 ms / 300 ms |
+| **TTFC P50 / P95** | **134 ms / 414 ms** ✅ | 221 ms / 659 ms ⚠️ |
 
-WhisperKit is sharper in clean conditions; Apple degrades more gracefully in showroom noise. Crossover is between SNR +15 dB and +5 dB. See `runs/results/run-20260524-0829/noise_comparison.md` for the full breakdown.
+**WhisperKit** is sharper in clean conditions (1.4% vs 4.5% FNR). At showroom noise (SNR +5 dB) they converge to near parity (8.2% vs 8.6%). **Apple SpeechTranscriber** wins on latency: TTFC P95 414 ms (under the 500 ms threshold) vs WhisperKit 659 ms (above it).
+
+**DNS64 denoiser** consistently hurts or is neutral for both strategies — do not use in production. Production noise suppression: `AUVoiceProcessingIO` (iOS) / `android.media.audiofx.NoiseSuppressor` (Android) — hardware DSP, zero battery cost. See `docs/architecture.md` Decision 7.
+
+Full breakdown: `runs/results/run-20260524-1051/noise_comparison.md`
