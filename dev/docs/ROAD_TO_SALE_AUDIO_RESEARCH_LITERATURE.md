@@ -73,7 +73,64 @@ Last updated: `2026-05-24`
 
 ---
 
-## Android Runtime Options
+## Android Runtime Options — Full Landscape
+
+Last synthesized: 2026-05-24. **Strategic principle: minimize audio engineering, maximize product. Use what the world gives us. Optimize when we have traction.**
+
+### The three buckets
+
+#### Bucket 1 — Generic cross-platform (serious choices today)
+
+**whisper.cpp** (`github.com/ggml-org/whisper.cpp`)  
+The "Linux of on-device ASR." Massive ecosystem, battle-tested, runs on Android/iOS/macOS/Linux/Windows. Metal, Vulkan, CoreML, CPU fallback. Quantization + streaming support. The catch: not truly mobile-first — you own the streaming UX, VAD, and optimization work. Android acceleration story is fragmented. Best for teams that want maximum control and have infra depth. For us: likely too much engineering to own right now.
+
+**sherpa-onnx** (`github.com/k2-fsa/sherpa-onnx`) ← **our current Android choice**  
+Underrated. Designed specifically around streaming ASR, mobile, endpointing, VAD, wake word — not just "run Whisper." NNAPI support means it works across vendors (not Qualcomm-only). Genuinely real-time oriented. Good iOS and Android support. Smaller ecosystem and less polished docs than whisper.cpp, but architecturally the right fit for a production voice assistant. **This is why we built `SherpaOnnxSTT`.**
+
+**ONNX Runtime + custom model**  
+Most flexible. Deploy Whisper, Parakeet, Moonshine, DistilWhisper. Total control, excellent Android acceleration via NNAPI/Qualcomm. Hardest engineering path — you build the streaming stack yourself. For us: future option if sherpa-onnx proves insufficient.
+
+**Parakeet (Nvidia)** — watch list  
+Much faster and lower latency than Whisper. Strong streaming behavior. But mobile deployment ecosystem is immature. Argmax Pro SDK has the only real-time Parakeet streaming for Android today. Worth tracking — not ready for DIY integration.
+
+#### Bucket 2 — iOS-specific (we have good answers here)
+
+**WhisperKit** — our iOS fallback (iOS 17–25)  
+Cleanest iOS-native Whisper stack. CoreML optimized, Apple Silicon tuned, streaming via AudioStreamTranscriber, good Swift ergonomics. Genuinely impressive on iPhone. Far ahead of the Android counterpart in maturity.
+
+**Apple SpeechTranscriber** — our iOS primary (iOS 26+)  
+Native, extremely power-efficient, easiest UX. Less control, opaque model, weaker multilingual. For many apps this is the correct business decision — founders often over-engineer here. For us: primary path for iOS 26+.
+
+**CoreML custom ASR** — watch list  
+DistilWhisper, Parakeet, custom conformers compiled to CoreML. Elite performance but becomes infra engineering. Not for now.
+
+#### Bucket 3 — Android-specific options
+
+**sherpa-onnx** ← best practical choice today  
+NNAPI support. Streaming-first. Mobile-oriented. Works across vendors — not tied to Qualcomm. This matters enormously on Android's fragmented hardware landscape.
+
+**WhisperKitAndroid** (`com.argmaxinc:whisperkit:0.3.3`, MIT)  
+Free, MIT licensed, commercially shippable. **But: currently optimized mainly around Qualcomm Snapdragon / QNN.** If users are on Pixel (stock), Samsung Snapdragon flagship → excellent. If users are on MediaTek, Exynos, low-end Android → experience may vary significantly. Also explicitly marked "experimental" with a "subset of iOS feature set" caveat. Strategic dependency on Qualcomm + Argmax roadmap.
+
+**Vosk** — lightweight fallback  
+Very stable, very offline-friendly, real-time streaming, official Android AAR. Accuracy is behind modern Whisper-class models. Still useful for embedded, low-end phones, or command-word recognition.
+
+**MediaPipe / Gemini Nano** — strategic watch  
+Google is moving toward on-device multimodal AI via Gemini Nano and the Android AI stack. Strategically important. Today: still fragmented and early for production ASR. Monitor.
+
+### WhisperKit OSS vs Argmax Pro SDK — the key distinction people miss
+
+| | WhisperKit OSS | Argmax Pro SDK |
+|---|---|---|
+| License | MIT | Commercial |
+| What it is | Runtime for OpenAI Whisper models | Commercial speech platform |
+| Android | `WhisperKitAndroid` (experimental, Qualcomm-focused) | `argmax-sdk-kotlin` (LiteRT, broader hardware) |
+| Models | Whisper variants | Frontier models beyond Whisper |
+| Speaker diarization | No | Yes (Nvidia Sortformer) |
+| Custom vocabulary | Soft bias only | 3,000 keywords hard boost |
+| Competing with | — | Deepgram, AssemblyAI, Fireworks, Speechmatics (but on-device) |
+
+**Decision for us:** Start with sherpa-onnx (free, cross-vendor, streaming-first). Evaluate WhisperKitAndroid as a second strategy on Snapdragon devices once we have real user hardware data. Argmax Pro SDK is the upgrade path if we need frontier accuracy or speaker attribution.
 
 We need an on-device STT engine for Android that:
 - runs fully offline (no cloud)

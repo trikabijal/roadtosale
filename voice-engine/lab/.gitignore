@@ -1,0 +1,17 @@
+# Large audio assets — stored in S3, not git
+data/audio/
+data/transcripts/
+
+# Run outputs are local-only (not committed)
+# Remove this line if you want to commit run results
+# runs/results/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+dist/
+
+# macOS
+.DS_Store

@@ -47,7 +47,7 @@ from voice_lab.ingestion.youtube import (
 
 # Default location of the universal workflow cue pack relative to the lab root.
 DEFAULT_WORKFLOW_CUES = Path("cue-packs") / "universal_workflow_cues.yaml"
-DEFAULT_OUTPUT_DIR = Path("fixtures") / "scripts" / "youtube"
+DEFAULT_OUTPUT_DIR = Path("sources") / "youtube"
 DEFAULT_FEATURE_CATALOG = Path("../../vehicle-feature-catalog/data/features")
 DEFAULT_FAIR_USE_NOTE = (
     "Public dealer walkaround used for internal STT evaluation under fair use."
@@ -339,7 +339,8 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentPa
     pa.add_argument(
         "--output-dir",
         default=None,
-        help="Output dir for WAVs (default: lab/fixtures/youtube/)",
+        help="Base output dir for WAVs (default: lab/data/audio/youtube/). "
+             "Each video is written to {output_dir}/{video_id}/clean.wav.",
     )
     pa.add_argument(
         "--force",
@@ -362,31 +363,54 @@ def cmd_fetch_youtube_audio(args: argparse.Namespace) -> int:
         print(f"No sources in manifest {manifest_path}.")
         return 0
 
-    output_dir = (
+    # Base dir under which {video_id}/clean.wav subdirs are created.
+    output_base = (
         Path(args.output_dir).resolve()
         if args.output_dir
-        else _resolve_lab_root() / "fixtures" / "youtube"
+        else _resolve_lab_root() / "data" / "audio" / "youtube"
     )
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_base.mkdir(parents=True, exist_ok=True)
 
     n_ok = 0
     n_skipped = 0
     n_failed = 0
     for src in sources:
+        # fetch_youtube_audio writes {output_dir}/{video_id}.wav; we use a temp
+        # staging dir then move into the canonical {video_id}/clean.wav layout.
+        staging_dir = output_base / "_staging"
+        staging_dir.mkdir(parents=True, exist_ok=True)
+
+        # Target path in new structure
+        target_dir = output_base / src.video_id
+        target_path = target_dir / "clean.wav"
+
+        # Check canonical target first (skip logic for already-migrated files)
+        if target_path.exists() and target_path.stat().st_size > 0 and not args.force:
+            n_skipped += 1
+            print(f"[{src.video_id}] skipped (exists)  {target_path}")
+            continue
+
         try:
-            res = fetch_youtube_audio(src.video_id, output_dir=output_dir, force=args.force)
+            res = fetch_youtube_audio(src.video_id, output_dir=staging_dir, force=True)
         except AudioFetchError as exc:
             print(f"[{src.video_id}] FAILED: {exc}", file=sys.stderr)
             n_failed += 1
             continue
+
+        # Move from staging/{video_id}.wav → {video_id}/clean.wav
+        target_dir.mkdir(parents=True, exist_ok=True)
+        res.audio_path.rename(target_path)
+
         if res.skipped:
+            # fetch_youtube_audio said skip but we forced it — shouldn't happen,
+            # but handle gracefully
             n_skipped += 1
             duration = f"{res.duration_seconds:.1f}s" if res.duration_seconds else "?"
-            print(f"[{src.video_id}] skipped (exists, {duration})  {res.audio_path}")
+            print(f"[{src.video_id}] skipped (exists, {duration})  {target_path}")
         else:
             n_ok += 1
             duration = f"{res.duration_seconds:.1f}s" if res.duration_seconds else "?"
-            print(f"[{src.video_id}] downloaded {duration}  {res.audio_path}")
+            print(f"[{src.video_id}] downloaded {duration}  {target_path}")
 
     print(
         f"\nfetched={n_ok} skipped={n_skipped} failed={n_failed} of {len(sources)} manifest entries.",

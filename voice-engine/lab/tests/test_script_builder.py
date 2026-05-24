@@ -29,7 +29,7 @@ from voice_lab.ingestion.youtube import TranscriptSegment
 _LAB_ROOT = Path(__file__).resolve().parents[1]
 _WORKFLOW_CUES = _LAB_ROOT / "cue-packs" / "universal_workflow_cues.yaml"
 _CATALOG_FEATURES = _LAB_ROOT.parent.parent / "vehicle-feature-catalog" / "data" / "features"
-_SEED_SCRIPT_001 = _LAB_ROOT / "fixtures" / "scripts" / "script-001-crv-hybrid-walkaround.yaml"
+_SEED_SCRIPT_001 = _LAB_ROOT / "sources" / "scripts" / "script-001-crv-hybrid-walkaround.yaml"
 
 
 def _feature_paths() -> list[Path]:

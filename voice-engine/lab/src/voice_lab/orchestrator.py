@@ -1,31 +1,23 @@
 """Lab orchestrator — runs a comparison matrix over (script x strategy).
 
-The orchestrator is parameter-driven. It takes the engine, the cue atom
-set, the scripts to run, and the strategy names to compare. It does NOT
-import the vehicle catalog — the CLI is the place where engine + catalog
-meet.
+Two-step architecture:
+  Step 1 (transcribe): run STT subprocess → raw events → saved to transcript
+    cache at data/transcripts/{strategy}/{audio_id}.jsonl.
+    Cache hit = skip STT entirely; load from disk.
 
-A "script" here is a minimal record: an id, an audio file path, the cues
-expected to fire (with optional expected timestamps), and the cues that
-must NOT fire (negative cues). The orchestrator iterates strategy x script,
-runs transcription + matching + classification, and returns results
-suitable for the reporting layer.
+  Step 2 (match + classify): load cached events → cue matching → L1 CSV rows.
+    Can be re-run without touching the STT engine.
 
-Metrics computed per script run (see dev/docs/ROAD_TO_SALE_AUDIO_TELEMETRY.md):
-  TTFT    — wall-clock latency from audio start to first partial event
-  TTFinal — wall-clock latency from audio start to first final event
-  TTFC    — wall-clock latency from audio start to first cue detection
-  RTF     — transcription_wall_ms / audio_duration_ms
-  FNR     — fail_count / total_expected  (false-negative rate)
-  FPR     — false_positive_count / total_expected  (false-positive rate)
+L1 output fields: see voice_lab.scoring.classify.CueClassification.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping
@@ -40,18 +32,25 @@ from voice_lab.scoring.classify import (
 )
 
 
-def _make_error_classification(cue_id: str, error: str) -> "CueClassification":
-    """Produce a fail classification when transcription itself errored.
-
-    Used by the orchestrator's per-file error handler so that FNR counts
-    remain accurate even when the STT engine crashes on a specific file.
-    """
+def _make_error_classification(
+    cue_id: str,
+    error: str,
+    *,
+    script_id: str = "",
+    audio_id: str = "",
+    noise_level: str = "clean",
+) -> CueClassification:
     return CueClassification(
         cue_id=cue_id,
         outcome="fail",
         detection=None,
         reason=f"transcription error: {error[:120]}",
+        script_id=script_id,
+        audio_id=audio_id,
+        noise_level=noise_level,
     )
+
+
 from voice_lab.scoring.latency import (
     AggregateEngineMetrics,
     EngineMetrics,
@@ -60,8 +59,45 @@ from voice_lab.scoring.latency import (
     compute_engine_metrics,
     latency_percentiles,
 )
-from voice_lab.types import CueAtom, CueDetection
+from voice_lab.types import CueAtom, CueDetection, TranscriptEvent
 
+
+# ── Transcript cache helpers ───────────────────────────────────────────────
+
+def _cache_path(cache_dir: Path, strategy: str, audio_id: str) -> Path:
+    """canonical: cache_dir/{strategy}/{audio_id}.jsonl"""
+    return cache_dir / strategy / (audio_id + ".jsonl")
+
+
+def _save_transcript(path: Path, events: list[TranscriptEvent]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for e in events:
+            f.write(json.dumps(asdict(e)) + "\n")
+    logger.debug("transcript cache written: %s (%d events)", path, len(events))
+
+
+def _load_transcript(path: Path) -> list[TranscriptEvent]:
+    events: list[TranscriptEvent] = []
+    with path.open(encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            d = json.loads(line)
+            events.append(TranscriptEvent(
+                text=d["text"],
+                stability=d["stability"],
+                timestamp_ms=d["timestamp_ms"],
+                latency_ms_from_audio_start=d["latency_ms_from_audio_start"],
+                confidence=d.get("confidence"),
+                engine_metadata=d.get("engine_metadata", {}),
+            ))
+    logger.debug("transcript cache loaded: %s (%d events)", path, len(events))
+    return events
+
+
+# ── Data types ─────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
 class LabScript:
@@ -69,6 +105,11 @@ class LabScript:
     audio_path: Path
     expected_cues: list[ExpectedCue]
     negative_cues: list[str] = field(default_factory=list)
+    # New context fields — populated by CLI, used in L1 output
+    audio_id: str = ""          # canonical: "youtube/2FXQvvp9Blw/clean"
+    script_id: str = ""         # source YAML id: "script_001_crv_hybrid_walkaround"
+    noise_level: str = "clean"
+    reference_text: str = ""    # concatenated segment text (ground-truth source)
 
 
 @dataclass(frozen=True)
@@ -78,10 +119,10 @@ class StrategyScriptResult:
     detections: list[CueDetection]
     classifications: list[CueClassification]
     engine_metrics: EngineMetrics
-    # Phase wall-clock timings (seconds → ms).
     transcription_time_ms: float = 0.0
     matching_time_ms: float = 0.0
     classification_time_ms: float = 0.0
+    cache_hit: bool = False      # True when transcript was loaded from cache
 
 
 @dataclass(frozen=True)
@@ -91,11 +132,11 @@ class OrchestratorRun:
     per_script_results: list[StrategyScriptResult]
     classifications_by_strategy: Mapping[str, list[CueClassification]]
     latency_by_strategy: Mapping[str, LatencyStats]
-    # Aggregated engine performance metrics (TTFT, TTFinal, TTFC, RTF, FNR, FPR).
     engine_metrics_by_strategy: Mapping[str, AggregateEngineMetrics]
-    # Legacy timing dict kept for backward compat with older report writers.
     timing_by_strategy: Mapping[str, dict[str, float]] = field(default_factory=dict)
 
+
+# ── Orchestrator ───────────────────────────────────────────────────────────
 
 class Orchestrator:
     def __init__(
@@ -106,7 +147,8 @@ class Orchestrator:
         strategy_names: list[str],
         *,
         use_semantic: bool = False,
-        semantic_threshold: float = 0.55,
+        semantic_threshold: float = 0.65,
+        transcript_cache_dir: Path | None = None,
     ) -> None:
         self._engine = engine
         self._cue_atoms = cue_atoms
@@ -114,29 +156,44 @@ class Orchestrator:
         self._strategy_names = strategy_names
         self._use_semantic = use_semantic
         self._semantic_threshold = semantic_threshold
+        self._cache_dir = transcript_cache_dir
+
+    def _get_events(
+        self,
+        strategy_name: str,
+        script: LabScript,
+    ) -> tuple[list[TranscriptEvent], bool]:
+        """Return (events, cache_hit). Saves to cache after STT if cache_dir set."""
+        if self._cache_dir and script.audio_id:
+            cp = _cache_path(self._cache_dir, strategy_name, script.audio_id)
+            if cp.exists():
+                logger.info("cache HIT  %s / %s", strategy_name, script.audio_id)
+                print(f"  [cache hit] {strategy_name} / {script.audio_id}", flush=True)
+                return _load_transcript(cp), True
+
+        logger.info("cache MISS %s / %s — running STT", strategy_name, script.audio_id or script.id)
+        events = list(self._engine.transcribe_file(strategy_name, script.audio_path))
+
+        if self._cache_dir and script.audio_id:
+            cp = _cache_path(self._cache_dir, strategy_name, script.audio_id)
+            _save_transcript(cp, events)
+
+        return events, False
 
     def _run_one(
         self,
         *,
         strategy_name: str,
-        script: "LabScript",
+        script: LabScript,
         per_script_results: list,
         classifications_by_strategy: dict,
         detections_by_strategy: dict,
         engine_metrics_per_file: dict,
         timing_by_strategy: dict,
     ) -> None:
-        """Transcribe + match + classify one (strategy, script) pair.
-
-        Extracted so the caller can wrap it in try/except without nesting
-        the entire inner loop. Raises on any error — caller decides to skip.
-        """
-        # ── 1. Transcription ────────────────────────────────────────────────
+        # ── 1. Transcription (or cache load) ────────────────────────────────
         t0 = time.perf_counter()
-        events: Iterable = self._engine.transcribe_file(
-            strategy_name, script.audio_path
-        )
-        events_list = list(events)
+        events_list, cache_hit = self._get_events(strategy_name, script)
         transcription_ms = (time.perf_counter() - t0) * 1000
 
         # ── 2. Cue matching ─────────────────────────────────────────────────
@@ -151,14 +208,21 @@ class Orchestrator:
         )
         matching_ms = (time.perf_counter() - t0) * 1000
 
-        # ── 3. Classification ────────────────────────────────────────────────
+        # ── 3. Classification — with full investigation evidence ─────────────
         t0 = time.perf_counter()
         classifications = classify_run(
-            detections, script.expected_cues, script.negative_cues
+            detections,
+            script.expected_cues,
+            script.negative_cues,
+            events=events_list,
+            reference_text=script.reference_text,
+            script_id=script.script_id,
+            audio_id=script.audio_id,
+            noise_level=script.noise_level,
         )
         classification_ms = (time.perf_counter() - t0) * 1000
 
-        # ── 4. Engine performance metrics ────────────────────────────────────
+        # ── 4. Engine metrics ────────────────────────────────────────────────
         em = compute_engine_metrics(
             events=events_list,
             detections=detections,
@@ -176,6 +240,7 @@ class Orchestrator:
                 transcription_time_ms=transcription_ms,
                 matching_time_ms=matching_ms,
                 classification_time_ms=classification_ms,
+                cache_hit=cache_hit,
             )
         )
         classifications_by_strategy[strategy_name].extend(classifications)
@@ -226,26 +291,19 @@ class Orchestrator:
                         timing_by_strategy=timing_by_strategy,
                     )
                 except Exception as exc:
-                    # A single file failure must NOT abort the whole run.
-                    # Log it, mark every expected cue as failed with the error
-                    # reason, and continue. This keeps FNR honest and the
-                    # report complete.
-                    logger.warning(
-                        "SKIPPED %s / %s: %s", strategy_name, script.id, exc
-                    )
-                    print(
-                        f"  [SKIP] {strategy_name} / {script.id}: {exc}",
-                        flush=True,
-                    )
-                    # Produce fail classifications for every expected cue so
-                    # the FNR for this file is counted correctly.
+                    logger.warning("SKIPPED %s / %s: %s", strategy_name, script.id, exc)
+                    print(f"  [SKIP] {strategy_name} / {script.id}: {exc}", flush=True)
                     fail_cls = [
-                        _make_error_classification(ec.cue_id, str(exc))
+                        _make_error_classification(
+                            ec.cue_id, str(exc),
+                            script_id=script.script_id,
+                            audio_id=script.audio_id,
+                            noise_level=script.noise_level,
+                        )
                         for ec in script.expected_cues
                     ]
                     classifications_by_strategy[strategy_name].extend(fail_cls)
 
-        # ── 5. Aggregate per-strategy stats ──────────────────────────────────
         latency_by_strategy: dict[str, LatencyStats] = {
             name: latency_percentiles(dets)
             for name, dets in detections_by_strategy.items()
