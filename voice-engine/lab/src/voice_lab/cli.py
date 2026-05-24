@@ -2,6 +2,7 @@
 
 Subcommands:
   synth              synthesize fixtures (ElevenLabs)
+  generate-noise     add white Gaussian noise at target SNR levels to clean WAVs
   run                run a comparison matrix
   validate-catalog   delegates to vehicle-feature-catalog validator
   ingest-youtube     pull YouTube transcripts into script YAML schema
@@ -27,7 +28,7 @@ from typing import Any
 
 from voice_lab.facade import VoiceEngineLab
 from voice_lab.reporting.csv_writer import write_false_positives_csv, write_results_csv
-from voice_lab.reporting.markdown import write_summary
+from voice_lab.reporting.markdown import write_noise_comparison, write_summary
 
 
 def _lab_root() -> Path:
@@ -91,6 +92,57 @@ def _cmd_synth(args: argparse.Namespace) -> int:
     return 0 if n_failed == 0 else 1
 
 
+def _cmd_generate_noise(args: argparse.Namespace) -> int:
+    """Generate noisy variants of clean.wav files at one or more target SNR levels."""
+    from voice_lab.synthesis.noise import add_noise_at_snr
+
+    lab_root = _lab_root()
+    audio_base = Path(args.audio_base) if getattr(args, "audio_base", None) else lab_root / "data" / "audio"
+
+    snr_levels: list[float] = [float(x) for x in args.snr_levels.split(",") if x.strip()]
+    if not snr_levels:
+        print("--snr-levels is empty", file=sys.stderr)
+        return 2
+
+    source_types: set[str] = {s.strip() for s in args.source_types.split(",") if s.strip()}
+    force: bool = bool(args.force)
+
+    # Collect all clean.wav files to process.
+    clean_wavs: list[Path] = []
+    if "synthesized" in source_types:
+        clean_wavs.extend(sorted((audio_base / "synthesized").glob("*/clean.wav")))
+    if "youtube" in source_types:
+        clean_wavs.extend(sorted((audio_base / "youtube").glob("*/clean.wav")))
+
+    if not clean_wavs:
+        print(f"No clean.wav files found under {audio_base} for source_types={source_types}", file=sys.stderr)
+        return 2
+
+    n_created = n_skipped = n_failed = 0
+    for src in clean_wavs:
+        for snr_db in snr_levels:
+            label = f"snr{int(round(snr_db))}db"
+            dst = src.parent / f"{label}.wav"
+            if dst.exists() and dst.stat().st_size > 0 and not force:
+                n_skipped += 1
+                print(f"  [skip]    {dst.relative_to(lab_root)}")
+                continue
+            try:
+                add_noise_at_snr(src, dst, snr_db)
+                n_created += 1
+                print(f"  [created] {dst.relative_to(lab_root)}  (SNR={snr_db:+.0f} dB)")
+            except Exception as exc:
+                n_failed += 1
+                print(f"  [FAILED]  {dst.relative_to(lab_root)}: {exc}", file=sys.stderr)
+
+    print(
+        f"\ngenerate-noise: created={n_created} skipped={n_skipped} failed={n_failed} "
+        f"({len(clean_wavs)} source files × {len(snr_levels)} SNR levels)",
+        file=sys.stderr,
+    )
+    return 0 if n_failed == 0 else 1
+
+
 def _try_import_catalog() -> Any | None:
     try:
         from vehicle_feature_catalog import VehicleFeatureCatalog  # type: ignore
@@ -116,15 +168,35 @@ def _load_workflow_cue_atoms(path: Path) -> list:
     ]
 
 
+def _audio_variants(wav_dir: Path) -> list[tuple[Path, str]]:
+    """Return (path, noise_level) for clean.wav + any snr*db.wav files in wav_dir.
+
+    Order: clean first, then snr variants sorted by SNR level descending (15 → 5 → 0).
+    """
+    variants: list[tuple[Path, str]] = []
+    clean = wav_dir / "clean.wav"
+    if clean.exists() and clean.stat().st_size > 0:
+        variants.append((clean, "clean"))
+    for snr_wav in sorted(wav_dir.glob("snr*db.wav")):
+        noise_level = snr_wav.stem  # e.g. "snr15db"
+        variants.append((snr_wav, noise_level))
+    return variants
+
+
 def _build_scripts_from_yaml(
     script_yaml_paths: list[Path],
     audio_base: Path,
+    *,
+    include_noisy: bool = True,
 ) -> list:
     """Build LabScript entries from a list of script YAML files.
 
     Handles two source types:
-      - youtube_transcript: audio at audio_base/youtube/{video_id}/clean.wav
-      - hand_written / synthesized: audio at audio_base/synthesized/{script_id}__{voice}/clean.wav
+      - youtube_transcript: audio at audio_base/youtube/{video_id}/
+      - hand_written / synthesized: audio at audio_base/synthesized/{script_id}__{voice}/
+
+    When include_noisy=True (default), also discovers snr*db.wav variants alongside
+    each clean.wav and creates one LabScript per audio variant.
     """
     import yaml as _yaml
     from voice_lab.orchestrator import LabScript
@@ -156,37 +228,56 @@ def _build_scripts_from_yaml(
 
         if source_type == "youtube_transcript":
             video_id = (script.get("source") or {}).get("video_id") or sid.replace("youtube_", "")
-            wav = audio_base / "youtube" / video_id / "clean.wav"
-            if not wav.exists():
-                print(f"  [skip] audio not found: {wav}", flush=True)
+            wav_dir = audio_base / "youtube" / video_id
+            variants = _audio_variants(wav_dir) if include_noisy else []
+            # Always include clean even if include_noisy=False
+            if not include_noisy:
+                clean = wav_dir / "clean.wav"
+                if clean.exists():
+                    variants = [(clean, "clean")]
+            if not variants:
+                print(f"  [skip] audio not found: {wav_dir}/clean.wav", flush=True)
                 continue
-            audio_id = f"youtube/{video_id}/clean"
-            scripts.append(LabScript(
-                id=f"youtube::{video_id}",
-                audio_path=wav,
-                expected_cues=expected,
-                negative_cues=negatives,
-                audio_id=audio_id,
-                script_id=sid,
-                noise_level="clean",
-                reference_text=reference_text,
-            ))
-        else:
-            # synthesized or hand_written — look for all voice variants
-            for wav in sorted((audio_base / "synthesized").glob(f"{sid}__*/clean.wav")):
-                voice_name = wav.parent.name.split("__", 1)[1] if "__" in wav.parent.name else wav.parent.name
-                asset_name = f"{sid}__{voice_name}"
-                audio_id = f"synthesized/{asset_name}/clean"
+            for wav, noise_level in variants:
+                audio_id = f"youtube/{video_id}/{noise_level}"
                 scripts.append(LabScript(
-                    id=f"{sid}::{voice_name}",
+                    id=f"youtube::{video_id}::{noise_level}",
                     audio_path=wav,
                     expected_cues=expected,
                     negative_cues=negatives,
                     audio_id=audio_id,
                     script_id=sid,
-                    noise_level="clean",
+                    noise_level=noise_level,
                     reference_text=reference_text,
                 ))
+        else:
+            # synthesized or hand_written — look for all voice variants
+            for asset_dir in sorted((audio_base / "synthesized").glob(f"{sid}__*")):
+                if not asset_dir.is_dir():
+                    continue
+                voice_name = asset_dir.name.split("__", 1)[1] if "__" in asset_dir.name else asset_dir.name
+                asset_name = f"{sid}__{voice_name}"
+
+                variants = _audio_variants(asset_dir) if include_noisy else []
+                if not include_noisy:
+                    clean = asset_dir / "clean.wav"
+                    if clean.exists():
+                        variants = [(clean, "clean")]
+                if not variants:
+                    continue
+
+                for wav, noise_level in variants:
+                    audio_id = f"synthesized/{asset_name}/{noise_level}"
+                    scripts.append(LabScript(
+                        id=f"{sid}::{voice_name}::{noise_level}",
+                        audio_path=wav,
+                        expected_cues=expected,
+                        negative_cues=negatives,
+                        audio_id=audio_id,
+                        script_id=sid,
+                        noise_level=noise_level,
+                        reference_text=reference_text,
+                    ))
 
     return scripts
 
@@ -298,13 +389,16 @@ def _cmd_run(args: argparse.Namespace) -> int:
         false_pos = [c for c in all_cls if c.outcome == "false_positive"]
         write_false_positives_csv(out_dir, name, false_pos)
 
-    cache_hits = sum(
-        1 for r in run.per_script_results if r.cache_hit
+    noise_report = write_noise_comparison(
+        out_dir, run_id=run_id, per_strategy=run.classifications_by_strategy
     )
+
+    cache_hits = sum(1 for r in run.per_script_results if r.cache_hit)
     cache_misses = len(run.per_script_results) - cache_hits
+    suffix = f"  noise report: {out_dir}/noise_comparison.md" if noise_report else ""
     print(
         f"report written to {out_dir}/summary.md  "
-        f"(cache hits={cache_hits} misses={cache_misses})"
+        f"(cache hits={cache_hits} misses={cache_misses}){suffix}"
     )
     return 0
 
@@ -329,6 +423,29 @@ def build_parser() -> argparse.ArgumentParser:
     p_synth.add_argument("--voices", default=None)
     p_synth.add_argument("--output-dir", default=None)
     p_synth.set_defaults(func=_cmd_synth)
+
+    # ── generate-noise ───────────────────────────────────────────────────────
+    p_noise = sub.add_parser(
+        "generate-noise",
+        help="Add white Gaussian noise at target SNR levels to clean WAV files",
+    )
+    p_noise.add_argument(
+        "--audio-base", default=None,
+        help="Base audio dir (default: data/audio/). Expects synthesized/ and youtube/ subdirs.",
+    )
+    p_noise.add_argument(
+        "--snr-levels", default="15,5,0",
+        help="Comma-separated SNR levels in dB (default: 15,5,0).",
+    )
+    p_noise.add_argument(
+        "--source-types", default="synthesized,youtube",
+        help="Which source types to generate noise for (default: synthesized,youtube).",
+    )
+    p_noise.add_argument(
+        "--force", action="store_true",
+        help="Regenerate even if the noisy file already exists.",
+    )
+    p_noise.set_defaults(func=_cmd_generate_noise)
 
     # ── run ──────────────────────────────────────────────────────────────────
     p_run = sub.add_parser("run", help="Run a strategy comparison matrix")

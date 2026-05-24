@@ -193,3 +193,153 @@ def write_summary(
 
     summary_path.write_text("\n".join(lines), encoding="utf-8")
     return summary_path
+
+
+# Canonical noise-level order: clean → snr15db → snr5db → snr0db (best to worst SNR)
+_NOISE_ORDER: list[str] = ["clean", "snr15db", "snr5db", "snr0db"]
+_NOISE_LABELS: dict[str, str] = {
+    "clean": "Clean",
+    "snr15db": "SNR +15 dB\n(quiet room)",
+    "snr5db": "SNR +5 dB\n(showroom)",
+    "snr0db": "SNR 0 dB\n(very noisy)",
+}
+
+
+def write_noise_comparison(
+    out_dir: Path,
+    *,
+    run_id: str,
+    per_strategy: Mapping[str, list[CueClassification]],
+) -> Path | None:
+    """Write a noise degradation comparison report.
+
+    For each strategy × noise_level, emits FNR, FPR, pass/fail counts, and
+    the delta vs clean baseline.
+
+    Returns None if there is only one noise level in the data (nothing to compare).
+    """
+    from collections import defaultdict
+
+    # Gather all noise levels present in the data.
+    all_noise_levels: set[str] = set()
+    for cls_list in per_strategy.values():
+        for c in cls_list:
+            all_noise_levels.add(c.noise_level)
+
+    # Order according to canonical list, put unknowns at end.
+    ordered_levels = [lv for lv in _NOISE_ORDER if lv in all_noise_levels]
+    extra = sorted(all_noise_levels - set(ordered_levels))
+    ordered_levels.extend(extra)
+
+    if len(ordered_levels) <= 1:
+        return None  # nothing to compare
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    report_path = out_dir / "noise_comparison.md"
+
+    lines: list[str] = []
+    lines.append(f"# Noise robustness comparison — {run_id}")
+    lines.append("")
+    lines.append(f"Generated: `{datetime.now(timezone.utc).isoformat()}`")
+    lines.append("")
+    lines.append(
+        "White Gaussian noise mixed at target SNR. "
+        "FNR = false negative rate (expected cues missed). "
+        "FPR = false positive rate (false alarms). "
+        "Δ = delta vs clean baseline (negative = better)."
+    )
+    lines.append("")
+
+    for strategy, cls_list in per_strategy.items():
+        lines.append(f"## {strategy}")
+        lines.append("")
+
+        # Group by noise level.
+        by_noise: dict[str, list[CueClassification]] = defaultdict(list)
+        for c in cls_list:
+            by_noise[c.noise_level].append(c)
+
+        # Build metrics table.
+        lines.append(
+            "| Noise level | Pass | Fail | FP | Total expected | FNR | ΔFNR | FPR | ΔFPR |"
+        )
+        lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
+
+        baseline_fnr: float | None = None
+        baseline_fpr: float | None = None
+
+        for noise_level in ordered_levels:
+            if noise_level not in by_noise:
+                continue
+            group = by_noise[noise_level]
+            counts = Counter(c.outcome for c in group)
+            total_expected = counts["pass"] + counts["partial"] + counts["fail"]
+            n_pass = counts["pass"] + counts["partial"]
+            n_fail = counts["fail"]
+            n_fp = counts["false_positive"]
+            fnr = n_fail / total_expected if total_expected > 0 else None
+            fpr = n_fp / total_expected if total_expected > 0 else None
+
+            if noise_level == "clean":
+                baseline_fnr = fnr
+                baseline_fpr = fpr
+                delta_fnr_str = "—"
+                delta_fpr_str = "—"
+            else:
+                if baseline_fnr is not None and fnr is not None:
+                    delta = fnr - baseline_fnr
+                    sign = "+" if delta >= 0 else ""
+                    delta_fnr_str = f"{sign}{delta * 100:.1f}pp"
+                else:
+                    delta_fnr_str = "—"
+                if baseline_fpr is not None and fpr is not None:
+                    delta = fpr - baseline_fpr
+                    sign = "+" if delta >= 0 else ""
+                    delta_fpr_str = f"{sign}{delta * 100:.1f}pp"
+                else:
+                    delta_fpr_str = "—"
+
+            label = noise_level.replace("snr", "SNR +").replace("db", " dB") if noise_level != "clean" else "clean"
+            lines.append(
+                f"| {label}"
+                f" | {n_pass}"
+                f" | {n_fail}"
+                f" | {n_fp}"
+                f" | {total_expected}"
+                f" | {_pct(fnr)}"
+                f" | {delta_fnr_str}"
+                f" | {_pct(fpr)}"
+                f" | {delta_fpr_str}"
+                f" |"
+            )
+
+        lines.append("")
+
+        # Cue-level breakdown: which cues degrade most?
+        lines.append("### Cue-level FNR by noise level")
+        lines.append("")
+        # Collect all cue_ids
+        all_cue_ids = sorted({c.cue_id for c in cls_list})
+        if all_cue_ids:
+            header = "| Cue ID |" + "".join(f" {lv} |" for lv in ordered_levels if lv in by_noise)
+            sep = "|---|" + "".join("---:|" for lv in ordered_levels if lv in by_noise)
+            lines.append(header)
+            lines.append(sep)
+            for cue_id in all_cue_ids:
+                row = f"| `{cue_id}` |"
+                for noise_level in ordered_levels:
+                    if noise_level not in by_noise:
+                        continue
+                    cue_rows = [c for c in by_noise[noise_level] if c.cue_id == cue_id]
+                    if not cue_rows:
+                        row += " — |"
+                        continue
+                    n_total = len(cue_rows)
+                    n_fail = sum(1 for c in cue_rows if c.outcome == "fail")
+                    fnr = n_fail / n_total if n_total > 0 else None
+                    row += f" {_pct(fnr)} |"
+                lines.append(row)
+            lines.append("")
+
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    return report_path
