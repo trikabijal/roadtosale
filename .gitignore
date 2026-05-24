@@ -24,6 +24,7 @@ voice-engine/lab/runs/results/run-*/
 !voice-engine/lab/runs/results/run-20260524-1142/
 !voice-engine/lab/runs/results/run-20260524-1221/
 !voice-engine/lab/runs/results/run-20260524-1342/
+!voice-engine/lab/runs/results/run-20260524-1554/
 
 # Voice engine — JVM crash logs from native lib debugging
 voice-engine/native/android/hs_err_*.log
