@@ -1,0 +1,195 @@
+stages:
+  - build
+  - test
+  - package
+  - deploy
+
+variables:
+  APP_VERSION: $CI_PIPELINE_IID
+  # Force fresh clones every job. The smartcomply-ssh runner's persistent
+  # workspace at /root/builds/.../smartcomply has gotten into a broken
+  # state where `git fetch` fails with "expected shallow list". A full
+  # clone every time avoids that and is fast on a small repo.
+  GIT_STRATEGY: clone
+  GIT_DEPTH: "0"
+
+# Build + test + package WAR — runs on kazi-development, development, devops, main, and MRs
+build:
+  stage: build
+  # Official Maven image with JDK 17 preinstalled — replaces a hand-rolled
+  # `ruby:2.7 + apt install openjdk-17-jdk maven` recipe that wasted ~60s
+  # every build and exposed us to deb.debian.org mirror flakes. Image
+  # provides `mvn` (3.9) and `java` (Eclipse Temurin 17) out of the box.
+  image: maven:3.9-eclipse-temurin-17
+  tags:
+    - smartcomply
+  variables:
+    # The smartcomply runner block in /etc/gitlab-runner/config.toml mounts
+    # the host's /srv/m2 into /root/.m2 inside the build container, so this
+    # local repo persists across builds without going through GitLab's
+    # cache: block (which had upload-side issues when .m2 lived inside
+    # $CI_PROJECT_DIR). Pre-warmed with 450MB of existing dependencies on
+    # 2026-05-12; first build saves ~110s of Maven Central downloads.
+    MAVEN_OPTS: "-Dmaven.repo.local=/root/.m2/repository"
+  rules:
+    # devops is the only auto-build branch (kicks off the deploy pipeline).
+    - if: $CI_COMMIT_BRANCH == "devops"
+    # Every other branch (kazi-development, development, main, fix/*,
+    # feature/*) and merge requests get a manual-trigger build — click
+    # Play in the GitLab Pipelines UI when you want to validate.
+    - when: manual
+      allow_failure: true
+  script:
+    - java -version
+    - mvn -version
+    # Exclude DB-dependent integration tests — the CI runner has no Postgres
+    # on localhost:5432, so any test annotated @SpringBootTest that loads the
+    # full Spring context fails at the Flyway init step.
+    #   - com.checkSheet.demo.ApplicationTests (canary, always skipped)
+    #   - com.checkSheet.audit.*E2ETest        (audit/BI/intervention E2E, need a real DB)
+    - mvn clean package "-Dtest=!com.checkSheet.demo.ApplicationTests,!com.checkSheet.audit.*E2ETest"
+  artifacts:
+    paths:
+      - target/*.war
+    when: always
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+
+# --------------------------------------------------------------------------
+# test:e2e — backend JUnit E2E suite against an ephemeral CI database.
+# --------------------------------------------------------------------------
+# Lifecycle (dev/scripts/test-ci.sh):
+#   - DROP+CREATE smartcomply_ci_${CI_PIPELINE_IID} on the UAT Postgres
+#     server (alongside the live smartcomply DB; isolated, never touches
+#     UAT data).
+#   - Restore dev/ci-data/baseline.sql.gz (~1 MB schema + foundational
+#     data, regenerated via dev/scripts/refresh-ci-baseline.sh).
+#   - Seed the ci_admin SUPER_ADMIN.
+#   - mvn test -Dspring.profiles.active=ci -Dtest=com.checkSheet.audit.*E2ETest
+#   - On pass → DROP DATABASE. On fail → leave for debug.
+#
+# Credentials: uses a dedicated `smartcomply_ci_user` Postgres role with
+# only CREATEDB privilege — NO GRANT on the live smartcomply database.
+# Password is plain-text in this YAML on purpose: an attacker who reads
+# it can only DROP/CREATE CI databases owned by this role, never touch
+# UAT data. See dev/ci-data/README.md for the one-time `CREATE ROLE`.
+#
+# Pipeline-IID-suffixed DB name lets parallel pipelines coexist without
+# colliding on smartcomply_ci.
+test:e2e:
+  stage: test
+  image: maven:3.9-eclipse-temurin-17
+  tags:
+    - smartcomply
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=/root/.m2/repository"
+    CI_DB_HOST: "172.31.0.157"
+    CI_DB_PORT: "5432"
+    CI_DB_NAME: "smartcomply_ci_${CI_PIPELINE_IID}"
+    CI_DB_USERNAME: "smartcomply_ci_user"
+    CI_DB_PASSWORD: "smartcomply_ci_only_isolated_dbs"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "devops"
+    - when: manual
+      allow_failure: true
+  needs: [build]
+  script:
+    - apt-get update -qq && apt-get install -y -qq postgresql-client
+    - ./dev/scripts/test-ci.sh
+  artifacts:
+    when: always
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+
+# Build & push Docker image — devops only
+build-docker-image:
+  stage: package
+  image: docker:20.10.12
+  tags:
+    - smartcomply
+  services:
+    - docker:20.10.12-dind
+  variables:
+    DOCKER_TLS_CERTDIR: ""
+  rules:
+    - if: $CI_COMMIT_BRANCH == "devops"
+  # Gate package on test:e2e passing — UAT only ever gets builds that
+  # passed the backend E2E suite against the same migrations it's about
+  # to inherit.
+  needs: [build, test:e2e]
+  script:
+    - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
+    - docker build -t $CI_REGISTRY_IMAGE -t $CI_REGISTRY_IMAGE:$APP_VERSION .
+    - docker push --all-tags $CI_REGISTRY_IMAGE
+
+# Deploy to SIT — devops only, runs on the smartcomply-ssh shell runner
+deploy:
+  stage: deploy
+  tags:
+    - smartcomply-ssh
+  rules:
+    - if: $CI_COMMIT_BRANCH == "devops"
+  needs: [build-docker-image]
+  script:
+    - cd /root/builds && rm -rf *
+    - docker ps -a
+    - docker pull gitlab.tiez.net:5050/tiez/smartcomply:latest
+    - docker kill $(docker ps | grep java-smartcomply | awk '{print $1}') || true
+    - docker rm $(docker ps -a | grep java-smartcomply | awk '{print $1}') || true
+    - >
+      docker run -d
+      -v /SMARTCOMPLY:/SMARTCOMPLY
+      -p 809:8089
+      -e SPRING_PROFILES_ACTIVE=uat
+      -e TENANT_ID=${TENANT_ID:-kia}
+      -e ANTHROPIC_KEY -e OPENAI_KEY -e GEMINI_KEY -e GROK_KEY
+      --name java-smartcomply
+      gitlab.tiez.net:5050/tiez/smartcomply:latest
+    - docker ps -a
+
+# Backup UAT DB (manual) — pg_dump custom format. Run BEFORE any seed
+# job that adds data. Produces a dated .dump file as a CI artifact, which
+# can be downloaded from the GitLab UI and committed to database/ on the
+# devops branch (or stashed to S3 if too large for git).
+backup-uat-db:
+  stage: deploy
+  tags:
+    - smartcomply-ssh
+  rules:
+    - if: $CI_COMMIT_BRANCH == "devops"
+      when: manual
+  needs: []
+  script:
+    - >
+      DB_URL=$(grep -E '^spring\.datasource\.url' src/main/resources/application-uat.properties | sed -E 's/^[^=]+=//') &&
+      DB_USER=$(grep -E '^spring\.datasource\.username' src/main/resources/application-uat.properties | sed -E 's/^[^=]+=//') &&
+      DB_PASS=$(grep -E '^spring\.datasource\.password' src/main/resources/application-uat.properties | sed -E 's/^[^=]+=//') &&
+      DB_HOST=$(echo "$DB_URL" | sed -E 's|jdbc:postgresql://([^:/]+).*|\1|') &&
+      DB_PORT=$(echo "$DB_URL" | sed -E 's|.*:([0-9]+)/.*|\1|') &&
+      DB_NAME=$(echo "$DB_URL" | sed -E 's|.*/([^?]+).*|\1|') &&
+      TS=$(date +%Y%m%d-%H%M%S) &&
+      mkdir -p database &&
+      DUMP_FILE="database/uat-baseline-$TS.dump" &&
+      PGPASSWORD="$DB_PASS" pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -Fc -Z 9 -f "$DUMP_FILE" &&
+      echo "Dump complete:" &&
+      ls -lh "$DUMP_FILE" &&
+      echo "" &&
+      echo "Dump table summary:" &&
+      PGPASSWORD="$DB_PASS" pg_restore --list "$DUMP_FILE" | grep -E "TABLE DATA" | wc -l | xargs -I {} echo "Tables with data: {}" &&
+      echo "" &&
+      echo "Top 10 largest tables in dump:" &&
+      PGPASSWORD="$DB_PASS" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -c "SELECT relname, n_live_tup FROM pg_stat_user_tables ORDER BY n_live_tup DESC LIMIT 10;"
+  artifacts:
+    paths:
+      - database/uat-baseline-*.dump
+    expire_in: 30 days
+    name: "uat-baseline-${CI_COMMIT_SHORT_SHA}-${CI_PIPELINE_ID}"
+
+# Note: the former `seed-kia-uat-users` and `seed-kia-dealerships` manual
+# CI jobs were removed when the seed SQL was promoted to tenant-scoped
+# Flyway migrations under src/main/resources/db/tenants/kia/. They now
+# auto-apply on JVM startup whenever TENANT_ID=kia (default). See
+# docs/tenant-overlay.md "Tenant data via Flyway" for the full story.
+

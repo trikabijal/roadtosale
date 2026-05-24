@@ -1,0 +1,9 @@
+# Kia tenant feature flags.
+
+# Kia treats P1 non-compliance as enforceable — every approved audit
+# with a P1 miss gets a Mandatory Plan even if no campaign covers it.
+actionPlanRequired: true
+
+# Kia runs improvement campaigns; the snapshot chain is part of the
+# leadership narrative.
+scoreDisplayMode: CHAIN

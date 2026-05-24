@@ -1,0 +1,60 @@
+{
+  "$comment": "Backend tenant overlay schema. TenantInsightsConfig validates _base, validates the chosen tenant's insights.yaml against the schema, then layers _base.correlations + tenant.correlations into the final list. Strict mode: any file in tenants/<id>/ not declared in overridable OR tenantOnly causes startup to fail.",
+
+  "tenants": {
+    "kia": {
+      "description": "Kia India dealer-audit tenant. 627 dealerships, NADA-style checksheet. See tenants/kia/docs/uat-kia-seed-runbook.md.",
+      "flyway_prefix": "V100",
+      "activate": "SPRING_PROFILES_ACTIVE=local,tenant-data TENANT_ID=kia"
+    },
+    "honda": {
+      "description": "Honda US Road to Sale pilot. NADA Road to Sale 10-step checksheet, voice-engine cue detection extensions (V1.34). See src/main/resources/db/tenants/honda/README.md.",
+      "flyway_prefix": "V200",
+      "activate": "SPRING_PROFILES_ACTIVE=local,tenant-data TENANT_ID=honda"
+    }
+  },
+
+  "overridable": [
+    {
+      "path": "config/insights.yaml",
+      "requiredInBase": true,
+      "requiredInTenant": false,
+      "description": "BI dashboard AI-insight correlation pairs. Each correlation declares two element/question patterns and a message template; the backend computes co-occurrence percentages and renders the message.",
+      "validate": {
+        "type": "yaml-correlations"
+      }
+    },
+    {
+      "path": "config/features.yaml",
+      "requiredInBase": true,
+      "requiredInTenant": false,
+      "description": "Tenant feature flags consumed by TenantFeatureFlags. Currently: actionPlanRequired (boolean), scoreDisplayMode (CHAIN | CURRENT_ONLY).",
+      "validate": {
+        "type": "yaml-feature-flags"
+      }
+    }
+  ],
+
+  "tenantOnly": [
+    {
+      "path": "bin/seed-test-data.sql",
+      "description": "Tenant-specific demo SQL: creates demo operators + base auditees. Run via `psql -d smartcomply < ...`."
+    },
+    {
+      "path": "bin/seed-kia-demo.py",
+      "description": "Tenant-specific Python seed script: generates a full audit dataset with photo evidence + AI calls. Not loaded by the backend."
+    },
+    {
+      "path": "bin/seed-multi-location.py",
+      "description": "Tenant-specific Python seed script: adds extra locations to dealerships for drill-down demos."
+    },
+    {
+      "path": "bin/backfill-remarks.py",
+      "description": "Tenant-specific Python seed script: backfills contextual auditor remarks across existing UCs."
+    },
+    {
+      "path": "docs/uat-kia-seed-runbook.md",
+      "description": "Tenant-specific runbook: how to seed a fresh UAT environment for this tenant."
+    }
+  ]
+}

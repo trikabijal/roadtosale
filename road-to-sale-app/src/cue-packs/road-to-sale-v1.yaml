@@ -1,0 +1,211 @@
+# Road to Sale v1 — cue pack binding
+#
+# Purpose: maps voice-engine cue atom IDs to SmartComply template question IDs so the
+# ChecklistEngine knows which checklist question a detected cue satisfies.
+#
+# template_question_id numbering convention:
+#   These are the chksQuestions.id values seeded into the Honda US 2026 SmartComply
+#   checksheet. Questions are numbered 1–17 in the order they appear in the NADA
+#   Road to the Sale process (greet → discovery → vehicle match → walkaround →
+#   test drive → trade appraisal → pencil → F&I → close).
+#
+#   required: true  → this cue MUST fire to count toward question completion
+#   required: false → bonus/supporting cue; strengthens detection but not mandatory
+
+entries:
+
+  # ─── Question 1: "Did the salesperson greet the customer within 30 seconds?" ──
+  - cue_id: workflow.self_introduction
+    template_question_id: 1
+    required: true
+
+  - cue_id: workflow.customer_name_use
+    template_question_id: 1
+    required: false
+
+  # ─── Question 2: "Did the salesperson introduce themselves by name?" ──────────
+  - cue_id: workflow.self_introduction
+    template_question_id: 2
+    required: true
+
+  # ─── Question 3: "Was the customer offered hospitality?" ─────────────────────
+  - cue_id: workflow.hospitality_offer
+    template_question_id: 3
+    required: false
+
+  # ─── Question 4: "Did the salesperson conduct a thorough needs discovery?" ────
+  - cue_id: workflow.discovery_school_runs
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_highway_commute
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_better_mileage
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_family_use
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_weekend_use
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_work_use
+    template_question_id: 4
+    required: false
+
+  - cue_id: workflow.discovery_towing_cargo
+    template_question_id: 4
+    required: false
+
+  # ─── Question 5: "Did the salesperson identify the customer's budget?" ────────
+  - cue_id: workflow.discovery_budget_signal
+    template_question_id: 5
+    required: true
+
+  # ─── Question 6: "Did the salesperson probe for lifestyle requirements?" ───────
+  - cue_id: workflow.discovery_school_runs
+    template_question_id: 6
+    required: false
+
+  - cue_id: workflow.discovery_highway_commute
+    template_question_id: 6
+    required: false
+
+  - cue_id: workflow.discovery_towing_cargo
+    template_question_id: 6
+    required: false
+
+  - cue_id: workflow.discovery_work_use
+    template_question_id: 6
+    required: false
+
+  # ─── Question 7: "Did the salesperson make a vehicle recommendation?" ─────────
+  - cue_id: workflow.recommendation_logic
+    template_question_id: 7
+    required: true
+
+  # ─── Question 8: "Was the vehicle presented as front-line ready?" ─────────────
+  - cue_id: workflow.front_line_ready
+    template_question_id: 8
+    required: true
+
+  # ─── Question 9: "Did the salesperson conduct a structured exterior walkaround?" ─
+  - cue_id: workflow.walkaround_opening
+    template_question_id: 9
+    required: true
+
+  - cue_id: workflow.exterior_focus
+    template_question_id: 9
+    required: false
+
+  - cue_id: universal.feature.panoramic_moonroof
+    template_question_id: 9
+    required: false
+
+  - cue_id: honda.feature.real_time_awd
+    template_question_id: 9
+    required: false
+
+  # ─── Question 10: "Did the salesperson present interior features?" ─────────────
+  - cue_id: workflow.interior_focus
+    template_question_id: 10
+    required: true
+
+  - cue_id: honda.feature.honda_sensing
+    template_question_id: 10
+    required: false
+
+  - cue_id: honda.feature.honda_sensing_360plus
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.wireless_apple_carplay
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.wireless_android_auto
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.wireless_phone_charger
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.heated_front_seats
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.heated_steering_wheel
+    template_question_id: 10
+    required: false
+
+  - cue_id: universal.feature.head_up_display
+    template_question_id: 10
+    required: false
+
+  - cue_id: honda.feature.bose_premium_audio_honda
+    template_question_id: 10
+    required: false
+
+  # ─── Question 11: "Was the customer offered and taken on a test drive?" ────────
+  - cue_id: workflow.test_drive_opening
+    template_question_id: 11
+    required: true
+
+  - cue_id: workflow.test_drive_offer
+    template_question_id: 11
+    required: false
+
+  # ─── Question 12: "Was the customer's trade-in vehicle inspected?" ─────────────
+  - cue_id: workflow.trade_in_dent
+    template_question_id: 12
+    required: false
+
+  - cue_id: workflow.trade_in_condition_overall
+    template_question_id: 12
+    required: false
+
+  # ─── Question 13: "Were trade-in tires and exterior condition assessed?" ───────
+  - cue_id: workflow.trade_in_tires
+    template_question_id: 13
+    required: true
+
+  - cue_id: workflow.trade_in_dent
+    template_question_id: 13
+    required: false
+
+  # ─── Question 14: "Was a financial proposal presented?" ──────────────────────
+  - cue_id: workflow.pencil_numbers_intro
+    template_question_id: 14
+    required: true
+
+  - cue_id: workflow.monthly_payment_mention
+    template_question_id: 14
+    required: false
+
+  - cue_id: workflow.down_payment_mention
+    template_question_id: 14
+    required: false
+
+  # ─── Question 15: "Was the customer introduced to the F&I team?" ──────────────
+  - cue_id: workflow.finance_introduction
+    template_question_id: 15
+    required: false
+
+  - cue_id: workflow.manager_introduction
+    template_question_id: 15
+    required: false
+
+  # ─── Question 16: "Was the sale completed or a next step agreed?" ─────────────
+  - cue_id: workflow.trial_close
+    template_question_id: 16
+    required: false
+
+  - cue_id: workflow.buyers_order_confirmation
+    template_question_id: 16
+    required: false

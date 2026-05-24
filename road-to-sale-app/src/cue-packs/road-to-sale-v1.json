@@ -1,0 +1,227 @@
+[
+  {
+    "cueId": "workflow.self_introduction",
+    "templateQuestionId": 1,
+    "required": true
+  },
+  {
+    "cueId": "workflow.customer_name_use",
+    "templateQuestionId": 1,
+    "required": false
+  },
+  {
+    "cueId": "workflow.self_introduction",
+    "templateQuestionId": 2,
+    "required": true
+  },
+  {
+    "cueId": "workflow.hospitality_offer",
+    "templateQuestionId": 3,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_school_runs",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_highway_commute",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_better_mileage",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_family_use",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_weekend_use",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_work_use",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_towing_cargo",
+    "templateQuestionId": 4,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_budget_signal",
+    "templateQuestionId": 5,
+    "required": true
+  },
+  {
+    "cueId": "workflow.discovery_school_runs",
+    "templateQuestionId": 6,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_highway_commute",
+    "templateQuestionId": 6,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_towing_cargo",
+    "templateQuestionId": 6,
+    "required": false
+  },
+  {
+    "cueId": "workflow.discovery_work_use",
+    "templateQuestionId": 6,
+    "required": false
+  },
+  {
+    "cueId": "workflow.recommendation_logic",
+    "templateQuestionId": 7,
+    "required": true
+  },
+  {
+    "cueId": "workflow.front_line_ready",
+    "templateQuestionId": 8,
+    "required": true
+  },
+  {
+    "cueId": "workflow.walkaround_opening",
+    "templateQuestionId": 9,
+    "required": true
+  },
+  {
+    "cueId": "workflow.exterior_focus",
+    "templateQuestionId": 9,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.panoramic_moonroof",
+    "templateQuestionId": 9,
+    "required": false
+  },
+  {
+    "cueId": "honda.feature.real_time_awd",
+    "templateQuestionId": 9,
+    "required": false
+  },
+  {
+    "cueId": "workflow.interior_focus",
+    "templateQuestionId": 10,
+    "required": true
+  },
+  {
+    "cueId": "honda.feature.honda_sensing",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "honda.feature.honda_sensing_360plus",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.wireless_apple_carplay",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.wireless_android_auto",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.wireless_phone_charger",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.heated_front_seats",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.heated_steering_wheel",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "universal.feature.head_up_display",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "honda.feature.bose_premium_audio_honda",
+    "templateQuestionId": 10,
+    "required": false
+  },
+  {
+    "cueId": "workflow.test_drive_opening",
+    "templateQuestionId": 11,
+    "required": true
+  },
+  {
+    "cueId": "workflow.test_drive_offer",
+    "templateQuestionId": 11,
+    "required": false
+  },
+  {
+    "cueId": "workflow.trade_in_dent",
+    "templateQuestionId": 12,
+    "required": false
+  },
+  {
+    "cueId": "workflow.trade_in_condition_overall",
+    "templateQuestionId": 12,
+    "required": false
+  },
+  {
+    "cueId": "workflow.trade_in_tires",
+    "templateQuestionId": 13,
+    "required": true
+  },
+  {
+    "cueId": "workflow.trade_in_dent",
+    "templateQuestionId": 13,
+    "required": false
+  },
+  {
+    "cueId": "workflow.pencil_numbers_intro",
+    "templateQuestionId": 14,
+    "required": true
+  },
+  {
+    "cueId": "workflow.monthly_payment_mention",
+    "templateQuestionId": 14,
+    "required": false
+  },
+  {
+    "cueId": "workflow.down_payment_mention",
+    "templateQuestionId": 14,
+    "required": false
+  },
+  {
+    "cueId": "workflow.finance_introduction",
+    "templateQuestionId": 15,
+    "required": false
+  },
+  {
+    "cueId": "workflow.manager_introduction",
+    "templateQuestionId": 15,
+    "required": false
+  },
+  {
+    "cueId": "workflow.trial_close",
+    "templateQuestionId": 16,
+    "required": false
+  },
+  {
+    "cueId": "workflow.buyers_order_confirmation",
+    "templateQuestionId": 16,
+    "required": false
+  }
+]

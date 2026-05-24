@@ -496,3 +496,83 @@ Wired via `"plugins": ["./plugins/withVoiceModule"]` in `app.json`.
 **Decision (autonomous):** `SessionEngine` did not have a singleton export, so screens could not share state. Created `src/session/sessionEngineSingleton.ts` following the same lazy-singleton pattern as `clientSingleton.ts` and `repositorySingleton.ts`. Also added `overrideQuestion(sessionId, questionId, note?)` to `SessionEngine` that delegates to the per-session `ChecklistEngine` instance. This method was missing from the original ISessionEngine interface but required by the ActiveSessionScreen. The interface will be updated once the method is tested in Phase 4.
 
 **Revisit when:** E2E test plan is defined — may want to add `overrideQuestion` to `ISessionEngine` formally at that time.
+
+---
+
+## ActiveSessionScreen decisions (2026-05-25)
+
+### DC66 — v1 transcript→CueDetection bridge uses generic cue_id "workflow.transcript"
+
+**Decision (autonomous):** The voice engine emits raw `TranscriptEvent` objects. Converting them to `CueDetection` requires knowledge of the cue pack phrase patterns. A dedicated `CueDetectionEngine` is a future task. For v1, all final transcripts are forwarded to `engine.processCueDetection()` with `cue_id: "workflow.transcript"`. This cue is present in the `road-to-sale-v1` cue pack but is not bound to any `templateQuestionId`, so it is a no-op for checklist state advancement. The pipeline (voice → transcript → detection → engine) is proven end-to-end; phrase matching is the next layer.
+
+**Rationale:** Avoids implementing regex/embedding matching in the screen layer, which would duplicate logic that belongs in a CueDetectionEngine. The screen stays thin.
+
+**Revisit when:** CueDetectionEngine is implemented. The bridge function `transcriptToCueDetection()` in `ActiveSessionScreen.tsx` is the only place to update — swap the static cue_id for the engine's output.
+
+---
+
+### DC67 — StepState.header.orderNo used for step numbering, not a non-existent `.sequence` field
+
+**Decision (autonomous):** The task brief referred to `StepState.header.sequence` as the step order number. The actual `ChecksheetHeaderDTO` type (in `src/api/types.ts`) uses `orderNo: number` — no `sequence` field exists. The screen uses `step.header.orderNo` throughout. The step display label reads `"{orderNo}. {name}"` which matches the NADA convention.
+
+**Revisit when:** API types are updated. If `sequence` or a different ordering field is added, update the display and sort logic accordingly.
+
+---
+
+### DC68 — FlatList used for step list; ListHeaderComponent carries feature panel + progress row
+
+**Decision (autonomous):** The step list uses `FlatList` with `ListHeaderComponent` for the Feature Coverage Panel and progress summary row. This avoids nested `ScrollView` (which causes the standard RN layout warning and can break scroll on Android). The footer and mic indicator are positioned absolutely outside the list, with `paddingBottom` on the list's `contentContainerStyle` to reserve space.
+
+**Revisit when:** Step count grows large enough to need recycling (10 NADA steps is well within FlatList defaults — no immediate concern).
+
+---
+
+### DC69 — Mic pulse animation stopped via ref to avoid memory leaks
+
+**Decision (autonomous):** The `Animated.loop` for the mic pulse is stored in a `useRef` so the cleanup function can call `.stop()` on it explicitly. Without this, returning from a state where `micState === 'listening'` to any other state would leave the animation running after `pulseAnim.setValue(1)` — causing the next pulse to fight with the reset. The ref ensures exactly one animation loop is active at a time and is fully stopped before the next one starts.
+
+**Revisit when:** React Native's `Animated` API changes (unlikely in RN 0.85 timeframe).
+
+---
+
+## TradeInScreen + HistoryScreen decisions (2026-05-25)
+
+### DC70 — TradeIn display slots mapped to API TradePhotoSlot values
+
+**Decision (autonomous):** The spec defines 7 display slots (`front`, `rear`, `driver_side`, `passenger_side`, `engine`, `odometer`, `vin`) but `TradePhotoSlot` in `api/types.ts` defines a different 7 values (`front_left`, `front_right`, `rear_left`, `rear_right`, `interior`, `odometer`, `vin`). Rather than changing the API type (which would cascade to `SmartComplyClient.ts` and `ISmartComplyClient.ts`), the screen carries a `PhotoSlot` interface that adds `apiSlot: TradePhotoSlot` to each display slot. Mapping chosen by semantic proximity: `front → front_left`, `rear → rear_left`, `driver_side → front_right`, `passenger_side → rear_right`, `engine → interior`. `odometer` and `vin` map 1:1.
+
+**Rationale:** Keeps `api/types.ts` stable; the mapping is a UI concern. When the API adds an `engine` slot, update the constant table in `TradeInScreen.tsx` only.
+
+**Revisit when:** The SmartComply API adds an `engine` slot, or when the API and display slots are reconciled in a schema review.
+
+---
+
+### DC71 — TradeIn condition note stored in component state only (v1)
+
+**Decision (autonomous):** `SessionEngine.getSession()` returns the in-memory session but `SessionEngine` has no `updateTradeIn()` or `setConditionNote()` method. Persisting the typed note to SQLite would require wiring through `ISessionRepository.updateSession()` with a `tradeIn.typedNote` field — a non-trivial addition. For v1, the note lives in component state for the lifetime of the screen. The `handleDone` function logs a comment marking the exact extension point: when `SessionEngine` gains an `updateTradeIn` method, call it before `navigation.goBack()`.
+
+**Revisit when:** `SessionEngine.updateTradeIn()` is implemented (task 9 / persistence layer work).
+
+---
+
+### DC72 — HistoryScreen completion chip uses TOTAL_QUESTIONS = 16 constant
+
+**Decision (autonomous):** The NADA Road-to-Sale v1 template has 16 checklist questions (matches the spec comment "X / 16"). This is a named constant `TOTAL_QUESTIONS = 16` in both `HistoryScreen.tsx` (for the chip denominator) and in the `statusBarColor` percentage calculation. If the template is updated to add/remove questions, this constant must be updated. A more robust approach would be to derive it from `session.checklist.totalCount` — but `totalCount` is 0 for sessions loaded from SQLite before a checklist engine has run. Using the constant keeps the chip meaningful for read-only history rows.
+
+**Revisit when:** The NADA template gains or loses questions, or `SqliteSessionRepository` is updated to serialize `checklist.totalCount` correctly for sessions in `ended` status.
+
+---
+
+### DC73 — HistoryScreen status bar color bucketed at 40% / 80% thresholds
+
+**Decision (autonomous):** The spec says "green if ended with high completion %, amber if partial, grey if crashed." The thresholds (≥80% green, 40–79% amber, <40% grey) are chosen to match typical NADA scoring expectations: ≥13/16 = strong pass (green), 7–12/16 = partial (amber), <7/16 = poor/grey. Crashed sessions always use `stepPending` regardless of completion count.
+
+**Revisit when:** Dealer operations team defines formal pass/fail thresholds for the Road-to-Sale scorecard.
+
+---
+
+### DC74 — HistoryScreen uses FlatList with ListEmptyComponent instead of conditional ScrollView
+
+**Decision (autonomous):** The empty state and the list share the same `FlatList` container. `emptyListContent` style applies `flex: 1; justifyContent: 'center'` to the content container when the list is empty, which vertically centers the empty state. This avoids two separate render branches and keeps pull-to-refresh working in both states.
+
+**Revisit when:** N/A — standard RN pattern.

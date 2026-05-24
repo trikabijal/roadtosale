@@ -1,0 +1,17 @@
+# Default feature flags for the unbranded AuditPro identity.
+# Tenants may override any of these in their own features.yaml.
+
+# When true, every approved audit with a P1 non-compliant item gets a
+# default Mandatory Plan even if no campaign covers those questions.
+# Conservative default: false — plans only exist when the OEM creates a
+# campaign explicitly. Smaller tenants treat audits as nudges, not
+# enforcement.
+actionPlanRequired: false
+
+# How dealer/location/audit-report views display scoring history.
+#   CHAIN         — show original + each re-audit snapshot side by side
+#   CURRENT_ONLY  — show only the most-recent score
+# Default CHAIN — the snapshot chain is the headline story for tenants
+# running improvement campaigns. Tenants that aren't running campaigns
+# can flip this to CURRENT_ONLY to declutter.
+scoreDisplayMode: CHAIN
