@@ -306,7 +306,7 @@ The transcript cache, cue matching, classification, and all report writers work 
 
 | Strategy | Status | Notes |
 |---|---|---|
-| `sherpa_onnx` | Lab CLI built | JVM-based Android tier 1. `voice-engine/native/android/SherpaOnnxSTT/`. Python lab strategy registration TO BE DONE. |
+| `sherpa_onnx` | Registered, pending end-to-end test | JVM-based Android tier 1. `voice-engine/native/android/SherpaOnnxSTT/`. Python strategy `voice_lab/strategies/sherpa_onnx.py` registered in registry. Needs `voice-lab run --strategies sherpa_onnx` to confirm JVM binary builds and emits results. |
 | `argmax_pro` | TO BE IMPLEMENTED | Android tier 2 paid path (Parakeet streaming, speaker diarization). Evaluate after sherpa_onnx is live. |
 | `apple_speech_transcriber_live` | TO BE IMPLEMENTED | Live mic strategy for device testing (vs file-based lab strategy). |
 

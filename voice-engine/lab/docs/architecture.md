@@ -265,7 +265,7 @@ runs/results/run-20260524-1051/noise_comparison.md      ← aggregated
 
 | Extension | Notes |
 |---|---|
-| `sherpa_onnx` lab strategy | JVM CLI built. Python strategy registration TO BE DONE (`voice_lab/strategies/sherpa_onnx.py`). |
+| `sherpa_onnx` lab strategy | JVM CLI built. Python strategy `voice_lab/strategies/sherpa_onnx.py` registered. Needs end-to-end `voice-lab run --strategies sherpa_onnx` to confirm JVM binary builds and produces results. |
 | `argmax_pro` | Parakeet streaming, speaker diarization. Android paid tier. Evaluate after sherpa_onnx is live. |
 | iOS Swift cue matching | `ExactCueMatcher.swift` + `SemanticCueMatcher.swift` with CoreML bge-small-en-v1.5. TO BE IMPLEMENTED. |
 | Phase 2 noise (DNS Challenge clips) | Replace white Gaussian noise with real-world DNS Challenge noise clips (crowd, HVAC, music). More realistic dealership floor testing. |

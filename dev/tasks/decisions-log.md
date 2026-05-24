@@ -182,3 +182,99 @@ The user wrote answers directly into `dev/tasks/0001-prd-voice-engine.md` Sectio
   - feat: Honda US brochure scraper
   - feat: YouTube transcript ingestion
   - docs: this decisions-log entry
+
+---
+
+## Voice lab run results + architecture decisions (2026-05-24)
+
+### DC45 — WhisperKit SNR +5 dB FNR corrected: 20.0% → 8.2%
+
+The 20.0% figure reported in run-20260524-0829 was an artifact of 3 corrupted JSONL cache files. Each corrupted file had a truncated JSON line (~508–538 chars); `json.JSONDecodeError` caused all expected cues for those files to classify as false negatives. After deleting the three files and re-running STT, the true number is **8.2%** — near parity with Apple's 8.6% at the same noise level.
+
+**Consequence:** The "WhisperKit recovers dramatically with DNS64 denoiser" finding from the earlier session was also an artifact of the corrupted baseline. With the correct baseline (8.2%), DNS64 at SNR +5 dB actually worsens WhisperKit (8.2% → 9.1%) and Apple (8.6% → 12.3%). DNS64 consistently hurts or is neutral at all noise levels.
+
+### DC46 — DNS64 neural denoiser removed from the lab entirely
+
+DNS64 (Facebook Research batch denoiser) was being used to generate `_nr.wav` files: applying the denoiser to the full WAV file offline, saving a new file, then feeding that file to STT.
+
+**Why this is wrong:**
+1. iPhone noise suppression (`AUVoiceProcessingIO`) is a hardware Audio Unit that runs at the kernel audio session layer — it operates on 16–20 ms frames before any PCM data reaches user space. It cannot be replicated by batch-processing a WAV file on macOS.
+2. DNS64 runs a different algorithm (neural, offline, whole-file) at different granularity. The results it produces don't represent what the iPhone hardware does.
+3. DNS64 is CPU-intensive batch processing. Running it in the fast lane of a production app would drain battery.
+4. DC46 makes the lab's production target explicit: **iPhone only**. `AUVoiceProcessingIO` is always active on iPhone regardless of app configuration — it is the production noise suppressor. Zero battery cost (dedicated DSP in the SoC).
+
+**What was deleted:**
+- `voice_lab/synthesis/denoise.py` — DNS64 wrapper module
+- `voice-lab denoise` CLI subcommand (removed from `cli.py`)
+- `[project.optional-dependencies] denoise` in `pyproject.toml`
+- 48 `_nr.wav` audio files (~1 GB)
+- 96 `_nr.jsonl` transcript cache files
+
+**What was preserved:** The `_nr` naming slot in `_collect_audio_variants()` is kept as a general-purpose processed-audio slot. It will be used for iPhone-mic-recorded fixtures (see DC49).
+
+### DC47 — Lab FNR numbers are a conservative lower bound for iPhone production
+
+The lab tests raw audio — white Gaussian noise is added at fixed SNR and fed directly to the STT strategy CLIs. No software noise suppression is applied.
+
+On iPhone in production, `AUVoiceProcessingIO` is always active before any PCM frame reaches user space. The STT engine never sees raw noisy frames. The iPhone hardware noise processor will reduce the effective noise level to the STT engine compared to the lab's raw signal.
+
+**Therefore:** Lab FNR numbers (e.g., Apple 8.6% at SNR +5 dB showroom noise) are a conservative lower bound. Production FNR at showroom noise will be lower by some amount measurable only on a real device.
+
+**How to measure the gap:** Record the lab's noisy WAV fixtures through an actual iPhone microphone (with `AVAudioSession` configured as the production app configures it), capture those recordings, and add them as lab fixtures named with the `_nr` suffix. The reporting layer picks them up automatically.
+
+### DC48 — Apple SpeechTranscriber is the recommended iOS production strategy
+
+Canonical final run: `run-20260524-1142` (2 strategies × 64 fixtures × 4 noise levels, no denoised rows).
+
+| Strategy | FNR clean | FNR +15 dB | FNR +5 dB (prod) | FNR 0 dB | TTFC P50 | TTFC P95 |
+|---|---|---|---|---|---|---|
+| `apple_speech_transcriber` | 4.5% | 4.5% | **8.6%** | 18.6% | 168 ms | 330 ms |
+| `whisperkit` | 1.4% | 2.7% | **8.2%** | 18.6% | 338 ms | 610 ms |
+
+At the production operating point (SNR +5 dB showroom floor), FNR is near-parity (8.6% vs 8.2%). Apple SpeechTranscriber wins on TTFC: P95 330 ms vs 610 ms — a 280 ms advantage that compounds across each workflow step. Apple is also on-device with no external dependency, no license cost, and is the native iOS 26 API.
+
+**Decision:** Apple SpeechTranscriber is the recommended primary iOS strategy. WhisperKit remains registered as the fallback for iOS 17–25 where SpeechTranscriber is unavailable.
+
+### DC49 — Semantic lift corrected (run-20260524-1051)
+
+Across 64 fixtures × 2 strategies with `--semantic`:
+- Apple SpeechTranscriber: **+193 semantic-only detections (14% of all detections)**
+- WhisperKit: **+291 semantic-only detections (21% of all detections)**
+
+WhisperKit benefits more from semantic matching because it paraphrases more frequently (sliding-window attention produces natural-language output; exact phrase matching misses more). With semantic matching enabled, the FNR gap between Apple and WhisperKit narrows in clean conditions.
+
+### DC50 — TTFC metric is file-mode wall-clock time (relative ordering transfers to production)
+
+`latency_ms_from_audio_start` is set by the Swift EventEmitter as `Date().timeIntervalSince(audioStart) * 1000` where `audioStart` is a `Date()` taken when the CLI starts processing the file.
+
+In file mode (RTF ≈ 0.004), the CLI processes audio ~250× faster than real-time. TTFC in file mode includes engine startup overhead and buffer fills — it is NOT the same number as production TTFC (which is bounded by when the dealer says the first keyword, approximately 3–10 s into a conversation).
+
+**What does transfer:** the relative ordering (Apple < WhisperKit) and the qualitative magnitude (Apple is ~2× faster to first cue in file mode). In production, both values will be dominated by acoustic latency, but Apple's architecture advantage (Neural Engine warm, no model load) is real and preserved.
+
+### DC51 — iPhone device test approach for AUVoiceProcessingIO measurement
+
+The only way to measure what `AUVoiceProcessingIO` does to cue detection is a physical device test. The procedure:
+
+1. Play the lab's noisy WAV fixtures through a calibrated speaker in a quiet room.
+2. Record through an iPhone with `AVAudioSession` configured exactly as the production app configures it (`.record` category, `.defaultToSpeaker` option off, no mixing).
+3. Have the production Swift strategy code emit `TranscriptEvent` JSONL to a file.
+4. AirDrop / export the JSONL files to the lab machine.
+5. Drop them into `voice-engine/lab/data/transcripts/apple_speech_transcriber/{audio_id}_nr.jsonl`.
+6. Run `voice-lab run --strategies apple_speech_transcriber --semantic` — all cache hits, cue matching only.
+7. The `noise_comparison.md` report will show the `_nr` column alongside the raw noisy column, giving the exact hardware noise suppression delta per noise level per cue.
+
+Infrastructure in the lab is ready. Physical test is a future task (requires an iPhone running iOS 26 and access to a calibrated speaker).
+
+### Branches and commits as of 2026-05-24 end-of-session
+
+- `feat/voice-engine-catalog-v1` — continued from 2026-05-22:
+  - feat(catalog): Honda US 2026 full lineup (hondanews press releases)
+  - feat(catalog): hondanews HTML extractor as alternative source
+  - feat: WhisperKit STT strategy — open-source Argmax path, free for macOS lab
+  - feat: ElevenLabs TTS synthesis + yt-dlp YouTube audio ingestion
+  - feat(catalog): full Honda US 2026 lineup extracted from hondanews press releases
+  - feat: wire lab CLI to orchestrator + ship first WhisperKit comparison report
+  - refactor(lab): remove DNS64 denoiser — iPhone uses AUVoiceProcessingIO (hardware)
+  - feat(lab): canonical final run-20260524-1142 — corrected FNR numbers, no denoised rows
+  - docs(lab): 5-stage pipeline, iPhone-only architecture, corrected lab numbers across all four docs
+  - chore: scripts/check_imports.py boundary guard + root README.md + decisions-log update (this entry)
