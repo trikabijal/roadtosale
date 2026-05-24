@@ -384,3 +384,115 @@ When vendoring sherpa-onnx Kotlin API classes (Vad.kt, OfflineRecognizer.kt, etc
 - A new parent task (SmartComply instance setup + Road to Sale schema extensions) is added to the task list before the SmartComply write tasks.
 
 **Revisit when:** SmartComply team absorbs the Road to Sale extensions upstream → evaluate switching to the shared instance and deprecating the owned one.
+
+---
+
+### DC59 — SmartComply GitLab repo is an empty shell; Road to Sale builds the server from scratch
+
+**Context:** `https://gitlab.tiez.net/Tiez/smartcomply` contains only the GitLab default README template — no source code, schema, or API exists yet.
+
+**Decision (autonomous):** Road to Sale builds the SmartComply backend from scratch as a Node.js / Express API server with a SQLite database (`smartcomply/` deployable). The server implements the API contract defined in `road-to-sale-app/docs/smartcomply-contract.md` and includes Road to Sale schema extensions from day one. When the SmartComply team starts building their canonical version, Road to Sale's server becomes the reference implementation and the codebase can be pushed to the GitLab repo as the starting point.
+
+**Stack chosen (autonomous):** Node.js + Express + better-sqlite3 + TypeScript. Rationale: consistent with the rest of the monorepo (TypeScript everywhere), SQLite is zero-infra for local dev and pilot, Express is the lowest-friction HTTP layer.
+
+**Revisit when:** SmartComply team builds their own canonical server. At that point evaluate: adopt their implementation, push ours to them, or keep separate instances in sync via schema migrations.
+
+---
+
+### DC60 — Expo bare workflow from day one; prebuild run during scaffold
+
+**Context:** The voice native module (Swift on iOS, Kotlin on Android) requires access to the raw `ios/` and `android/` native project directories, which only exist in the Expo bare workflow.
+
+**Decision (autonomous):** Create the app using `create-expo-app` (managed), then immediately run `expo prebuild` to generate native project directories before any other work. All subsequent tooling targets the bare workflow. Managed Expo updates (OTA) are not used — releases go through standard App Store / Play Store flows.
+
+**Revisit when:** Expo Modules API (the new native module approach without full bare workflow) matures enough to support always-on audio + foreground services without ejecting.
+
+---
+
+### DC61 — SmartComply domain mapping for Road to Sale
+
+**Decision (autonomous):** Road to Sale rides the existing SmartComply domain model directly:
+
+| Road to Sale concept | SmartComply entity |
+|---|---|
+| NADA audit template | `checksheets` (checksheet with `kind='ROAD_TO_SALE'` tag) |
+| NADA step | `chks_headers` row |
+| Checklist question / cue group | `chks_questions` row (type `SUBJECTIVE_CONDITION`) |
+| Session (one rep + one customer) | `inspections` row (`kind='AUDIT'`) |
+| Cue detection event / answer | `user_checksheet_answers` row + V1.34 extension fields |
+| Rep's appointment list | `GET /api/audit/myAssignments` |
+
+The mobile app uses `deviceType: "APP"` on login. The `auditAssignmentId` (= inspection id) is the single session identifier passed on every write.
+
+**Walk-in sessions:** A standing "Road to Sale – Walk-In" audit campaign is seeded in the Road to Sale tenant. The app calls `POST /api/audit/addAuditAssignments` to create an ad-hoc inspection under this campaign whenever a rep starts a walk-in. The location defaults to the rep's home store.
+
+**Revisit when:** SmartComply adds a first-class `session` concept, or the walk-in campaign approach causes BI reporting issues.
+
+---
+
+### DC62 — Road to Sale schema extensions go in Flyway migration V1.34
+
+**Decision (autonomous):** Road to Sale-specific fields are added to the SmartComply schema via a new Flyway migration `V1.34__road_to_sale_extension.sql` in the copied `smartcomply/` source. Fields added to `user_checksheet_answers`:
+- `rts_cue_id` VARCHAR(255) — voice engine cue atom ID
+- `rts_cue_source` VARCHAR(50) — 'feature' or 'workflow'
+- `rts_transcript_snippet` TEXT — short transcript excerpt (≤ 200 chars)
+- `rts_cue_confidence` NUMERIC(4,3) — confidence 0.000–1.000
+- `rts_voice_auto_completed` BOOLEAN DEFAULT FALSE — true = voice detection, false = manual override
+
+New table `rts_trade_photos` for trade-in photo storage (session link + shot slot + S3 key).
+
+All new columns are nullable and prefixed `rts_` to make them easy to identify as Road to Sale extensions when proposing upstream.
+
+**Revisit when:** SmartComply team reviews the proposal and either absorbs the fields or requests different naming.
+
+---
+
+### DC63 — SmartComply copied into monorepo as `smartcomply/` deployable; development branch
+
+**Decision (autonomous):** SmartComply source (development branch, commit at import time) is copied into `smartcomply/` at the monorepo root. The `.git` directory is excluded — `smartcomply/` becomes part of the roadtosale git history, not a submodule. Road to Sale's V1.34 migration is added inside `smartcomply/src/main/resources/db/migration/` and the Road to Sale tenant seed goes in `smartcomply/src/main/resources/db/tenants/honda/`. Local dev runs via `./mvnw spring-boot:run -Dspring-boot.run.profiles=local,tenant-data` with `TENANT_ID=honda`.
+
+**Revisit when:** SmartComply team starts actively developing the development branch. At that point, evaluate switching back to a git submodule or subtree so upstream changes can be pulled cleanly.
+
+---
+
+### DC64 — SessionSetupScreen: Year comes from Model.year, not Trim.year
+
+**Decision (autonomous):** The spec says "derive years from trims for that model." In the actual `bundle.json` catalog schema, `Trim` has no `year` field — the year lives on `Model`. The picker therefore collects unique years from `catalogLoader.list_models(makeId)`, sorts them descending, and filters models by the chosen year before showing the model chips. Selecting a year also re-validates the already-selected model: if the model's year no longer matches, the model selection is cleared. This is consistent with the intent of the spec and handles multi-year catalogs (e.g., 2025 CPO + 2026 new) correctly once they are added.
+
+**Revisit when:** The catalog schema is extended to add `year` to `Trim` (e.g., for trim-year-specific packaging). If that happens, the year picker should switch to reading `Trim.year` and the model filter step collapses back to a simple make→model→trim cascade.
+
+---
+
+### DC65 — SessionSetupScreen: Walk-in defaults and picker ordering
+
+**Decision (autonomous):**
+
+- `DEFAULT_CHECKSHEET_ID = 2001` — the Honda RTS NADA checksheet seeded in the dev SmartComply instance (matches the seed data spec).
+- `WALKIN_ASSIGNMENT_ID = 1` — the seeded bootstrap inspection id for the walk-in campaign (matches the seed data spec).
+- Picker order is **Make → Year → Model → Trim**, not Make → Model → Year → Trim. Showing Year before Model matches the real-world sales rep workflow (rep knows the model year the customer wants before drilling into trims). Year chips are derived from all models for the selected make (see DC64). The model list is filtered to only models with the selected year before being shown.
+- `MAX_HIGHLIGHT_FEATURES = 6` — shows top 6 standard-availability features (spec says "up to 6"). Features come from `catalogLoader.list_features_for_trim(trimId, ['standard'])`.
+- Feature pills are purely informational (no tap handler). Pill background is `colors.accent` with white text, border-radius 12, padding 4 8.
+- The footer button is disabled (grayed out) if firstName is blank OR no trim is selected OR loading is in progress. No separate validation error messages are shown — the disabled state is self-explanatory in a showroom context.
+
+**Revisit when:** The catalog adds optional/package features worth surfacing; at that point the highlight panel can be extended to separate standard vs. optional features.
+
+---
+
+### DC64 — iOS VoiceModule requires bridging header + Expo config plugin for Xcode wiring
+
+**Decision (autonomous):** `RtsVoiceModule.swift` inherits from `RCTEventEmitter` (React Native ObjC class). Swift cannot access this type without an Objective-C bridging header. Created `ios/VoiceModule/RtsVoiceModule-Bridging-Header.h` (imports `<React/RCTBridgeModule.h>` and `<React/RCTEventEmitter.h>`). Also created `plugins/withVoiceModule.ts` (Expo config plugin) that:
+- Adds VoiceModule Swift/ObjC/header files to the Xcode app target after `expo prebuild`
+- Sets the Swift Compiler Objective-C Bridging Header build setting
+- Adds `sherpa-onnx-android` AAR dependency to `android/app/build.gradle`
+- Registers `RtsVoicePackage` in `MainApplication.kt`
+Wired via `"plugins": ["./plugins/withVoiceModule"]` in `app.json`.
+
+**Revisit when:** `expo prebuild` is run — verify the plugin correctly wires the files into the Xcode target. SourceKit errors in the Swift file will resolve once the Xcode project context exists.
+
+---
+
+### DC65 — SessionEngine singleton + overrideQuestion delegation
+
+**Decision (autonomous):** `SessionEngine` did not have a singleton export, so screens could not share state. Created `src/session/sessionEngineSingleton.ts` following the same lazy-singleton pattern as `clientSingleton.ts` and `repositorySingleton.ts`. Also added `overrideQuestion(sessionId, questionId, note?)` to `SessionEngine` that delegates to the per-session `ChecklistEngine` instance. This method was missing from the original ISessionEngine interface but required by the ActiveSessionScreen. The interface will be updated once the method is tested in Phase 4.
+
+**Revisit when:** E2E test plan is defined — may want to add `overrideQuestion` to `ISessionEngine` formally at that time.
