@@ -1,0 +1,13 @@
+# Gradle build outputs
+build/
+.gradle/
+
+# Downloaded native lib jars (fetched by sherpa_onnx_build.sh)
+libs/
+
+# Gradle User Home cache (sometimes leaks in)
+.gradle-cache/
+
+# IDE
+.idea/
+*.iml

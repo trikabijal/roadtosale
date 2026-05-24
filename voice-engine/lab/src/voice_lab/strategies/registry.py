@@ -69,3 +69,12 @@ def _bootstrap_default_strategies() -> None:
     # discipline as the Apple wrappers — construction is side-effect free.
     if "whisperkit" not in _REGISTRY:
         register_strategy(WhisperKitStrategy())
+
+    # SherpaOnnx (Whisper ONNX via sherpa-onnx JVM CLI). Runs on macOS JVM
+    # for lab evaluation; same sherpa-onnx library powers Android production.
+    # Binary: voice-engine/native/android/SherpaOnnxSTT/build/install/…
+    # Build:  voice-engine/native/android/sherpa_onnx_build.sh
+    from voice_lab.strategies.sherpa_onnx import SherpaOnnxStrategy
+
+    if "sherpa_onnx" not in _REGISTRY:
+        register_strategy(SherpaOnnxStrategy())
