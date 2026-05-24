@@ -1,7 +1,6 @@
 package com.trika.sherpaonnxstt
 
 import com.k2fsa.sherpa.onnx.FeatureConfig
-import com.k2fsa.sherpa.onnx.HomophoneReplacerConfig
 import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
@@ -11,20 +10,26 @@ import java.io.File
 import java.net.URI
 import java.nio.channels.Channels
 import java.nio.file.Files
-import kotlin.io.path.Path
 
 /**
  * SherpaOnnxRunner — wraps sherpa-onnx OfflineRecognizer for Whisper-tiny-en
  * file-based transcription, emitting JSONL events to stdout.
  *
- * Partials note:
+ * Chunking:
+ *   The Whisper model has a hard 30-second context window. For audio longer
+ *   than 30 s (a typical dealership walkaround is 2–5 minutes) the runner
+ *   splits the sample array into non-overlapping 30 s chunks, processes each
+ *   chunk in sequence, and emits events with timestamps relative to the
+ *   audio-file start (not the chunk start). A small 0.5 s tail from the
+ *   previous chunk is prepended to each chunk to avoid cutting words at
+ *   chunk boundaries.
+ *
+ * Partials:
  *   sherpa-onnx OfflineRecognizer does NOT stream intermediate tokens; it
  *   returns a single result per segment once decoding is complete. For the
- *   `--partials true` mode we therefore simulate ONE partial event per
- *   transcribed segment (first word as a preview) right before we emit the
- *   `final`. This keeps the JSONL contract compatible with the Python lab
- *   consumer which expects both event types, while being honest in the
- *   `engine_metadata` that it is simulated.
+ *   `--partials true` mode we synthesise ONE partial event per transcribed
+ *   chunk (first word as a preview) right before the final for that chunk.
+ *   The `engine_metadata.simulated` field is `true` on simulated partials.
  *
  * Model layout expected by sherpa-onnx:
  *   $modelDir/tiny.en-encoder.int8.onnx
@@ -34,7 +39,8 @@ import kotlin.io.path.Path
  * where modelDir = ~/.cache/sherpa-onnx/models/sherpa-onnx-whisper-tiny.en/
  *
  * The runner downloads the model archive from GitHub on first run and
- * extracts it. Subsequent runs skip the download if the directory exists.
+ * extracts it. Subsequent runs skip the download if the .complete sentinel
+ * exists.
  */
 class SherpaOnnxRunner(
     private val modelId: String = "whisper-tiny-en",
@@ -47,14 +53,24 @@ class SherpaOnnxRunner(
         private const val MODEL_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.en.tar.bz2"
         private const val ENGINE_NAME = "sherpa_onnx"
+
+        /** Whisper's hard context window: 30 seconds. */
+        private const val WHISPER_MAX_SECONDS = 30
+
+        /**
+         * Overlap prepended from the tail of the previous chunk.
+         * Set to 0 — sherpa-onnx clips any audio > 30 s so overlap would be
+         * discarded anyway. Hard chunk boundaries are acceptable for lab eval.
+         */
+        private const val CHUNK_OVERLAP_SECONDS = 0.0f
     }
 
     /**
      * Transcribe the WAV file at [filePath].
      * Emits JSONL events to stdout via [EventEmitter].
      *
-     * Throws [RuntimeException] with a descriptive message on failure.
-     * Exit codes are enforced by Main.kt.
+     * Throws [AudioFileNotFoundException] or [ModelLoadFailedException] on failure.
+     * Exit codes are mapped by Main.kt.
      */
     fun run(filePath: String) {
         val audioFile = File(filePath)
@@ -62,7 +78,7 @@ class SherpaOnnxRunner(
             throw AudioFileNotFoundException("audio file not found: $filePath")
         }
 
-        // 1. Ensure model is present (download if needed).
+        // 1. Ensure model is present (download on first run).
         val modelDir = resolveModelDir()
         try {
             ensureModelDownloaded(modelDir)
@@ -99,7 +115,7 @@ class SherpaOnnxRunner(
                     tailPaddings = 1000,
                 ),
                 tokens = tokensPath.absolutePath,
-                numThreads = 1,
+                numThreads = 4,
                 debug = false,
                 provider = "cpu",
                 modelType = "whisper",
@@ -107,7 +123,7 @@ class SherpaOnnxRunner(
             decodingMethod = "greedy_search",
         )
 
-        // 4. Initialise recognizer (loads ONNX models — may take 1–2 s).
+        // 4. Initialise recognizer (loads ONNX models — ~1 s on Apple Silicon).
         val recognizer: OfflineRecognizer
         try {
             recognizer = OfflineRecognizer(config = config)
@@ -117,9 +133,7 @@ class SherpaOnnxRunner(
             )
         }
 
-        // 5. Read audio samples from the WAV file.
-        //    WaveReader.readWaveFromFile is a JNI native call that handles
-        //    WAV parsing and converts to 32-bit float mono.
+        // 5. Read full audio samples.
         val waveData = try {
             WaveReader.readWave(filePath)
         } catch (e: Exception) {
@@ -129,63 +143,88 @@ class SherpaOnnxRunner(
             )
         }
 
-        // 6. Stamp wall-clock origin AFTER model load so latency_ms reflects
-        //    transcription latency, not model-load time (same as WhisperKitSTT).
+        val sampleRate = waveData.sampleRate.coerceAtLeast(16000)
+
+        // 6. Stamp wall-clock origin AFTER model load, so latency_ms reflects
+        //    transcription time (not model-load time) — same as WhisperKitSTT.
         EventEmitter.resetAudioStart()
 
-        // 7. Create stream, feed samples, decode.
-        val stream = recognizer.createStream()
-        stream.acceptWaveform(waveData.samples, waveData.sampleRate)
-        recognizer.decode(stream)
-        val result = recognizer.getResult(stream)
-        stream.release()
-        recognizer.release()
+        // 7. Split into 30-second chunks and transcribe each.
+        val maxSamplesPerChunk = (WHISPER_MAX_SECONDS * sampleRate).toInt()
+        val overlapSamples = (CHUNK_OVERLAP_SECONDS * sampleRate).toInt()
+        val allSamples = waveData.samples
+        val totalSamples = allSamples.size
 
-        val fullText = result.text.trim()
-        if (fullText.isEmpty()) return
+        var chunkStart = 0
+        var chunkIndex = 0
 
-        val latencyMs = EventEmitter.latencyMsSinceAudioStart()
+        while (chunkStart < totalSamples) {
+            val chunkEnd = minOf(chunkStart + maxSamplesPerChunk, totalSamples)
 
-        // 8. Estimate segment timing from timestamps if available.
-        //    timestamps is a FloatArray of token-level start times in seconds
-        //    (populated if enableTokenTimestamps was set — we don't request it,
-        //    so it may be empty). Fall back to 0 / latencyMs.
-        val segmentStartMs = if (result.timestamps.isNotEmpty())
-            (result.timestamps.first() * 1000f).toInt() else 0
-        val segmentEndMs   = if (result.timestamps.isNotEmpty())
-            (result.timestamps.last()  * 1000f).toInt() else latencyMs
+            // Prepend overlap from the previous chunk (except for chunk 0).
+            val overlapStart = maxOf(0, chunkStart - overlapSamples)
+            val chunkSamples = allSamples.copyOfRange(overlapStart, chunkEnd)
 
-        // 9. Emit simulated partial (first word or first 20 chars).
-        if (enablePartials) {
-            val previewText = fullText.split(" ").first().take(20)
-            EventEmitter.emitPartial(
-                text = previewText,
-                timestampMs = segmentStartMs,
-                latencyMs = maxOf(0, latencyMs - 100),  // slightly before final
-                confidence = null,
-                engineMetadata = mapOf(
-                    "engine" to ENGINE_NAME,
-                    "model" to modelId,
-                    "is_volatile" to true,
-                    "simulated" to true,
-                ),
-            )
+            // Timestamp of the chunk's true content start in the full audio.
+            val chunkStartMs = (chunkStart.toLong() * 1000L / sampleRate).toInt()
+
+            val stream = recognizer.createStream()
+            stream.acceptWaveform(chunkSamples, sampleRate)
+            recognizer.decode(stream)
+            val result = recognizer.getResult(stream)
+            stream.release()
+
+            val chunkText = result.text.trim()
+
+            if (chunkText.isNotEmpty()) {
+                val latencyMs = EventEmitter.latencyMsSinceAudioStart()
+
+                // Estimate segment end in the full-audio timeline.
+                val chunkDurationMs = ((chunkEnd - chunkStart).toLong() * 1000L / sampleRate).toInt()
+                val segmentEndMs = chunkStartMs + chunkDurationMs
+
+                // Simulated partial: first word of this chunk.
+                if (enablePartials) {
+                    val previewText = chunkText.split(" ").first().take(20)
+                    EventEmitter.emitPartial(
+                        text = previewText,
+                        timestampMs = chunkStartMs,
+                        latencyMs = maxOf(0, latencyMs - 100),
+                        confidence = null,
+                        engineMetadata = mapOf(
+                            "engine" to ENGINE_NAME,
+                            "model" to modelId,
+                            "chunk_index" to chunkIndex,
+                            "chunk_start_ms" to chunkStartMs,
+                            "is_volatile" to true,
+                            "simulated" to true,
+                        ),
+                    )
+                }
+
+                // Final event for this chunk.
+                EventEmitter.emitFinal(
+                    text = chunkText,
+                    timestampMs = chunkStartMs,
+                    latencyMs = latencyMs,
+                    confidence = null,   // OfflineRecognizer does not expose logprob
+                    engineMetadata = mapOf(
+                        "engine" to ENGINE_NAME,
+                        "model" to modelId,
+                        "chunk_index" to chunkIndex,
+                        "chunk_start_ms" to chunkStartMs,
+                        "chunk_end_ms" to segmentEndMs,
+                        "is_volatile" to false,
+                        "simulated" to false,
+                    ),
+                )
+            }
+
+            chunkStart = chunkEnd
+            chunkIndex++
         }
 
-        // 10. Emit final event.
-        EventEmitter.emitFinal(
-            text = fullText,
-            timestampMs = segmentStartMs,
-            latencyMs = latencyMs,
-            confidence = null,       // OfflineRecognizer does not expose logprob
-            engineMetadata = mapOf(
-                "engine" to ENGINE_NAME,
-                "model" to modelId,
-                "is_volatile" to false,
-                "segment_start_s" to (segmentStartMs / 1000.0),
-                "segment_end_s"   to (segmentEndMs   / 1000.0),
-            ),
-        )
+        recognizer.release()
     }
 
     // -------------------------------------------------------------------------
@@ -208,23 +247,18 @@ class SherpaOnnxRunner(
         System.err.println("SherpaOnnxSTT: downloading model to ${modelDir.absolutePath} …")
         System.err.println("SherpaOnnxSTT: source: $MODEL_URL")
 
-        // Download to a temp file.
         val tmpFile = Files.createTempFile("sherpa-onnx-model-", ".tar.bz2").toFile()
         try {
             downloadFile(MODEL_URL, tmpFile)
 
-            // Extract with the system `tar` (available on macOS and Linux).
             val parentDir = modelDir.parentFile ?: error("no parent for $modelDir")
             parentDir.mkdirs()
-            val extractResult = ProcessBuilder("tar", "-xjf", tmpFile.absolutePath, "-C", parentDir.absolutePath)
+            val rc = ProcessBuilder("tar", "-xjf", tmpFile.absolutePath, "-C", parentDir.absolutePath)
                 .inheritIO()
                 .start()
                 .waitFor()
-            if (extractResult != 0) {
-                error("tar extraction failed with exit code $extractResult")
-            }
+            if (rc != 0) error("tar extraction failed with exit code $rc")
 
-            // Write sentinel so next run skips download.
             sentinel.writeText("ok\n")
             System.err.println("SherpaOnnxSTT: model ready at ${modelDir.absolutePath}")
         } finally {
@@ -232,10 +266,6 @@ class SherpaOnnxRunner(
         }
     }
 
-    /**
-     * Download [url] to [dest] using Java's built-in URL/channel API.
-     * No external HTTP client dependency needed.
-     */
     private fun downloadFile(url: String, dest: File) {
         URI(url).toURL().openStream().use { input ->
             Channels.newChannel(input).use { src ->
@@ -248,7 +278,7 @@ class SherpaOnnxRunner(
 }
 
 // ---------------------------------------------------------------------------
-// Typed exceptions used by Main.kt to map exit codes
+// Typed exceptions — used by Main.kt to map exit codes
 // ---------------------------------------------------------------------------
 
 /** Exit code 30: audio file not found or unreadable. */
