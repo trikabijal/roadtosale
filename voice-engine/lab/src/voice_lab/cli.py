@@ -3,6 +3,7 @@
 Subcommands:
   synth              synthesize fixtures (ElevenLabs)
   generate-noise     add white Gaussian noise at target SNR levels to clean WAVs
+  denoise            apply DNS64 neural noise suppression to snr*db.wav files
   run                run a comparison matrix
   validate-catalog   delegates to vehicle-feature-catalog validator
   ingest-youtube     pull YouTube transcripts into script YAML schema
@@ -143,6 +144,52 @@ def _cmd_generate_noise(args: argparse.Namespace) -> int:
     return 0 if n_failed == 0 else 1
 
 
+def _cmd_denoise(args: argparse.Namespace) -> int:
+    """Apply DNS64 neural denoiser to all snr*db.wav files, writing snr*db_nr.wav."""
+    from voice_lab.synthesis.denoise import denoise_wav
+
+    lab_root = _lab_root()
+    audio_base = Path(args.audio_base) if getattr(args, "audio_base", None) else lab_root / "data" / "audio"
+    source_types: set[str] = {s.strip() for s in args.source_types.split(",") if s.strip()}
+    force: bool = bool(args.force)
+
+    # Collect all snr*db.wav files (skip already-denoised _nr files).
+    noisy_wavs: list[Path] = []
+    if "synthesized" in source_types:
+        noisy_wavs.extend(sorted((audio_base / "synthesized").glob("*/snr*db.wav")))
+    if "youtube" in source_types:
+        noisy_wavs.extend(sorted((audio_base / "youtube").glob("*/snr*db.wav")))
+    # Exclude already-denoised files (e.g. if glob picks up snr*db_nr.wav by mistake).
+    noisy_wavs = [p for p in noisy_wavs if not p.stem.endswith("_nr")]
+
+    if not noisy_wavs:
+        print(f"No snr*db.wav files found under {audio_base}. Run `generate-noise` first.", file=sys.stderr)
+        return 2
+
+    n_created = n_skipped = n_failed = 0
+    for src in noisy_wavs:
+        dst = src.parent / (src.stem + "_nr.wav")
+        if dst.exists() and dst.stat().st_size > 0 and not force:
+            n_skipped += 1
+            print(f"  [skip]    {dst.relative_to(lab_root)}")
+            continue
+        try:
+            print(f"  [denoise] {src.relative_to(lab_root)} → {dst.name}", flush=True)
+            denoise_wav(src, dst)
+            n_created += 1
+            print(f"  [done]    {dst.relative_to(lab_root)}")
+        except Exception as exc:
+            n_failed += 1
+            print(f"  [FAILED]  {src.relative_to(lab_root)}: {exc}", file=sys.stderr)
+
+    print(
+        f"\ndenoise: created={n_created} skipped={n_skipped} failed={n_failed} "
+        f"({len(noisy_wavs)} source files)",
+        file=sys.stderr,
+    )
+    return 0 if n_failed == 0 else 1
+
+
 def _try_import_catalog() -> Any | None:
     try:
         from vehicle_feature_catalog import VehicleFeatureCatalog  # type: ignore
@@ -169,17 +216,35 @@ def _load_workflow_cue_atoms(path: Path) -> list:
 
 
 def _audio_variants(wav_dir: Path) -> list[tuple[Path, str]]:
-    """Return (path, noise_level) for clean.wav + any snr*db.wav files in wav_dir.
+    """Return (path, noise_level) tuples for clean + snr + denoised variants.
 
-    Order: clean first, then snr variants sorted by SNR level descending (15 → 5 → 0).
+    Order: clean → snr15db → snr15db_nr → snr5db → snr5db_nr → snr0db → snr0db_nr
+    (each noisy level immediately followed by its denoised counterpart).
+
+    Files that don't exist are silently skipped.
     """
+    import re
+
+    def _sort_key(stem: str) -> tuple:
+        """snr15db < snr5db < snr0db; base before _nr at same level."""
+        is_nr = stem.endswith("_nr")
+        base = stem[:-3] if is_nr else stem          # e.g. "snr5db"
+        m = re.match(r"snr(\d+)db$", base)
+        # Sort descending by SNR (15 → 5 → 0) so higher SNR = smaller noise first.
+        level = int(m.group(1)) if m else 999
+        return (-level, int(is_nr))                  # higher SNR first; base before _nr
+
     variants: list[tuple[Path, str]] = []
     clean = wav_dir / "clean.wav"
     if clean.exists() and clean.stat().st_size > 0:
         variants.append((clean, "clean"))
-    for snr_wav in sorted(wav_dir.glob("snr*db.wav")):
-        noise_level = snr_wav.stem  # e.g. "snr15db"
-        variants.append((snr_wav, noise_level))
+
+    # Collect all snr*db.wav and snr*db_nr.wav files.
+    snr_wavs: list[Path] = list(wav_dir.glob("snr*db.wav")) + list(wav_dir.glob("snr*db_nr.wav"))
+    for wav in sorted(snr_wavs, key=lambda p: _sort_key(p.stem)):
+        if wav.exists() and wav.stat().st_size > 0:
+            variants.append((wav, wav.stem))  # stem == noise_level, e.g. "snr5db_nr"
+
     return variants
 
 
@@ -446,6 +511,25 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate even if the noisy file already exists.",
     )
     p_noise.set_defaults(func=_cmd_generate_noise)
+
+    # ── denoise ──────────────────────────────────────────────────────────────
+    p_dn = sub.add_parser(
+        "denoise",
+        help="Apply DNS64 neural denoiser to snr*db.wav files → writes snr*db_nr.wav",
+    )
+    p_dn.add_argument(
+        "--audio-base", default=None,
+        help="Base audio dir (default: data/audio/). Expects synthesized/ and youtube/ subdirs.",
+    )
+    p_dn.add_argument(
+        "--source-types", default="synthesized,youtube",
+        help="Which source types to denoise (default: synthesized,youtube).",
+    )
+    p_dn.add_argument(
+        "--force", action="store_true",
+        help="Re-denoise even if the _nr file already exists.",
+    )
+    p_dn.set_defaults(func=_cmd_denoise)
 
     # ── run ──────────────────────────────────────────────────────────────────
     p_run = sub.add_parser("run", help="Run a strategy comparison matrix")

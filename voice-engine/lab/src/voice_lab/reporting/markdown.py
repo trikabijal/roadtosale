@@ -195,14 +195,33 @@ def write_summary(
     return summary_path
 
 
-# Canonical noise-level order: clean → snr15db → snr5db → snr0db (best to worst SNR)
-_NOISE_ORDER: list[str] = ["clean", "snr15db", "snr5db", "snr0db"]
+# Canonical noise-level order — each noisy level immediately followed by its
+# denoised counterpart (snr*db_nr). clean baseline first.
+_NOISE_ORDER: list[str] = [
+    "clean",
+    "snr15db", "snr15db_nr",
+    "snr5db",  "snr5db_nr",
+    "snr0db",  "snr0db_nr",
+]
+
 _NOISE_LABELS: dict[str, str] = {
-    "clean": "Clean",
-    "snr15db": "SNR +15 dB\n(quiet room)",
-    "snr5db": "SNR +5 dB\n(showroom)",
-    "snr0db": "SNR 0 dB\n(very noisy)",
+    "clean":       "clean",
+    "snr15db":     "SNR +15 dB (quiet room)",
+    "snr15db_nr":  "SNR +15 dB → denoised",
+    "snr5db":      "SNR +5 dB (showroom)",
+    "snr5db_nr":   "SNR +5 dB → denoised",
+    "snr0db":      "SNR 0 dB (very noisy)",
+    "snr0db_nr":   "SNR 0 dB → denoised",
 }
+
+
+def _is_nr_level(noise_level: str) -> bool:
+    return noise_level.endswith("_nr")
+
+
+def _base_of_nr(noise_level: str) -> str:
+    """Return the base noise level for a denoised variant, e.g. snr5db_nr → snr5db."""
+    return noise_level[:-3] if noise_level.endswith("_nr") else noise_level
 
 
 def write_noise_comparison(
@@ -260,13 +279,15 @@ def write_noise_comparison(
             by_noise[c.noise_level].append(c)
 
         # Build metrics table.
+        # Columns: level | pass | fail | FP | total | FNR | Δ vs clean | Δ vs noisy | FPR
+        # "Δ vs noisy" only applies to _nr rows and shows the denoiser recovery.
         lines.append(
-            "| Noise level | Pass | Fail | FP | Total expected | FNR | ΔFNR | FPR | ΔFPR |"
+            "| Noise level | Pass | Fail | FP | Total | FNR | Δ vs clean | Δ vs noisy (recovery) | FPR |"
         )
         lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|")
 
-        baseline_fnr: float | None = None
-        baseline_fpr: float | None = None
+        baseline_fnr: float | None = None   # clean baseline
+        fnr_by_level: dict[str, float] = {}  # track each level's FNR for recovery calc
 
         for noise_level in ordered_levels:
             if noise_level not in by_noise:
@@ -280,26 +301,35 @@ def write_noise_comparison(
             fnr = n_fail / total_expected if total_expected > 0 else None
             fpr = n_fp / total_expected if total_expected > 0 else None
 
+            if fnr is not None:
+                fnr_by_level[noise_level] = fnr
+
+            # Δ vs clean baseline
             if noise_level == "clean":
                 baseline_fnr = fnr
-                baseline_fpr = fpr
-                delta_fnr_str = "—"
-                delta_fpr_str = "—"
+                delta_clean_str = "—"
             else:
                 if baseline_fnr is not None and fnr is not None:
                     delta = fnr - baseline_fnr
                     sign = "+" if delta >= 0 else ""
-                    delta_fnr_str = f"{sign}{delta * 100:.1f}pp"
+                    delta_clean_str = f"{sign}{delta * 100:.1f}pp"
                 else:
-                    delta_fnr_str = "—"
-                if baseline_fpr is not None and fpr is not None:
-                    delta = fpr - baseline_fpr
-                    sign = "+" if delta >= 0 else ""
-                    delta_fpr_str = f"{sign}{delta * 100:.1f}pp"
-                else:
-                    delta_fpr_str = "—"
+                    delta_clean_str = "—"
 
-            label = noise_level.replace("snr", "SNR +").replace("db", " dB") if noise_level != "clean" else "clean"
+            # Δ vs noisy (recovery) — only meaningful for _nr rows
+            if _is_nr_level(noise_level):
+                base_lvl = _base_of_nr(noise_level)
+                base_fnr = fnr_by_level.get(base_lvl)
+                if base_fnr is not None and fnr is not None:
+                    recovery = fnr - base_fnr  # negative = improvement
+                    sign = "+" if recovery >= 0 else ""
+                    delta_noisy_str = f"{sign}{recovery * 100:.1f}pp"
+                else:
+                    delta_noisy_str = "—"
+            else:
+                delta_noisy_str = "—"
+
+            label = _NOISE_LABELS.get(noise_level, noise_level)
             lines.append(
                 f"| {label}"
                 f" | {n_pass}"
@@ -307,9 +337,9 @@ def write_noise_comparison(
                 f" | {n_fp}"
                 f" | {total_expected}"
                 f" | {_pct(fnr)}"
-                f" | {delta_fnr_str}"
+                f" | {delta_clean_str}"
+                f" | {delta_noisy_str}"
                 f" | {_pct(fpr)}"
-                f" | {delta_fpr_str}"
                 f" |"
             )
 
