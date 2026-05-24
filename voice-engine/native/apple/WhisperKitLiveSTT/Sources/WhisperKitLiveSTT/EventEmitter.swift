@@ -66,7 +66,7 @@ final class EventEmitter {
             "timestamp_ms": event.timestampMs,
             "latency_ms_from_audio_start": event.latencyMsFromAudioStart,
             "confidence": event.confidence,
-            "engine_metadata": event.engineMetadata
+            "engine_metadata": Self.sanitize(event.engineMetadata)
         ]
         // Preserve `confidence: null` rather than dropping the key.
         let cleaned: [String: Any] = payload.compactMapValues { value in
@@ -90,6 +90,28 @@ final class EventEmitter {
                 Data("error: failed to encode event: \(error)\n".utf8)
             )
         }
+    }
+
+    /// Recursively replace non-finite Double/Float values in a metadata dict
+    /// with NSNull. NSJSONSerialization rejects infinity and NaN — VAD-based
+    /// chunking can produce infinite compression_ratio/avg_logprob at chunk
+    /// boundaries where the decoder has nothing to decode.
+    private static func sanitize(_ dict: [String: Any]) -> [String: Any] {
+        var out = [String: Any]()
+        for (k, v) in dict {
+            switch v {
+            case let d as Double:
+                out[k] = d.isFinite ? d : NSNull()
+            case let f as Float:
+                let d = Double(f)
+                out[k] = d.isFinite ? d : NSNull()
+            case let inner as [String: Any]:
+                out[k] = sanitize(inner)
+            default:
+                out[k] = v
+            }
+        }
+        return out
     }
 
     /// Convenience to compute the wall-clock latency from audio start.

@@ -107,7 +107,13 @@ final class WhisperKitRunner {
             usePrefillPrompt: true,
             skipSpecialTokens: true,
             withoutTimestamps: false,
-            wordTimestamps: false
+            wordTimestamps: false,
+            // NOTE: chunkingStrategy: .vad causes SIGSEGV on certain audio files
+            // in WhisperKit 0.18.0 (batch/file path only). AudioStreamTranscriber
+            // uses its own rolling-buffer VAD which is stable for live streaming.
+            // The file-based CLI uses no chunking strategy until the upstream
+            // VAD chunker bug is fixed. Track: github.com/argmaxinc/WhisperKit
+            chunkingStrategy: ChunkingStrategy.none
         )
 
         if let vocabPath = vocabPath {

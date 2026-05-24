@@ -324,6 +324,54 @@ Likely candidate strategies to test:
 
 That should be decided by telemetry and cue-test results, not assumption.
 
+---
+
+## Platform Strategy Decision (2026-05-24)
+
+Updated based on lab results (10 Honda walkaround videos, 114 cue firings) and literature review. See `dev/docs/ROAD_TO_SALE_AUDIO_RESEARCH_LITERATURE.md` for all paper references.
+
+### iOS
+
+**Primary: Apple SpeechTranscriber** (iOS 26+)  
+- TTFT P50: 54 ms, TTFinal P50: 147 ms, RTF: 0.01  
+- Utterance-streaming: seals finals at natural pauses, not 30-second walls  
+- Free, on-device, Neural Engine accelerated  
+
+**Fallback: WhisperKit** (iOS 17–25, open-source MIT)  
+- Uses `AudioStreamTranscriber` with LocalAgreement-2 confirmation (Macháček et al. 2023)  
+- `unconfirmedSegments` → partial stream, `confirmedSegments` → final stream  
+- `chunkingStrategy: .vad` — cuts on silence midpoints, not fixed windows  
+- TTFT P50: 100 ms; finals seal at utterance boundary via built-in EnergyVAD  
+
+**Silence threshold:** 300 ms utterance boundary (IPU), 800 ms–1.2 s end-of-turn (NaturalTurn 2025, Silero docs)
+
+### Android — TO BE IMPLEMENTED
+
+Two tiers. Implement both behind the same `TranscriptionStrategy` interface.
+
+**Tier 1 — Free path: sherpa-onnx + Whisper-tiny-en**  
+- Runtime: `k2-fsa/sherpa-onnx` (ONNX, MIT, JVM + Android AAR)  
+- Model: `sherpa-onnx-whisper-tiny.en` (~39 MB, downloads from HuggingFace on first run)  
+- VAD: Silero VAD v5 (built into sherpa-onnx) — threshold 0.5, tune to 0.6–0.7 for noisy floors  
+- Lab CLI: `voice-engine/native/android/SherpaOnnxSTT/` (JVM, same JSONL contract as Apple CLIs)  
+- Status: **lab CLI built, lab strategy registered — production Android integration TO BE IMPLEMENTED**
+
+**Tier 2 — Paid path: Argmax Pro SDK** (`argmax-sdk-kotlin`, Google LiteRT)  
+- Real-time Parakeet streaming, Nvidia Sortformer speaker attribution, 3,000-keyword custom vocab  
+- Same `TranscriptionStrategy` interface, higher accuracy  
+- Status: **TO BE IMPLEMENTED — evaluate after Tier 1 is live and telemetry is running**
+
+### Cue Detection (both platforms)
+
+Two-layer matcher behind `CueDetectionStrategy`:
+1. **Exact layer** — substring match on every event (partials + finals). Fast, zero false positives. Fires in ~280 ms (one partial window).
+2. **Semantic layer** — sentence embedding (BAAI/bge-small-en-v1.5, ONNX) on confirmed finals only. Cosine similarity threshold 0.65 (empirically validated). Catches paraphrases the exact layer misses. Adds ~8 ms per final utterance.
+
+Lab results at threshold 0.65 (Apple + semantic): FNR 8.8%, 0 false positives.  
+Lab results at threshold 0.65 (WhisperKit + semantic): FNR 2.6%, 0 false positives.
+
+Full literature references: `dev/docs/ROAD_TO_SALE_AUDIO_RESEARCH_LITERATURE.md`
+
 This recommendation is time-sensitive. Speech infrastructure is evolving quickly. Before making large changes, re-check:
 - `dev/docs/ROAD_TO_SALE_AUDIO_LEARNINGS.md`
 - publication dates of the cited sources

@@ -22,6 +22,7 @@ Metrics computed per script run (see dev/docs/ROAD_TO_SALE_AUDIO_TELEMETRY.md):
 
 from __future__ import annotations
 
+import logging
 import time
 from collections import Counter
 from dataclasses import dataclass, field
@@ -29,12 +30,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping
 
+logger = logging.getLogger(__name__)
+
 from voice_lab.facade import VoiceEngineLab
 from voice_lab.scoring.classify import (
     CueClassification,
     ExpectedCue,
     classify_run,
 )
+
+
+def _make_error_classification(cue_id: str, error: str) -> "CueClassification":
+    """Produce a fail classification when transcription itself errored.
+
+    Used by the orchestrator's per-file error handler so that FNR counts
+    remain accurate even when the STT engine crashes on a specific file.
+    """
+    return CueClassification(
+        cue_id=cue_id,
+        outcome="fail",
+        detection=None,
+        reason=f"transcription error: {error[:120]}",
+    )
 from voice_lab.scoring.latency import (
     AggregateEngineMetrics,
     EngineMetrics,
@@ -98,6 +115,78 @@ class Orchestrator:
         self._use_semantic = use_semantic
         self._semantic_threshold = semantic_threshold
 
+    def _run_one(
+        self,
+        *,
+        strategy_name: str,
+        script: "LabScript",
+        per_script_results: list,
+        classifications_by_strategy: dict,
+        detections_by_strategy: dict,
+        engine_metrics_per_file: dict,
+        timing_by_strategy: dict,
+    ) -> None:
+        """Transcribe + match + classify one (strategy, script) pair.
+
+        Extracted so the caller can wrap it in try/except without nesting
+        the entire inner loop. Raises on any error — caller decides to skip.
+        """
+        # ── 1. Transcription ────────────────────────────────────────────────
+        t0 = time.perf_counter()
+        events: Iterable = self._engine.transcribe_file(
+            strategy_name, script.audio_path
+        )
+        events_list = list(events)
+        transcription_ms = (time.perf_counter() - t0) * 1000
+
+        # ── 2. Cue matching ─────────────────────────────────────────────────
+        t0 = time.perf_counter()
+        detections = list(
+            self._engine.match_cues(
+                events_list,
+                self._cue_atoms,
+                use_semantic=self._use_semantic,
+                semantic_threshold=self._semantic_threshold,
+            )
+        )
+        matching_ms = (time.perf_counter() - t0) * 1000
+
+        # ── 3. Classification ────────────────────────────────────────────────
+        t0 = time.perf_counter()
+        classifications = classify_run(
+            detections, script.expected_cues, script.negative_cues
+        )
+        classification_ms = (time.perf_counter() - t0) * 1000
+
+        # ── 4. Engine performance metrics ────────────────────────────────────
+        em = compute_engine_metrics(
+            events=events_list,
+            detections=detections,
+            transcription_wall_ms=transcription_ms,
+            audio_path=script.audio_path,
+        )
+
+        per_script_results.append(
+            StrategyScriptResult(
+                strategy_name=strategy_name,
+                script_id=script.id,
+                detections=detections,
+                classifications=classifications,
+                engine_metrics=em,
+                transcription_time_ms=transcription_ms,
+                matching_time_ms=matching_ms,
+                classification_time_ms=classification_ms,
+            )
+        )
+        classifications_by_strategy[strategy_name].extend(classifications)
+        detections_by_strategy[strategy_name].extend(detections)
+        engine_metrics_per_file[strategy_name].append(em)
+
+        timing_by_strategy[strategy_name]["transcription_ms"] += transcription_ms
+        timing_by_strategy[strategy_name]["matching_ms"] += matching_ms
+        timing_by_strategy[strategy_name]["classification_ms"] += classification_ms
+        timing_by_strategy[strategy_name]["count"] += 1
+
     def run(self, run_id: str | None = None) -> OrchestratorRun:
         now = datetime.now(timezone.utc)
         started_at = now.isoformat()
@@ -126,64 +215,37 @@ class Orchestrator:
 
         for strategy_name in self._strategy_names:
             for script in self._scripts:
-
-                # ── 1. Transcription ────────────────────────────────────────
-                t0 = time.perf_counter()
-                events: Iterable = self._engine.transcribe_file(
-                    strategy_name, script.audio_path
-                )
-                events_list = list(events)
-                transcription_ms = (time.perf_counter() - t0) * 1000
-
-                # ── 2. Cue matching ─────────────────────────────────────────
-                t0 = time.perf_counter()
-                detections = list(
-                    self._engine.match_cues(
-                        events_list,
-                        self._cue_atoms,
-                        use_semantic=self._use_semantic,
-                        semantic_threshold=self._semantic_threshold,
-                    )
-                )
-                matching_ms = (time.perf_counter() - t0) * 1000
-
-                # ── 3. Classification ───────────────────────────────────────
-                t0 = time.perf_counter()
-                classifications = classify_run(
-                    detections, script.expected_cues, script.negative_cues
-                )
-                classification_ms = (time.perf_counter() - t0) * 1000
-
-                # ── 4. Engine performance metrics ───────────────────────────
-                em = compute_engine_metrics(
-                    events=events_list,
-                    detections=detections,
-                    transcription_wall_ms=transcription_ms,
-                    audio_path=script.audio_path,
-                )
-
-                per_script_results.append(
-                    StrategyScriptResult(
+                try:
+                    self._run_one(
                         strategy_name=strategy_name,
-                        script_id=script.id,
-                        detections=detections,
-                        classifications=classifications,
-                        engine_metrics=em,
-                        transcription_time_ms=transcription_ms,
-                        matching_time_ms=matching_ms,
-                        classification_time_ms=classification_ms,
+                        script=script,
+                        per_script_results=per_script_results,
+                        classifications_by_strategy=classifications_by_strategy,
+                        detections_by_strategy=detections_by_strategy,
+                        engine_metrics_per_file=engine_metrics_per_file,
+                        timing_by_strategy=timing_by_strategy,
                     )
-                )
-                classifications_by_strategy[strategy_name].extend(classifications)
-                detections_by_strategy[strategy_name].extend(detections)
-                engine_metrics_per_file[strategy_name].append(em)
+                except Exception as exc:
+                    # A single file failure must NOT abort the whole run.
+                    # Log it, mark every expected cue as failed with the error
+                    # reason, and continue. This keeps FNR honest and the
+                    # report complete.
+                    logger.warning(
+                        "SKIPPED %s / %s: %s", strategy_name, script.id, exc
+                    )
+                    print(
+                        f"  [SKIP] {strategy_name} / {script.id}: {exc}",
+                        flush=True,
+                    )
+                    # Produce fail classifications for every expected cue so
+                    # the FNR for this file is counted correctly.
+                    fail_cls = [
+                        _make_error_classification(ec.cue_id, str(exc))
+                        for ec in script.expected_cues
+                    ]
+                    classifications_by_strategy[strategy_name].extend(fail_cls)
 
-                timing_by_strategy[strategy_name]["transcription_ms"] += transcription_ms
-                timing_by_strategy[strategy_name]["matching_ms"] += matching_ms
-                timing_by_strategy[strategy_name]["classification_ms"] += classification_ms
-                timing_by_strategy[strategy_name]["count"] += 1
-
-        # ── 5. Aggregate per-strategy stats ─────────────────────────────────
+        # ── 5. Aggregate per-strategy stats ──────────────────────────────────
         latency_by_strategy: dict[str, LatencyStats] = {
             name: latency_percentiles(dets)
             for name, dets in detections_by_strategy.items()
