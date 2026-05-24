@@ -16,6 +16,21 @@ voice-engine/lab/fixtures/youtube/*.m4a
 voice-engine/lab/fixtures/youtube/*.mp3
 voice-engine/lab/fixtures/synthesized/*.wav
 
+# Voice engine — intermediate / debug lab run results (only canonical runs are committed)
+# Ignore all run dirs by default; canonical runs are force-tracked via `git add -f`.
+voice-engine/lab/runs/results/archive-*/
+voice-engine/lab/runs/results/run-*/
+# Canonical committed runs — keep these tracked even though the pattern above ignores them.
+!voice-engine/lab/runs/results/run-20260524-1142/
+!voice-engine/lab/runs/results/run-20260524-1221/
+!voice-engine/lab/runs/results/run-20260524-1342/
+
+# Voice engine — JVM crash logs from native lib debugging
+voice-engine/native/android/hs_err_*.log
+
+# Root data/ — early-exploration report dumps (pre-runs/results/ structure)
+data/
+
 # Vehicle feature catalog — downloaded brochures (large binaries, not source)
 vehicle-feature-catalog/data-cache/
 vehicle-feature-catalog/.venv-scraper/
