@@ -85,9 +85,12 @@ def _load_transcript(path: Path) -> list[TranscriptEvent]:
             if not line:
                 continue
             d = json.loads(line)
+            # "stability" is our Python format; "type" is the Swift CLI JSONL
+            # format. Accept both so old cached files are readable.
+            stability = d.get("stability") or d.get("type") or "final"
             events.append(TranscriptEvent(
                 text=d["text"],
-                stability=d["stability"],
+                stability=stability,
                 timestamp_ms=d["timestamp_ms"],
                 latency_ms_from_audio_start=d["latency_ms_from_audio_start"],
                 confidence=d.get("confidence"),
