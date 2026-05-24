@@ -278,3 +278,37 @@ Infrastructure in the lab is ready. Physical test is a future task (requires an 
   - feat(lab): canonical final run-20260524-1142 — corrected FNR numbers, no denoised rows
   - docs(lab): 5-stage pipeline, iPhone-only architecture, corrected lab numbers across all four docs
   - chore: scripts/check_imports.py boundary guard + root README.md + decisions-log update (this entry)
+  - feat(sherpa-onnx): Silero VAD sentence-level segmentation + run-20260524-1342 results
+
+---
+
+### DC52 — Silero VAD is required for semantic lift in sherpa-onnx
+
+**Problem:** In batch mode (fixed 30-second chunks), `OfflineRecognizer` emits 75–130 word events. bge-small-en-v1.5 is a sentence encoder optimised for 8–30 word inputs. Cosine similarity between a 100-word paragraph and a 2-word cue phrase falls to ~0.35–0.45, below the 0.65 threshold. Result: semantic matching is effectively disabled for large chunks.
+
+**Fix:** Silero VAD segments audio at natural speech pauses (sentence level). Each VAD segment is 2–8 seconds long, semantically coherent, and comparable to Apple/WhisperKit finals. Run: `run-20260524-1342`.
+
+**Results vs batch (run-20260524-1221):**
+
+| Metric | Batch | VAD | Δ |
+|---|---|---|---|
+| FNR clean | 2.7% | 2.3% | -0.4pp ✅ |
+| FNR SNR+5 (showroom) | 13.2% | 14.1% | +0.9pp |
+| FNR SNR+0 (extreme) | 30.5% | 43.2% | +12.7pp ⚠️ |
+| Semantic lift | +128 (17%) | +167 (23%) | +39 ✅ |
+| TTFC P50 | 1242ms | 534ms | -708ms ✅ |
+| TTFC P95 | 1408ms | 1612ms | +204ms |
+| Partials/Finals per file | 24 | 91 | sentence-level |
+| FPR | 0.0% | 0.0% | — |
+
+**SNR0 regression (+12.7pp) explained:** At 0 dB SNR, speech and noise have equal energy. Silero VAD probability stays below the 0.5 threshold for noise-contaminated speech frames → some utterances suppressed entirely. Batch mode is immune (unconditional 30-second chunking). In production (Android), audio goes through Android voice effects (hardware noise suppression) before reaching Silero VAD, making raw SNR0 a pessimistic floor.
+
+**Decision:** VAD mode is the production simulation default. Batch remains available via `--mode batch` for debugging transcript coverage. The SNR0 gap motivates iPhone device testing (DC51 procedure) to measure what hardware noise suppression does before VAD.
+
+### DC53 — sherpa-onnx Kotlin JNI field names must exactly match native dylib
+
+When vendoring sherpa-onnx Kotlin API classes (Vad.kt, OfflineRecognizer.kt, etc.), all data class field names and types must exactly match what the native `libsherpa-onnx-jni.dylib` was compiled against. The native code uses `GetFieldID` by name — a missing field returns null and `GetObjectClass(null)` causes a SIGSEGV.
+
+**Specific fix (2026-05-24):** `VadModelConfig` in our initial Vad.kt was missing `tenVadModelConfig: TenVadModelConfig`. The native `GetVadModelConfig` function accesses both `sileroVadModelConfig` and `tenVadModelConfig`. Missing field → SIGSEGV at `jni_GetObjectClass+0xcc` inside `sherpa_onnx::GetVadModelConfig`.
+
+**Rule:** Always fetch the canonical `Vad.kt` from the exact sherpa-onnx release tag matching the downloaded native jars before vendoring. Diff against the existing vendored file before rebuilding.

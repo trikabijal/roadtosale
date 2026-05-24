@@ -86,11 +86,14 @@ cd voice-engine/lab
 voice-lab run --strategies apple_speech_transcriber,whisperkit --semantic
 ```
 
-Latest results: `voice-engine/lab/runs/results/run-20260524-1142/`
-- Apple SpeechTranscriber: FNR 4.5% clean → 8.6% at SNR +5 dB (showroom) · TTFC P95 330 ms
-- WhisperKit: FNR 1.4% clean → 8.2% at SNR +5 dB · TTFC P95 610 ms
+Latest iOS results: `voice-engine/lab/runs/results/run-20260524-1142/`
+- Apple SpeechTranscriber: FNR 4.5% clean → **8.6% at SNR +5 dB** (showroom) · TTFC P95 **330 ms**
+- WhisperKit: FNR 1.4% clean → **8.2% at SNR +5 dB** · TTFC P95 **610 ms**
 
-**Production recommendation:** Apple SpeechTranscriber for iOS. Lower TTFC (P95 330 ms vs 610 ms), near-parity FNR at the production operating point, no external dependency.
+Latest Android results: `voice-engine/lab/runs/results/run-20260524-1342/` (Silero VAD mode)
+- sherpa-onnx + Silero VAD: FNR 2.3% clean → **14.1% at SNR +5 dB** · TTFC P50 **534 ms** · Semantic lift **+23%**
+
+**Production recommendation:** Apple SpeechTranscriber for iOS (TTFC P95 330 ms, on-device, no external dependency). sherpa-onnx + Silero VAD for Android simulation — VAD mode produces sentence-level events that align with semantic matching granularity (23% lift vs 17% in batch mode).
 
 ### `voice-engine/` (TS library)
 
@@ -127,7 +130,7 @@ All non-trivial design decisions, open-question resolutions, and build-time choi
 dev/tasks/decisions-log.md
 ```
 
-Key decisions: D1–D18 (PRD-locked), DC1–DC44 (build-time), DC45+ (voice lab run results + architecture).
+Key decisions: D1–D18 (PRD-locked), DC1–DC44 (build-time), DC45–DC53 (voice lab run results + architecture).
 
 ---
 
