@@ -90,7 +90,7 @@ synonyms:
 
 The CLI loads these at runtime via `VehicleFeatureCatalog.load()`. If the catalog package is not installed, only workflow cues are used.
 
-At run-20260524-0829: **286 cue atoms total** — 39 workflow + 247 feature cues.
+At run-20260524-1051: **286 cue atoms total** — 39 workflow + 247 feature cues.
 
 ---
 
@@ -137,9 +137,9 @@ for atom in cue_atoms:
 
 #### Semantic lift
 
-At clean conditions (run-20260524-0829):
-- Apple + semantic: +98 detections (12% of all detections were semantic-only)
-- WhisperKit + semantic: +139 detections (18% of all detections were semantic-only)
+Across all noise levels (run-20260524-1051, 64 fixtures × 2 strategies):
+- Apple + semantic: +193 detections (14% of all detections were semantic-only)
+- WhisperKit + semantic: +291 detections (21% of all detections were semantic-only)
 
 The semantic layer is higher-value on WhisperKit because WhisperKit paraphrases more — its model has higher WER on exact phrases but its sentence-level understanding is still accurate.
 

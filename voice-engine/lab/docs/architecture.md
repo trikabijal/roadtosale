@@ -55,8 +55,7 @@ Scoring (voice_lab/scoring/)
 
 Synthesis (voice_lab/synthesis/)
     ├── tts.py                   ElevenLabs TTS → clean.wav
-    ├── noise.py                 white Gaussian noise → snrNdb.wav
-    └── denoise.py               DNS64 neural denoiser → snrNdb_nr.wav
+    └── noise.py                 white Gaussian noise → snrNdb.wav
 
 
 Ingestion (voice_lab/ingestion/)
@@ -142,9 +141,9 @@ The cue matcher runs two layers in sequence on every `TranscriptEvent`:
 
 **Deduplication:** Only the first detection per cue per script is the primary detection. The orchestrator deduplicates at classification time. Both layers can fire on the same cue from different events.
 
-**Semantic lift (run-20260524-0829):**
-- Apple SpeechTranscriber: +98 detections (12% of all detections were semantic-only)
-- WhisperKit: +139 detections (18% of all detections were semantic-only)
+**Semantic lift (run-20260524-1051, 64 clean+noisy fixtures × 2 strategies):**
+- Apple SpeechTranscriber: +193 detections (14% of all detections were semantic-only)
+- WhisperKit: +291 detections (21% of all detections were semantic-only)
 
 The semantic layer is higher-value on WhisperKit because WhisperKit paraphrases more (higher WER on exact phrases, but correct sentence-level understanding). Semantic matching narrows the Apple/WhisperKit gap in clean conditions.
 
@@ -211,7 +210,7 @@ The lab does **not** apply any software noise suppression. Every WAV file is fed
 | Python lab ↔ native CLIs | Subprocess. Python never links to Swift or JVM code. |
 | Transcript cache | JSONL files. Strategy and file path are both in the cache key. No cross-contamination between strategies or audio variants. |
 | Run output | Timestamped directory (`runs/results/run-YYYYMMDD-HHMM/`). Runs never overwrite each other. |
-| Audio variants | Separate files per variant; separate `audio_id` per variant. The `_nr` suffix on denoised variants ensures they get separate cache entries. |
+| Audio variants | Separate files per variant; separate `audio_id` per variant. Any suffix (e.g. `_nr` for processed fixtures) gets its own cache entry automatically via the `audio_id` naming convention. |
 
 ---
 
@@ -243,8 +242,8 @@ classify_run(detections, expected_cues, …)
 CueClassification(outcome="pass", match_method="exact", delta_ms=-200, …)
     │
     ▼
-runs/results/run-20260524-0829/whisperkit-results.csv   ← one row
-runs/results/run-20260524-0829/noise_comparison.md      ← aggregated
+runs/results/run-20260524-1051/whisperkit-results.csv   ← one row
+runs/results/run-20260524-1051/noise_comparison.md      ← aggregated
 ```
 
 ---
@@ -258,7 +257,7 @@ runs/results/run-20260524-0829/noise_comparison.md      ← aggregated
 | Speaker diarization | Not implemented in the free tier strategies. Planned for `argmax_pro` (Parakeet, paid). |
 | Multi-tenant isolation | Lab is a single-researcher tool. Production multi-tenancy is handled by the server-side facade, not the lab. |
 | Streaming results | The orchestrator processes files end-to-end. Streaming is a production concern. |
-| Model training | The lab evaluates models; it does not train them. DNS64, bge-small-en-v1.5, and Whisper weights are all pre-trained. |
+| Model training | The lab evaluates models; it does not train them. bge-small-en-v1.5 and Whisper weights are all pre-trained. |
 
 ---
 

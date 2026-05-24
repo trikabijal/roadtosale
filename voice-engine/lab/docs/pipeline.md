@@ -1,6 +1,6 @@
 # Voice Lab — Test Pipeline
 
-The lab runs a six-stage pipeline. Each stage is idempotent and independently re-runnable. You do not have to start from stage 1 every time — you can pick up from any stage whose inputs already exist.
+The lab runs a five-stage pipeline. Each stage is idempotent and independently re-runnable. You do not have to start from stage 1 every time — you can pick up from any stage whose inputs already exist.
 
 ```
 Stage 1: Sources         sources/scripts/*.yaml   sources/youtube/*.yaml
@@ -9,14 +9,14 @@ Stage 2: Audio           data/audio/{type}/{id}/clean.wav
                          ↓
 Stage 3: Noise           data/audio/{type}/{id}/snr{N}db.wav
                          ↓
-Stage 4: Denoise         data/audio/{type}/{id}/snr{N}db_nr.wav
-                         ↓
-Stage 5: Run (STT→cache→match→classify)
+Stage 4: Run (STT→cache→match→classify)
               data/transcripts/{strategy}/{audio_id}.jsonl    ← transcript cache
               runs/results/{run_id}/                          ← run output
                          ↓
-Stage 6: Review          summary.md   noise_comparison.md   L1 CSV
+Stage 5: Review          summary.md   noise_comparison.md   L1 CSV
 ```
+
+**Note on noise suppression:** The lab tests raw audio only. On iPhone, `AUVoiceProcessingIO` is always active in the hardware capture pipeline — the STT engine never receives raw noisy frames. To measure the hardware noise suppressor's effect, record the noisy WAV fixtures through an iPhone's microphone (with `AVAudioSession` configured as the production app will configure it) and add those recordings as lab fixtures. The reporting layer picks them up automatically from the `_nr` (or any custom suffix) slot in the `_collect_audio_variants()` naming convention.
 
 ---
 
@@ -121,39 +121,11 @@ data/audio/synthesized/script_001_crv_hybrid_walkaround__us_baseline_neutral/
 
 **Implementation:** `voice_lab/synthesis/noise.py` — uses `soundfile` + `numpy`. SNR formula: `rms_noise = rms_signal / 10^(snr_db / 20)`. Seed=42 for reproducibility.
 
-> **Note on noise realism:** White Gaussian noise is a controlled lab construct with a flat spectrum. Real dealership noise is non-stationary (music, HVAC, competing voices, engine sounds). White noise is an optimistic upper bound for denoiser effectiveness. Phase 2 will replace this with DNS Challenge noise clips for more realistic testing.
+> **Note on noise realism:** White Gaussian noise is a controlled lab construct with a flat spectrum. Real dealership noise is non-stationary (music, HVAC, competing voices, engine sounds). Phase 2 will replace this with DNS Challenge noise clips for more realistic testing.
 
 ---
 
-## Stage 4 — Denoising
-
-```bash
-voice-lab denoise
-# options:
-#   --source-types synthesized,youtube
-#   --force                     re-denoise even if _nr file exists
-```
-
-Applies the **Facebook DNS64 neural denoiser** to each `snr*db.wav`, writing `snr*db_nr.wav` alongside it:
-
-```
-data/audio/synthesized/script_001_crv_hybrid_walkaround__us_baseline_neutral/
-├── clean.wav
-├── snr15db.wav
-├── snr15db_nr.wav       ← denoised
-├── snr5db.wav
-├── snr5db_nr.wav        ← denoised
-├── snr0db.wav
-└── snr0db_nr.wav        ← denoised
-```
-
-**Model:** DNS64 — trained on the Microsoft Deep Noise Suppression Challenge dataset (diverse real-world noise: crowds, HVAC, music, office, traffic, restaurant, vehicle interiors). This is the right model for the dealership floor environment — not tuned for synthetic white noise, handles the actual noise conditions the product will face.
-
-**Implementation:** `voice_lab/synthesis/denoise.py`. Uses `denoiser` (Facebook Research, MIT licensed). I/O via soundfile (bypasses torchaudio's TorchCodec dependency). Model runs on CPU (MPS lacks `convolution_overrideable` for DNS64's conv layers).
-
----
-
-## Stage 5 — The Run (two-step architecture)
+## Stage 4 — The Run (two-step architecture)
 
 ```bash
 voice-lab run \
@@ -203,16 +175,15 @@ Examples:
 ```
 synthesized/script_001_crv_hybrid_walkaround__us_baseline_neutral/clean
 synthesized/script_001_crv_hybrid_walkaround__us_baseline_neutral/snr5db
-synthesized/script_001_crv_hybrid_walkaround__us_baseline_neutral/snr5db_nr
 youtube/2FXQvvp9Blw/clean
-youtube/2FXQvvp9Blw/snr5db_nr
+youtube/2FXQvvp9Blw/snr5db
 ```
 
-The `noise_level` segment at the end (`clean`, `snr15db`, `snr5db_nr`, …) drives the noise comparison grouping in the report.
+The `noise_level` segment at the end (`clean`, `snr15db`, `snr5db`, …) drives the noise comparison grouping in the report.
 
 ---
 
-## Stage 6 — Run output
+## Stage 5 — Run output
 
 Each run writes to `runs/results/run-{YYYYMMDD-HHMM}/`:
 
@@ -229,14 +200,14 @@ Aggregate results across all noise levels and audio sources per strategy:
 
 Noise robustness breakdown per strategy:
 
-| Noise level | Pass | Fail | FNR | Δ vs clean | Δ vs noisy (recovery) | FPR |
-|---|---|---|---|---|---|---|
-| clean | 217 | 3 | 1.4% | — | — | 0.0% |
-| SNR +15 dB | 214 | 6 | 2.7% | +1.4pp | — | 0.0% |
-| SNR +15 dB → denoised | … | … | … | … | Δ vs snr15db | 0.0% |
-| … | | | | | | |
+| Noise level | Pass | Fail | FNR | Δ vs clean | FPR |
+|---|---|---|---|---|---|
+| clean | 217 | 3 | 1.4% | — | 0.0% |
+| SNR +15 dB | 214 | 6 | 2.7% | +1.4pp | 0.0% |
+| SNR +5 dB | 202 | 18 | 8.2% | +6.8pp | 0.0% |
+| SNR 0 dB | 179 | 41 | 18.6% | +17.3pp | 0.0% |
 
-The "Δ vs noisy (recovery)" column shows how much FNR the denoiser recovers at each noise level. Per-cue breakdown follows for each strategy.
+Per-cue breakdown follows for each strategy. If `_nr` (or other processed) audio variants are present in `data/audio/`, those rows appear automatically with a "Δ vs noisy (recovery)" column showing the processing benefit.
 
 ### `{strategy}-results.csv` — L1 investigation rows
 
@@ -249,7 +220,7 @@ One row per `(strategy, script, audio_variant, expected_cue)`. Contains everythi
 | `reason` | Why this classification was assigned |
 | `script_id` | Source script YAML id |
 | `audio_id` | Canonical audio identifier |
-| `noise_level` | clean / snrNdb / snrNdb_nr |
+| `noise_level` | clean / snrNdb |
 | `expected_timestamp_ms` | When the cue was expected (from script YAML) |
 | `detection_timestamp_ms` | When it was actually detected (null if miss) |
 | `delta_ms` | detection - expected (negative = detected early) |
@@ -275,16 +246,12 @@ All stages are idempotent. Common re-run patterns:
 # Changed a cue pack? Re-run matching only — all transcripts already cached.
 voice-lab run --strategies apple_speech_transcriber,whisperkit --semantic
 
-# New script added? Synth + noise + denoise, then run.
+# New script added? Synth + noise, then run.
 voice-lab synth
 voice-lab generate-noise
-voice-lab denoise
 voice-lab run --strategies apple_speech_transcriber,whisperkit --semantic
 
 # Test a new strategy without re-transcribing existing audio.
-# (Clean files hit cache; new strategy's noisy files will run fresh STT)
+# (Clean files hit cache; new strategy's files will run fresh STT)
 voice-lab run --strategies my_new_strategy --semantic
-
-# Regenerate denoised files with updated model (force overwrites).
-voice-lab denoise --force
 ```

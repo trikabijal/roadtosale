@@ -92,11 +92,8 @@ sources:
 data/audio/synthesized/{script_id}__{voice_id}/
 ├── clean.wav          16 kHz mono PCM-16 — ElevenLabs TTS output
 ├── snr15db.wav        white Gaussian noise mixed at SNR +15 dB
-├── snr15db_nr.wav     DNS64 denoised from snr15db.wav
 ├── snr5db.wav         white Gaussian noise mixed at SNR +5 dB
-├── snr5db_nr.wav      DNS64 denoised from snr5db.wav
-├── snr0db.wav         white Gaussian noise mixed at SNR 0 dB
-└── snr0db_nr.wav      DNS64 denoised from snr0db.wav
+└── snr0db.wav         white Gaussian noise mixed at SNR 0 dB
 ```
 
 The `{voice_id}` is the ElevenLabs voice profile id from `cue-packs/accent_voices.yaml`:
@@ -112,16 +109,13 @@ The `{voice_id}` is the ElevenLabs voice profile id from `cue-packs/accent_voice
 data/audio/youtube/{video_id}/
 ├── clean.wav          16 kHz mono PCM-16 — yt-dlp download + ffmpeg convert
 ├── snr15db.wav        (same pattern as synthesized)
-├── snr15db_nr.wav
 ├── snr5db.wav
-├── snr5db_nr.wav
-├── snr0db.wav
-└── snr0db_nr.wav
+└── snr0db.wav
 ```
 
 #### Audio format requirements
 
-All audio files must be **16 kHz, mono, PCM-16 (signed 16-bit integer)** WAV. The STT strategy CLIs (Apple SpeechTranscriber, WhisperKit) expect this format. The denoiser output is saved at model.sample_rate (16 kHz for DNS64).
+All audio files must be **16 kHz, mono, PCM-16 (signed 16-bit integer)** WAV. The STT strategy CLIs (Apple SpeechTranscriber, WhisperKit) expect this format.
 
 #### Noise level definitions
 
@@ -129,11 +123,10 @@ All audio files must be **16 kHz, mono, PCM-16 (signed 16-bit integer)** WAV. Th
 |---|---|---|
 | `clean` | ∞ | No added noise — baseline |
 | `snr15db` | +15 dB | Quiet room, faint background noise |
-| `snr15db_nr` | +15 dB → denoised | DNS64 applied to snr15db |
 | `snr5db` | +5 dB | Showroom floor, general conversation — **production operating point** |
-| `snr5db_nr` | +5 dB → denoised | DNS64 applied to snr5db |
 | `snr0db` | 0 dB | Very noisy — signal and noise at equal power — stress test |
-| `snr0db_nr` | 0 dB → denoised | DNS64 applied to snr0db |
+
+Additional `noise_level` suffixes (e.g. `snr5db_nr`) are reserved for processed audio variants such as iPhone-mic-recorded fixtures. The reporting layer handles any suffix automatically.
 
 SNR formula: `rms_noise = rms_signal / 10^(snr_db / 20)`. Seed 42 for reproducibility.
 
@@ -151,9 +144,8 @@ Every audio file has a canonical `audio_id` string that encodes its lineage:
 |---|---|
 | `data/audio/synthesized/script_001__us_neutral/clean.wav` | `synthesized/script_001__us_neutral/clean` |
 | `data/audio/synthesized/script_001__us_neutral/snr5db.wav` | `synthesized/script_001__us_neutral/snr5db` |
-| `data/audio/synthesized/script_001__us_neutral/snr5db_nr.wav` | `synthesized/script_001__us_neutral/snr5db_nr` |
 | `data/audio/youtube/2FXQvvp9Blw/clean.wav` | `youtube/2FXQvvp9Blw/clean` |
-| `data/audio/youtube/2FXQvvp9Blw/snr5db_nr.wav` | `youtube/2FXQvvp9Blw/snr5db_nr` |
+| `data/audio/youtube/2FXQvvp9Blw/snr5db.wav` | `youtube/2FXQvvp9Blw/snr5db` |
 
 The `audio_id` is the key in the transcript cache and the `audio_id` column in the L1 CSV. It maps directly to a file path under `data/audio/`.
 
