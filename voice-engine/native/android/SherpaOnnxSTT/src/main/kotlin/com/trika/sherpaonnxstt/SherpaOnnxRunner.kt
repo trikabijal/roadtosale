@@ -5,6 +5,9 @@ import com.k2fsa.sherpa.onnx.OfflineModelConfig
 import com.k2fsa.sherpa.onnx.OfflineRecognizer
 import com.k2fsa.sherpa.onnx.OfflineRecognizerConfig
 import com.k2fsa.sherpa.onnx.OfflineWhisperModelConfig
+import com.k2fsa.sherpa.onnx.SileroVadModelConfig
+import com.k2fsa.sherpa.onnx.Vad
+import com.k2fsa.sherpa.onnx.VadModelConfig
 import com.k2fsa.sherpa.onnx.WaveReader
 import java.io.File
 import java.net.URI
@@ -12,99 +15,104 @@ import java.nio.channels.Channels
 import java.nio.file.Files
 
 /**
- * SherpaOnnxRunner — wraps sherpa-onnx OfflineRecognizer for Whisper-tiny-en
- * file-based transcription, emitting JSONL events to stdout.
+ * SherpaOnnxRunner — wraps sherpa-onnx for Whisper-tiny-en file transcription.
  *
- * Chunking:
- *   The Whisper model has a hard 30-second context window. For audio longer
- *   than 30 s (a typical dealership walkaround is 2–5 minutes) the runner
- *   splits the sample array into non-overlapping 30 s chunks, processes each
- *   chunk in sequence, and emits events with timestamps relative to the
- *   audio-file start (not the chunk start). A small 0.5 s tail from the
- *   previous chunk is prepended to each chunk to avoid cutting words at
- *   chunk boundaries.
+ * Two modes:
+ *
+ * VAD mode (default, --mode vad):
+ *   Uses Silero VAD to segment audio at natural speech boundaries (pauses between
+ *   sentences). Each speech segment is fed independently to OfflineRecognizer.
+ *   Segments are typically 2–8 seconds long — sentence level. This is the
+ *   production simulation: on Android, the same SileroVAD feeds audio from the
+ *   live microphone to the same OfflineRecognizer. Produces short events that
+ *   are semantically comparable to Apple SpeechTranscriber and WhisperKit finals.
+ *
+ * Batch mode (--mode batch):
+ *   Splits audio into fixed 30-second non-overlapping chunks (Whisper's hard
+ *   context limit). Each chunk is one event. Fast but produces 70–130 word
+ *   events that dilute semantic embedding similarity — not suitable for
+ *   semantic cue matching. Use only when debugging transcript coverage.
  *
  * Partials:
- *   sherpa-onnx OfflineRecognizer does NOT stream intermediate tokens; it
- *   returns a single result per segment once decoding is complete. For the
- *   `--partials true` mode we synthesise ONE partial event per transcribed
- *   chunk (first word as a preview) right before the final for that chunk.
- *   The `engine_metadata.simulated` field is `true` on simulated partials.
+ *   OfflineRecognizer does not stream tokens; one result per segment/chunk.
+ *   In VAD mode, a simulated partial (first word) is emitted before each
+ *   final. In batch mode, one simulated partial per 30 s chunk.
+ *   engine_metadata.simulated=true marks all synthetic partials.
  *
- * Model layout expected by sherpa-onnx:
- *   $modelDir/tiny.en-encoder.int8.onnx
- *   $modelDir/tiny.en-decoder.int8.onnx
- *   $modelDir/tiny.en-tokens.txt
+ * Model layout (both modes):
+ *   Whisper: ~/.cache/sherpa-onnx/models/sherpa-onnx-whisper-tiny.en/
+ *     tiny.en-encoder.int8.onnx
+ *     tiny.en-decoder.int8.onnx
+ *     tiny.en-tokens.txt
+ *   Silero VAD: ~/.cache/sherpa-onnx/models/silero_vad.onnx
  *
- * where modelDir = ~/.cache/sherpa-onnx/models/sherpa-onnx-whisper-tiny.en/
- *
- * The runner downloads the model archive from GitHub on first run and
- * extracts it. Subsequent runs skip the download if the .complete sentinel
- * exists.
+ * Models are downloaded from GitHub on first run; subsequent runs skip download.
  */
 class SherpaOnnxRunner(
     private val modelId: String = "whisper-tiny-en",
     private val enablePartials: Boolean = true,
+    private val mode: String = "vad",  // "vad" | "batch"
 ) {
 
     companion object {
         private const val MODEL_CACHE_DIR = ".cache/sherpa-onnx/models"
-        private const val MODEL_SUBDIR = "sherpa-onnx-whisper-tiny.en"
-        private const val MODEL_URL =
+        private const val WHISPER_SUBDIR = "sherpa-onnx-whisper-tiny.en"
+        private const val WHISPER_URL =
             "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-whisper-tiny.en.tar.bz2"
+        private const val SILERO_FILENAME = "silero_vad.onnx"
+        private const val SILERO_URL =
+            "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx"
         private const val ENGINE_NAME = "sherpa_onnx"
 
-        /** Whisper's hard context window: 30 seconds. */
+        /** Whisper hard context window — 30 seconds at 16 kHz = 480,000 samples. */
         private const val WHISPER_MAX_SECONDS = 30
 
         /**
-         * Overlap prepended from the tail of the previous chunk.
-         * Set to 0 — sherpa-onnx clips any audio > 30 s so overlap would be
-         * discarded anyway. Hard chunk boundaries are acceptable for lab eval.
+         * VAD frame size. Silero VAD requires exactly 512 samples (32 ms) at 16 kHz.
+         * Passing a different size will crash the JNI call.
          */
-        private const val CHUNK_OVERLAP_SECONDS = 0.0f
+        private const val VAD_FRAME_SAMPLES = 512
+
+        /**
+         * Silence threshold for VAD segmentation. 0.5 is the Silero default.
+         * Lower = more sensitive (detects quieter speech, more segments).
+         * Higher = less sensitive (only loud speech, fewer segments).
+         */
+        private const val VAD_THRESHOLD = 0.5f
+
+        /** Min silence between segments to declare end-of-utterance. 0.4 s works
+         *  well for dealer speech with brief pauses between sentences. */
+        private const val VAD_MIN_SILENCE_S = 0.4f
+
+        /** Min speech duration to emit as a segment. Filters out clicks/pops. */
+        private const val VAD_MIN_SPEECH_S = 0.2f
+
+        /** Max segment duration before forced cut. Whisper's 30 s hard limit. */
+        private const val VAD_MAX_SPEECH_S = 29.0f
     }
 
-    /**
-     * Transcribe the WAV file at [filePath].
-     * Emits JSONL events to stdout via [EventEmitter].
-     *
-     * Throws [AudioFileNotFoundException] or [ModelLoadFailedException] on failure.
-     * Exit codes are mapped by Main.kt.
-     */
     fun run(filePath: String) {
         val audioFile = File(filePath)
-        if (!audioFile.exists()) {
-            throw AudioFileNotFoundException("audio file not found: $filePath")
-        }
+        if (!audioFile.exists()) throw AudioFileNotFoundException("audio file not found: $filePath")
 
-        // 1. Ensure model is present (download on first run).
-        val modelDir = resolveModelDir()
+        val whisperDir = resolveWhisperDir()
+        val sileroPath = resolveSileroPath()
+
         try {
-            ensureModelDownloaded(modelDir)
+            ensureWhisperDownloaded(whisperDir)
+            if (mode == "vad") ensureSileroDownloaded(sileroPath)
         } catch (e: Exception) {
-            throw ModelLoadFailedException(
-                "Failed to load/download model '$modelId': ${e.message}. " +
-                    "Check network access or manually download to $modelDir."
-            )
+            throw ModelLoadFailedException("Failed to load/download models: ${e.message}")
         }
 
-        // 2. Verify model files exist.
-        val encoderPath = File(modelDir, "tiny.en-encoder.int8.onnx")
-        val decoderPath = File(modelDir, "tiny.en-decoder.int8.onnx")
-        val tokensPath  = File(modelDir, "tiny.en-tokens.txt")
-
+        val encoderPath = File(whisperDir, "tiny.en-encoder.int8.onnx")
+        val decoderPath = File(whisperDir, "tiny.en-decoder.int8.onnx")
+        val tokensPath  = File(whisperDir, "tiny.en-tokens.txt")
         for (f in listOf(encoderPath, decoderPath, tokensPath)) {
-            if (!f.exists()) {
-                throw ModelLoadFailedException(
-                    "Missing model file: ${f.absolutePath}. " +
-                        "Remove $modelDir and re-run to re-download."
-                )
-            }
+            if (!f.exists()) throw ModelLoadFailedException("Missing model file: ${f.absolutePath}")
         }
 
-        // 3. Build the recognizer config.
-        val config = OfflineRecognizerConfig(
+        val recognizerConfig = OfflineRecognizerConfig(
             featConfig = FeatureConfig(sampleRate = 16000, featureDim = 80),
             modelConfig = OfflineModelConfig(
                 whisper = OfflineWhisperModelConfig(
@@ -123,49 +131,183 @@ class SherpaOnnxRunner(
             decodingMethod = "greedy_search",
         )
 
-        // 4. Initialise recognizer (loads ONNX models — ~1 s on Apple Silicon).
-        val recognizer: OfflineRecognizer
-        try {
-            recognizer = OfflineRecognizer(config = config)
+        val recognizer = try {
+            OfflineRecognizer(config = recognizerConfig)
         } catch (e: Exception) {
-            throw ModelLoadFailedException(
-                "OfflineRecognizer init failed for model '$modelId': ${e.message}"
-            )
+            throw ModelLoadFailedException("OfflineRecognizer init failed: ${e.message}")
         }
 
-        // 5. Read full audio samples.
         val waveData = try {
             WaveReader.readWave(filePath)
         } catch (e: Exception) {
             recognizer.release()
-            throw AudioFileNotFoundException(
-                "Failed to read audio file '$filePath': ${e.message}"
-            )
+            throw AudioFileNotFoundException("Failed to read audio '$filePath': ${e.message}")
         }
 
         val sampleRate = waveData.sampleRate.coerceAtLeast(16000)
 
-        // 6. Stamp wall-clock origin AFTER model load, so latency_ms reflects
-        //    transcription time (not model-load time) — same as WhisperKitSTT.
+        // Stamp wall-clock origin after model load so latency_ms reflects
+        // transcription time, not model load time — same convention as WhisperKitSTT.
         EventEmitter.resetAudioStart()
 
-        // 7. Split into 30-second chunks and transcribe each.
-        val maxSamplesPerChunk = (WHISPER_MAX_SECONDS * sampleRate).toInt()
-        val overlapSamples = (CHUNK_OVERLAP_SECONDS * sampleRate).toInt()
-        val allSamples = waveData.samples
-        val totalSamples = allSamples.size
+        when (mode) {
+            "vad" -> runVad(waveData.samples, sampleRate, recognizer, sileroPath)
+            else  -> runBatch(waveData.samples, sampleRate, recognizer)
+        }
 
+        recognizer.release()
+    }
+
+    // -------------------------------------------------------------------------
+    // VAD mode — Silero VAD → sentence-level segments → OfflineRecognizer
+    // -------------------------------------------------------------------------
+
+    private fun runVad(
+        allSamples: FloatArray,
+        sampleRate: Int,
+        recognizer: OfflineRecognizer,
+        sileroPath: File,
+    ) {
+        val vadConfig = VadModelConfig(
+            sileroVadModelConfig = SileroVadModelConfig(
+                model = sileroPath.absolutePath,
+                threshold = VAD_THRESHOLD,
+                minSilenceDuration = VAD_MIN_SILENCE_S,
+                minSpeechDuration = VAD_MIN_SPEECH_S,
+                windowSize = VAD_FRAME_SAMPLES,
+                maxSpeechDuration = VAD_MAX_SPEECH_S,
+            ),
+            sampleRate = sampleRate,
+            numThreads = 1,
+            provider = "cpu",
+            debug = false,
+        )
+
+        val vad = try {
+            Vad(config = vadConfig)
+        } catch (e: Exception) {
+            throw ModelLoadFailedException("Silero VAD init failed: ${e.message}")
+        }
+
+        val totalSamples = allSamples.size
+        var segmentIndex = 0
+
+        // Feed audio in VAD_FRAME_SAMPLES frames (32 ms each).
+        var frameStart = 0
+        while (frameStart < totalSamples) {
+            val frameEnd = minOf(frameStart + VAD_FRAME_SAMPLES, totalSamples)
+            val frame = allSamples.copyOfRange(frameStart, frameEnd)
+
+            // Pad the last frame to VAD_FRAME_SAMPLES if needed.
+            val paddedFrame = if (frame.size < VAD_FRAME_SAMPLES) {
+                FloatArray(VAD_FRAME_SAMPLES).also { frame.copyInto(it) }
+            } else {
+                frame
+            }
+
+            vad.acceptWaveform(paddedFrame)
+
+            // Drain completed segments.
+            while (!vad.empty()) {
+                val segment = vad.front()
+                vad.pop()
+                transcribeSegment(segment.samples, segment.start, sampleRate, segmentIndex, recognizer)
+                segmentIndex++
+            }
+
+            frameStart = frameEnd
+        }
+
+        // Flush: force VAD to emit any buffered speech at end-of-file.
+        vad.flush()
+        while (!vad.empty()) {
+            val segment = vad.front()
+            vad.pop()
+            transcribeSegment(segment.samples, segment.start, sampleRate, segmentIndex, recognizer)
+            segmentIndex++
+        }
+
+        vad.release()
+    }
+
+    private fun transcribeSegment(
+        samples: FloatArray,
+        segmentStartInAudio: Int,   // sample offset within the full audio file
+        sampleRate: Int,
+        segmentIndex: Int,
+        recognizer: OfflineRecognizer,
+    ) {
+        if (samples.isEmpty()) return
+
+        val segmentStartMs = (segmentStartInAudio.toLong() * 1000L / sampleRate).toInt()
+        val segmentDurationMs = (samples.size.toLong() * 1000L / sampleRate).toInt()
+
+        val stream = recognizer.createStream()
+        stream.acceptWaveform(samples, sampleRate)
+        recognizer.decode(stream)
+        val result = recognizer.getResult(stream)
+        stream.release()
+
+        val text = result.text.trim()
+        if (text.isEmpty()) return
+
+        val latencyMs = EventEmitter.latencyMsSinceAudioStart()
+
+        if (enablePartials) {
+            val previewText = text.split(" ").first().take(20)
+            EventEmitter.emitPartial(
+                text = previewText,
+                timestampMs = segmentStartMs,
+                latencyMs = maxOf(0, latencyMs - 50),
+                confidence = null,
+                engineMetadata = mapOf(
+                    "engine" to ENGINE_NAME,
+                    "model" to modelId,
+                    "mode" to "vad",
+                    "segment_index" to segmentIndex,
+                    "segment_start_ms" to segmentStartMs,
+                    "is_volatile" to true,
+                    "simulated" to true,
+                ),
+            )
+        }
+
+        EventEmitter.emitFinal(
+            text = text,
+            timestampMs = segmentStartMs,
+            latencyMs = latencyMs,
+            confidence = null,
+            engineMetadata = mapOf(
+                "engine" to ENGINE_NAME,
+                "model" to modelId,
+                "mode" to "vad",
+                "segment_index" to segmentIndex,
+                "segment_start_ms" to segmentStartMs,
+                "segment_end_ms" to (segmentStartMs + segmentDurationMs),
+                "segment_duration_ms" to segmentDurationMs,
+                "is_volatile" to false,
+                "simulated" to false,
+            ),
+        )
+    }
+
+    // -------------------------------------------------------------------------
+    // Batch mode — fixed 30-second chunks (for debugging transcript coverage)
+    // -------------------------------------------------------------------------
+
+    private fun runBatch(
+        allSamples: FloatArray,
+        sampleRate: Int,
+        recognizer: OfflineRecognizer,
+    ) {
+        val maxSamplesPerChunk = WHISPER_MAX_SECONDS * sampleRate
+        val totalSamples = allSamples.size
         var chunkStart = 0
         var chunkIndex = 0
 
         while (chunkStart < totalSamples) {
             val chunkEnd = minOf(chunkStart + maxSamplesPerChunk, totalSamples)
-
-            // Prepend overlap from the previous chunk (except for chunk 0).
-            val overlapStart = maxOf(0, chunkStart - overlapSamples)
-            val chunkSamples = allSamples.copyOfRange(overlapStart, chunkEnd)
-
-            // Timestamp of the chunk's true content start in the full audio.
+            val chunkSamples = allSamples.copyOfRange(chunkStart, chunkEnd)
             val chunkStartMs = (chunkStart.toLong() * 1000L / sampleRate).toInt()
 
             val stream = recognizer.createStream()
@@ -174,48 +316,35 @@ class SherpaOnnxRunner(
             val result = recognizer.getResult(stream)
             stream.release()
 
-            val chunkText = result.text.trim()
-
-            if (chunkText.isNotEmpty()) {
+            val text = result.text.trim()
+            if (text.isNotEmpty()) {
                 val latencyMs = EventEmitter.latencyMsSinceAudioStart()
-
-                // Estimate segment end in the full-audio timeline.
                 val chunkDurationMs = ((chunkEnd - chunkStart).toLong() * 1000L / sampleRate).toInt()
-                val segmentEndMs = chunkStartMs + chunkDurationMs
 
-                // Simulated partial: first word of this chunk.
                 if (enablePartials) {
-                    val previewText = chunkText.split(" ").first().take(20)
                     EventEmitter.emitPartial(
-                        text = previewText,
+                        text = text.split(" ").first().take(20),
                         timestampMs = chunkStartMs,
                         latencyMs = maxOf(0, latencyMs - 100),
                         confidence = null,
                         engineMetadata = mapOf(
-                            "engine" to ENGINE_NAME,
-                            "model" to modelId,
-                            "chunk_index" to chunkIndex,
-                            "chunk_start_ms" to chunkStartMs,
-                            "is_volatile" to true,
-                            "simulated" to true,
+                            "engine" to ENGINE_NAME, "model" to modelId, "mode" to "batch",
+                            "chunk_index" to chunkIndex, "is_volatile" to true, "simulated" to true,
                         ),
                     )
                 }
 
-                // Final event for this chunk.
                 EventEmitter.emitFinal(
-                    text = chunkText,
+                    text = text,
                     timestampMs = chunkStartMs,
                     latencyMs = latencyMs,
-                    confidence = null,   // OfflineRecognizer does not expose logprob
+                    confidence = null,
                     engineMetadata = mapOf(
-                        "engine" to ENGINE_NAME,
-                        "model" to modelId,
+                        "engine" to ENGINE_NAME, "model" to modelId, "mode" to "batch",
                         "chunk_index" to chunkIndex,
                         "chunk_start_ms" to chunkStartMs,
-                        "chunk_end_ms" to segmentEndMs,
-                        "is_volatile" to false,
-                        "simulated" to false,
+                        "chunk_end_ms" to (chunkStartMs + chunkDurationMs),
+                        "is_volatile" to false, "simulated" to false,
                     ),
                 )
             }
@@ -223,47 +352,45 @@ class SherpaOnnxRunner(
             chunkStart = chunkEnd
             chunkIndex++
         }
-
-        recognizer.release()
     }
 
     // -------------------------------------------------------------------------
     // Model management
     // -------------------------------------------------------------------------
 
-    private fun resolveModelDir(): File {
-        val home = System.getProperty("user.home") ?: error("user.home not set")
-        return File(home, "$MODEL_CACHE_DIR/$MODEL_SUBDIR")
-    }
+    private fun resolveWhisperDir(): File =
+        File(System.getProperty("user.home")!!, "$MODEL_CACHE_DIR/$WHISPER_SUBDIR")
 
-    /**
-     * Download and extract the Whisper-tiny-en model if not already present.
-     * Uses a sentinel file (.complete) to avoid partial-extract re-runs.
-     */
-    private fun ensureModelDownloaded(modelDir: File) {
+    private fun resolveSileroPath(): File =
+        File(System.getProperty("user.home")!!, "$MODEL_CACHE_DIR/$SILERO_FILENAME")
+
+    private fun ensureWhisperDownloaded(modelDir: File) {
         val sentinel = File(modelDir, ".complete")
-        if (sentinel.exists()) return  // already downloaded and extracted
-
-        System.err.println("SherpaOnnxSTT: downloading model to ${modelDir.absolutePath} …")
-        System.err.println("SherpaOnnxSTT: source: $MODEL_URL")
-
-        val tmpFile = Files.createTempFile("sherpa-onnx-model-", ".tar.bz2").toFile()
+        if (sentinel.exists()) return
+        System.err.println("SherpaOnnxSTT: downloading Whisper-tiny-en model …")
+        System.err.println("SherpaOnnxSTT: source: $WHISPER_URL")
+        val tmpFile = Files.createTempFile("sherpa-onnx-whisper-", ".tar.bz2").toFile()
         try {
-            downloadFile(MODEL_URL, tmpFile)
-
-            val parentDir = modelDir.parentFile ?: error("no parent for $modelDir")
-            parentDir.mkdirs()
-            val rc = ProcessBuilder("tar", "-xjf", tmpFile.absolutePath, "-C", parentDir.absolutePath)
-                .inheritIO()
-                .start()
-                .waitFor()
+            downloadFile(WHISPER_URL, tmpFile)
+            val parent = modelDir.parentFile ?: error("no parent for $modelDir")
+            parent.mkdirs()
+            val rc = ProcessBuilder("tar", "-xjf", tmpFile.absolutePath, "-C", parent.absolutePath)
+                .inheritIO().start().waitFor()
             if (rc != 0) error("tar extraction failed with exit code $rc")
-
             sentinel.writeText("ok\n")
-            System.err.println("SherpaOnnxSTT: model ready at ${modelDir.absolutePath}")
+            System.err.println("SherpaOnnxSTT: Whisper model ready at $modelDir")
         } finally {
             tmpFile.delete()
         }
+    }
+
+    private fun ensureSileroDownloaded(sileroPath: File) {
+        if (sileroPath.exists()) return
+        System.err.println("SherpaOnnxSTT: downloading Silero VAD model (~1.8 MB) …")
+        System.err.println("SherpaOnnxSTT: source: $SILERO_URL")
+        sileroPath.parentFile?.mkdirs()
+        downloadFile(SILERO_URL, sileroPath)
+        System.err.println("SherpaOnnxSTT: Silero VAD ready at $sileroPath")
     }
 
     private fun downloadFile(url: String, dest: File) {
@@ -278,11 +405,8 @@ class SherpaOnnxRunner(
 }
 
 // ---------------------------------------------------------------------------
-// Typed exceptions — used by Main.kt to map exit codes
+// Typed exceptions — exit codes mapped by Main.kt
 // ---------------------------------------------------------------------------
 
-/** Exit code 30: audio file not found or unreadable. */
 class AudioFileNotFoundException(message: String) : RuntimeException(message)
-
-/** Exit code 50: model failed to load (download error, missing files, JNI crash). */
 class ModelLoadFailedException(message: String) : RuntimeException(message)

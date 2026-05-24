@@ -79,6 +79,7 @@ data class CliArgs(
     val file: String? = null,
     val model: String = "whisper-tiny-en",
     val partials: Boolean = true,
+    val mode: String = "vad",   // "vad" | "batch"
     val help: Boolean = false,
 )
 
@@ -86,6 +87,7 @@ fun parseArgs(argv: Array<String>): CliArgs {
     var file: String? = null
     var model = "whisper-tiny-en"
     var partials = true
+    var mode = "vad"
     var help = false
 
     var i = 0
@@ -116,6 +118,19 @@ fun parseArgs(argv: Array<String>): CliArgs {
                 }
                 partials = v.lowercase() == "true"
             }
+            "--mode" -> {
+                i++
+                val v = argv.getOrNull(i) ?: run {
+                    System.err.println("SherpaOnnxSTT error: --mode requires vad|batch")
+                    System.exit(1)
+                    return CliArgs()
+                }
+                if (v != "vad" && v != "batch") {
+                    System.err.println("SherpaOnnxSTT error: --mode must be vad or batch, got: $v")
+                    System.exit(1)
+                }
+                mode = v
+            }
             "-h", "--help" -> help = true
             else -> {
                 System.err.println("SherpaOnnxSTT error: unknown argument: ${argv[i]}")
@@ -124,7 +139,7 @@ fun parseArgs(argv: Array<String>): CliArgs {
         }
         i++
     }
-    return CliArgs(file = file, model = model, partials = partials, help = help)
+    return CliArgs(file = file, model = model, partials = partials, mode = mode, help = help)
 }
 
 fun printUsage(out: java.io.PrintStream) {
