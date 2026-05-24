@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "road-to-sale-app",
+    "slug": "road-to-sale-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.trika.roadtosale",
+      "infoPlist": {
+        "UIBackgroundModes": ["audio"],
+        "NSMicrophoneUsageDescription": "Road to Sale uses the microphone to listen for coaching cues during your sales session.",
+        "NSSpeechRecognitionUsageDescription": "Road to Sale uses speech recognition to automatically detect completed steps in your NADA checklist.",
+        "NSCameraUsageDescription": "Road to Sale uses the camera to capture trade-in vehicle photos.",
+        "NSPhotoLibraryUsageDescription": "Road to Sale saves trade-in photos to your photo library."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.trika.roadtosale",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
+        "android.permission.FOREGROUND_SERVICE"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    }
+  }
+}
