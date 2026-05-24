@@ -312,3 +312,75 @@ When vendoring sherpa-onnx Kotlin API classes (Vad.kt, OfflineRecognizer.kt, etc
 **Specific fix (2026-05-24):** `VadModelConfig` in our initial Vad.kt was missing `tenVadModelConfig: TenVadModelConfig`. The native `GetVadModelConfig` function accesses both `sileroVadModelConfig` and `tenVadModelConfig`. Missing field → SIGSEGV at `jni_GetObjectClass+0xcc` inside `sherpa_onnx::GetVadModelConfig`.
 
 **Rule:** Always fetch the canonical `Vad.kt` from the exact sherpa-onnx release tag matching the downloaded native jars before vendoring. Diff against the existing vendored file before rebuilding.
+
+---
+
+## Road to Sale App decisions (PRD 0002)
+
+### DC54 — NADA checklist sourced from SmartComply Audit Template at runtime
+
+**Context:** The NADA 10-step workflow is not hardcoded in the Road to Sale app. It is defined as a SmartComply Audit Template (checksheet), and a customer session is a SmartComply inspection instance — an instance of running through that template.
+
+**Decision:** The app fetches the audit template from the SmartComply API at runtime (session start), not at build time. The template is cached locally in SQLite (keyed by template ID + ETag) and served from cache on subsequent session starts. Background revalidation keeps the cache current. If no cache exists and the API is unreachable, the app blocks session start with an error — the template is required to render the checklist.
+
+**Rationale:** Runtime fetch allows the SmartComply team to update the template (add/rename steps, adjust required cues) without an app release. Caching ensures it works on the showroom floor with spotty connectivity.
+
+**Revisit when:** SmartComply team confirms a template versioning strategy (ETag, version field, etc.) — cache invalidation key must be pinned to that.
+
+---
+
+### DC55 — Template ID serves as audit type; no SmartComply schema change required
+
+**Context:** SmartComply does not have an `audit_type` field. Road to Sale sessions need to be distinguishable from other audit types (facility inspections, F&I audits, etc.) in the SmartComply BI dashboard.
+
+**Decision:** The audit template ID (e.g., `road-to-sale-v1`) is the audit type. Any SmartComply inspection created from the `road-to-sale-v1` template is, by definition, a Road to Sale session. No new `audit_type` field is required from the SmartComply team in v1. Filtering and reporting in the BI dashboard filters by template ID.
+
+**Rationale:** Zero SmartComply schema changes needed for v1. Template ID is already unique and queryable. If SmartComply later adds a proper `audit_type` field, migration is straightforward — just populate it with the template ID value.
+
+**Revisit when:** SmartComply adds a first-class audit type concept, or a third audit type is introduced that creates ambiguity with template ID alone.
+
+---
+
+### DC56 — Road to Sale extended data behind `RtsDataProvider` interface; concrete backend TBD
+
+**Context:** SmartComply's inspection schema covers checklist items and evidence items, but does not natively carry Road to Sale-specific fields: voice cue source, transcript snippet, cue confidence score, trade-in photo binaries. These must live somewhere.
+
+**Decision:** All access to this extended data goes through an `RtsDataProvider` interface defined in `road-to-sale-app/src/api/rts-data-provider.ts`. The interface is defined now (v1 contract). The concrete implementation (SmartComply evidence blob fields vs a separate Road to Sale backend service) is decided once the SmartComply team answers OQ9 (what their schema can hold).
+
+**Rationale:** Avoids coupling implementation to a storage decision that's blocked on a third-party API conversation. The interface is swappable without touching any other app code.
+
+**RESOLVED by DC58.** Road to Sale owns a SmartComply instance and extends the schema directly. `RtsDataProvider` abstraction is not needed — the owned instance is the backend.
+
+---
+
+### DC57 — Audit template questions drive the checklist UI; cue-to-question binding lives in Road to Sale cue pack
+
+**Context:** The SmartComply Audit Template carries formal audit questions (e.g., "Did the salesperson greet the customer within 30 seconds of arrival?"). The Road to Sale app must: (a) display these questions to the rep, and (b) auto-tick them when the voice engine detects relevant speech. This requires knowing which cue atoms answer which template question.
+
+**Decision (display):** Template question text is displayed as-is in the Road to Sale checklist UI. Road to Sale does not maintain its own label copy — the template is the source of truth. For multi-cue questions (e.g., "Was a detailed customer requirement taken?"), the checklist item expands to show a rich sub-panel listing each cue that was detected and its transcript snippet.
+
+**Decision (binding):** Each cue atom in the Road to Sale cue pack YAML carries a `template_question_id` field (the SmartComply template question ID it answers). The `ChecklistEngine` reads the fetched template (question IDs + text), loads the cue pack (cue atoms + their `template_question_id`), and builds a live map from question → cue atoms at session start. This binding is a Road to Sale concern — neither SmartComply's template schema nor the voice engine core carries it.
+
+**Rationale:** Keeps SmartComply schema clean (no voice-engine coupling). Keeps voice engine core generic (cues are reusable across any product, not locked to one template). Road to Sale's cue pack YAML is the single join point between the two systems.
+
+**Consequence:** A new `road-to-sale-v1` cue pack YAML must be authored that (a) references all relevant cue atoms from existing packs, and (b) annotates each with `template_question_id`. This is a task in the Road to Sale task list.
+
+**Revisit when:** SmartComply Audit Template API is available and OQ1 is answered — actual question IDs will replace placeholder strings in the cue pack YAML.
+
+---
+
+### DC58 — Road to Sale self-hosts its own SmartComply instance; schema extensions owned by Road to Sale team
+
+**Context:** SmartComply's schema and API are owned by the SmartComply team. Road to Sale-specific fields (cue events, transcript snippets, trade-in photos, cue confidence) would require third-party approval before being added — blocking v1 implementation.
+
+**Decision:** Road to Sale imports the full SmartComply schema, API, and deployable into this monorepo as a `smartcomply/` top-level deployable. Road to Sale operates its own database instance. Schema extensions required for Road to Sale (cue-specific fields, etc.) are applied directly to this owned instance by the Road to Sale team. Once stable, extensions are proposed back to the SmartComply team as upstream contributions — but shipping v1 does not depend on upstream acceptance.
+
+**Rationale:** Eliminates third-party API dependency for v1. Road to Sale team controls the full data model. Schema evolution is fast — propose back to SmartComply once the design is proven.
+
+**Consequences:**
+- `smartcomply/` is a new top-level deployable in this repo (imported source + schema + build script).
+- The mobile app calls the self-hosted SmartComply instance, not a third-party service.
+- `RtsDataProvider` abstraction (DC56) is superseded — direct SmartComply schema access replaces the interface.
+- A new parent task (SmartComply instance setup + Road to Sale schema extensions) is added to the task list before the SmartComply write tasks.
+
+**Revisit when:** SmartComply team absorbs the Road to Sale extensions upstream → evaluate switching to the shared instance and deprecating the owned one.
