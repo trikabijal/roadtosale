@@ -21,7 +21,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
 import type { SessionSummaryScreenProps } from '../navigation/types';
@@ -169,12 +169,14 @@ export default function SessionSummaryScreen({
     setSharing(true);
     try {
       const text = generateReport(session);
-      const result = await Share.share(
-        { message: text, title: 'Road to Sale — Session Report' },
-        { dialogTitle: 'Share Session Report' },
-      );
-      if (result.action === Share.dismissedAction) {
-        // User cancelled — no-op
+      const available = await Sharing.isAvailableAsync();
+      if (available) {
+        // expo-file-system v56: use new File + Paths API (cacheDirectory is not exported directly)
+        const reportFile = new File(Paths.cache, 'rts-report.txt');
+        reportFile.write(text);
+        await Sharing.shareAsync(reportFile.uri, { mimeType: 'text/plain' });
+      } else {
+        Alert.alert('Share', text);
       }
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not generate report.');

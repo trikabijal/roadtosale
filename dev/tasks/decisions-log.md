@@ -1,6 +1,6 @@
 # Decisions Log — Voice Engine v1 + Vehicle Feature Catalog v1
 
-Last updated: `2026-05-22`
+Last updated: `2026-05-25`
 
 Running log of every non-trivial decision made during v1 build. Each entry: what was decided, why, by whom, and what to revisit. Reviewable at end of day.
 
@@ -36,6 +36,16 @@ Running log of every non-trivial decision made during v1 build. Each entry: what
 | OQ10 | Custom vocabulary support | **Test BOTH with and without dealership vocabulary loaded.** Two run modes per strategy in the lab. | Custom vocab is a real product knob; we need the delta. | N/A — keep both modes. |
 | OQ11 | Confidence normalization across engines | **Linear remap to 0–1 per engine; the per-engine mapping is documented in `voice-engine/docs/architecture.md`.** Strategies that emit no confidence (Apple in some configs) use `null`, not synthetic values. | Honest about engine differences; comparison reports show per-engine + normalized columns side-by-side. | If a vendor exposes calibrated probabilities (rare). |
 | OQ12 | Script sourcing split | **Target 60% hand-written + 40% YouTube-transcribed** in the full set (12–15 scripts). v1 build delivers 2 hand-written exemplars. | Authentic dealer language without over-relying on either source. | If hand-written sounds inauthentic vs YouTube → tilt toward more transcript. |
+
+## SessionSummaryScreen autonomous decisions (2026-05-25)
+
+| ID | Decision | Rationale | Revisit when |
+|---|---|---|---|
+| DC70 | `step.header.orderNo` used as step display number (not `sequence`). The brief referred to `step.header.sequence` but `ChecksheetHeaderDTO` has no such field; `orderNo` is the equivalent. | Match actual TypeScript types — avoid runtime errors. | If backend adds a separate `sequence` field that diverges from `orderNo`. |
+| DC71 | `q.question.question` used as question display text. Brief stated `q.question.description ?? q.question.name`, but `ChecksheetQuestionDTO` has neither field; the question text is `q.question.question` (the `question: string` property). | Match actual type definition in `src/api/types.ts`. | If DTO gains a `description` field. |
+| DC72 | expo-file-system v56 new API used for share: `new File(Paths.cache, 'rts-report.txt')` + `reportFile.write(text)`. The brief specified `FileSystem.cacheDirectory` (legacy API), but expo-file-system 56 removed `cacheDirectory` from the package index in favour of `Paths.cache` + the `File` class. `File.write()` is synchronous per the v56 type definition. | Package is Expo 56; the legacy path was removed from the main export. | If `expo-file-system/legacy` is preferred project-wide — trivially switch import. |
+| DC73 | Share fallback uses `Alert.alert('Share', text)` instead of `Share.share()`. The brief specified this exact fallback for when `expo-sharing` is unavailable (e.g., web, simulator). | Direct adherence to brief specification. | Never — matches spec. |
+| DC74 | Footer hidden (not just disabled) in `readOnly` mode. Brief said "disable the sync button" but also "only if NOT readOnly" for the footer. Both buttons are hidden so the screen is fully read-only. | Cleaner read-only UX; disabling one button while showing the other creates confusion about why it's greyed. | If product wants Share to remain available in readOnly mode — trivially unsplit by moving Share button out of the readOnly footer guard. |
 
 ## Decisions still deferred to the user (in `dev/tasks/0001-prd-voice-engine.md` open questions)
 
