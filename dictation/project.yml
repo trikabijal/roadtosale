@@ -1,0 +1,102 @@
+name: DictationApp
+options:
+  bundleIdPrefix: com.trika
+  deploymentTarget:
+    macOS: "14.0"
+    iOS: "17.0"
+  xcodeVersion: "16"
+  createIntermediateGroups: true
+
+packages:
+  DictationCore:
+    path: Shared
+  # Note: GRDB and WhisperKit are resolved transitively through DictationCore
+
+targets:
+
+  DictationApp:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: DictationApp
+    resources:
+      - path: DictationApp/Assets.xcassets
+    dependencies:
+      - package: DictationCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation
+        SWIFT_VERSION: "5.9"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: DictationApp/Info.plist
+        # No dock icon — menu bar app
+        LSUIElement: YES
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+    info:
+      path: DictationApp/Info.plist
+      properties:
+        CFBundleName: Dictation
+        CFBundleDisplayName: Dictation
+        NSMicrophoneUsageDescription: "Dictation uses the microphone to record your voice for transcription."
+        NSAppleEventsUsageDescription: "Dictation needs to send keyboard events to paste transcribed text."
+        LSUIElement: true
+
+  DictationKeyboard:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DictationKeyboard
+    dependencies:
+      - package: DictationCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.keyboard
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: DictationKeyboard/Info.plist
+    info:
+      path: DictationKeyboard/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionAttributes:
+            IsASCIICapable: false
+            PrefersRightToLeft: false
+            PrimaryLanguage: en-US
+            RequestsOpenAccess: true
+          NSExtensionPointIdentifier: com.apple.keyboard-input-mode
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
+        NSMicrophoneUsageDescription: "This keyboard uses the microphone to transcribe your speech."
+
+  DictationContainerApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: DictationContainerApp
+    resources:
+      - path: DictationContainerApp/Assets.xcassets
+    dependencies:
+      - package: DictationCore
+      - target: DictationKeyboard
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation
+        SWIFT_VERSION: "5.9"
+        IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+        CODE_SIGN_STYLE: Automatic
+        INFOPLIST_FILE: DictationContainerApp/Info.plist
+    info:
+      path: DictationContainerApp/Info.plist
+      properties:
+        CFBundleName: Dictation
+        CFBundleDisplayName: Dictation
+        NSMicrophoneUsageDescription: "Dictation uses the microphone to transcribe your speech."
+        UILaunchScreen:
+          UIColorName: ""
