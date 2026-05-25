@@ -11,7 +11,8 @@ public enum ModelTier: String, CaseIterable, Sendable {
     /// ~150 MB — iOS app or Mac where latency matters
     case smallEn = "openai_whisper-small.en"
     /// ~800 MB — macOS only, best accuracy
-    case largeV3Turbo = "openai_whisper-large-v3-turbo"
+    /// Model name must match WhisperKit 0.18.0 HuggingFace repo exactly
+    case largeV3Turbo = "openai_whisper-large-v3_turbo_954MB"
 
     public var displayName: String {
         switch self {

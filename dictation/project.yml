@@ -24,13 +24,16 @@ targets:
       - path: DictationApp/Assets.xcassets
     dependencies:
       - package: DictationCore
+    entitlements:
+      path: DictationApp/DictationApp.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.mac
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: DictationApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DictationApp/DictationApp.entitlements
         # No dock icon — menu bar app
         LSUIElement: YES
       configs:
@@ -53,6 +56,8 @@ targets:
       - path: DictationKeyboard
     dependencies:
       - package: DictationCore
+    entitlements:
+      path: DictationKeyboard/DictationKeyboard.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.keyboard
@@ -60,6 +65,7 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: DictationKeyboard/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DictationKeyboard/DictationKeyboard.entitlements
     info:
       path: DictationKeyboard/Info.plist
       properties:
@@ -85,13 +91,16 @@ targets:
       - package: DictationCore
       - target: DictationKeyboard
         embed: true
+    entitlements:
+      path: DictationContainerApp/DictationContainerApp.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.ios
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
         INFOPLIST_FILE: DictationContainerApp/Info.plist
+        CODE_SIGN_ENTITLEMENTS: DictationContainerApp/DictationContainerApp.entitlements
     info:
       path: DictationContainerApp/Info.plist
       properties:
