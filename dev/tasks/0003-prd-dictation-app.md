@@ -208,9 +208,9 @@ dictation/
 
 | # | Question | Default |
 |---|----------|---------|
-| OQ1 | Hold-to-record vs toggle-to-record on Mac? | Hold (matches Wispr Flow muscle memory) |
-| OQ2 | Auto-paste off by default? | Auto-paste ON, user can disable |
-| OQ3 | Which function key as default hotkey? | F5 (least likely to conflict, user can remap) |
-| OQ4 | iOS: hold-to-record or tap-to-toggle? | Tap-to-toggle (less fatiguing on glass) |
-| OQ5 | Shared core as Swift Package or copy-paste? | Swift Package (`DictationCore`) — cleaner Xcode target sharing |
-| OQ6 | SQLite library on Apple platforms? | Raw `SQLite3` (no deps) or GRDB — decide at implementation |
+| OQ1 | Hold-to-record vs toggle-to-record on Mac? | **Hold** ✓ locked |
+| OQ2 | Auto-paste off by default? | **Auto-paste ON** ✓ locked |
+| OQ3 | Which function key as default hotkey? | **F5** ✓ locked |
+| OQ4 | iOS: hold-to-record or tap-to-toggle? | **Tap-to-toggle** ✓ locked |
+| OQ5 | Shared core as Swift Package or copy-paste? | **Swift Package (`DictationCore`)** ✓ locked |
+| OQ6 | SQLite library on Apple platforms? | **GRDB** ✓ locked |
