@@ -1,8 +1,10 @@
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useEffect } from 'react';
+import { Alert } from 'react-native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../theme';
 import type { RootStackParamList } from './types';
+import { getSessionRepository } from '../db/repositorySingleton';
 
 import AuthScreen from '../screens/AuthScreen';
 import HomeScreen from '../screens/HomeScreen';
@@ -16,9 +18,47 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
   const { colors, isDark } = useTheme();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+
+  // ── Task 9.3: crash recovery on mount ────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const activeSessions = await getSessionRepository().getActiveSessions();
+        if (activeSessions.length === 0) return;
+        const session = activeSessions[0];
+        Alert.alert(
+          'Session in Progress',
+          'A session was interrupted. Would you like to resume it?',
+          [
+            {
+              text: 'Discard',
+              style: 'destructive',
+              onPress: async () => {
+                try {
+                  await getSessionRepository().updateSession({ id: session.id, status: 'crashed' });
+                } catch {
+                  // silently ignore — session will remain active but we navigated away
+                }
+              },
+            },
+            {
+              text: 'Resume',
+              onPress: () => {
+                navigationRef.current?.navigate('ActiveSession', { sessionId: session.id });
+              },
+            },
+          ],
+        );
+      } catch {
+        // repo not ready or unavailable — skip recovery silently
+      }
+    })();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <NavigationContainer
+      ref={navigationRef}
       theme={{
         dark: isDark,
         colors: {

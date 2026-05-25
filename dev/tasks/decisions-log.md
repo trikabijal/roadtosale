@@ -586,3 +586,76 @@ Wired via `"plugins": ["./plugins/withVoiceModule"]` in `app.json`.
 **Decision (autonomous):** The empty state and the list share the same `FlatList` container. `emptyListContent` style applies `flex: 1; justifyContent: 'center'` to the content container when the list is empty, which vertically centers the empty state. This avoids two separate render branches and keeps pull-to-refresh working in both states.
 
 **Revisit when:** N/A — standard RN pattern.
+
+---
+
+### DC75 — HomeScreen appointments cache-first with 15-min stale badge
+
+**Decision (autonomous):** HomeScreen shows cached appointment data immediately on focus (eliminating perceived latency), then refreshes from network in background. Cache key = `(YYYY-MM-DD, repId)`. If cache is >15 minutes old, a "Data as of HH:MM" stale badge renders as a FlatList footer. If network fails while cache is present, an "Offline — showing cached data as of HH:MM" badge replaces the error state so the user still has actionable data. Fresh network data calls `cacheAppointments()` to keep cache warm.
+
+**Revisit when:** Cache TTL requirements are formalized; repId becomes real (currently empty string placeholder).
+
+---
+
+### DC76 — Crash recovery uses navigationRef imperative navigate
+
+**Decision (autonomous):** RootNavigator mounts before any screen is rendered, so no `navigation` prop is available. Crash recovery uses `useNavigationContainerRef<RootStackParamList>()` passed as `ref` to `<NavigationContainer>`. The `navigate('ActiveSession', { sessionId })` call inside the Alert callback fires after navigation container is ready. The try/catch guard handles the case where the repo hasn't initialized yet (race condition on cold start).
+
+**Revisit when:** N/A — standard Expo/RN pattern.
+
+---
+
+### DC77 — Pending sync badge reads getPendingWrites() on AppState + useFocusEffect
+
+**Decision (autonomous):** Two triggers for badge refresh: (1) AppState 'active' event — catches foreground return from background; (2) useFocusEffect — catches navigation back from any screen (e.g., returning from SessionSummary after a sync attempt). This double-trigger ensures the badge count is always fresh when the user sees HomeScreen.
+
+**Revisit when:** N/A.
+
+---
+
+### DC78 — TradeIn voice panel shows last 3 final transcripts as rolling buffer
+
+**Decision (autonomous):** The TradeIn screen subscribes to the voice engine's onTranscript event. Only `stability === 'final'` transcripts are shown (interim results would be too noisy during photo capture). The panel holds 3 entries max — enough to confirm voice is working without cluttering the UI. Transcripts are also accumulated in `voiceSnippets` state for persistence via `tradeIn.spokenNotes` in SQLite.
+
+**Revisit when:** v2 voice detection adds trade-specific cue detection (e.g., odometer reading via STT).
+
+---
+
+### DC79 — TradeIn state persisted to SQLite after each photo and on note debounce
+
+**Decision (autonomous):** Photo persistence fires immediately after capture (no debounce — photo is a point-in-time event). Note persistence is debounced 500ms to avoid a write per keystroke. A final flush on unmount covers the case where the user navigates away before the debounce fires. All `updateSession` calls are fire-and-forget (try/catch, no UI block on failure) — the session is also stored in the SessionEngine's in-memory map, so data is never lost within a session lifetime even if SQLite fails.
+
+**Revisit when:** We add conflict resolution between in-memory and SQLite state.
+
+---
+
+### DC80 — SessionSetupScreen uses cache-first for checksheet fetch with offline fallback
+
+**Decision (autonomous):** The checksheet fetch in `handleStartSession` now tries network first, then falls back to cache. Network-first (not cache-first) is used here because session start is a deliberate user action (tapping "Start Session") where fresh data is preferred. Offline fallback via `Alert.alert` is non-disruptive — the user gets to start their session with the last-known template. ETag is stored as empty string (the SmartComply API's fetch endpoint doesn't return ETags in v1; reserved for future conditional GET support).
+
+**Revisit when:** SmartComply adds `ETag` / `If-None-Match` support to `GET /api/checksheet/{id}`.
+
+---
+
+### DC81 — Android ForegroundService delegates audio lifecycle to RtsVoiceModule
+
+**Decision (autonomous):** `RtsVoiceForegroundService` is a lightweight wrapper around the persistent notification — it doesn't touch audio. `RtsVoiceModule` starts/stops the service via `startForegroundService()` / `stopForegroundService()` calls at the beginning/end of `startListening()` / `stopListening()`. This keeps audio logic in one place. The service uses `IMPORTANCE_LOW` notification channel and `setShowBadge(false)` to minimize intrusiveness. `START_STICKY` ensures the OS restarts the service if it's killed while a session is active.
+
+**Revisit when:** Android 12+ foreground service type restrictions are enforced — may need to add `foregroundServiceType="microphone"` to the manifest.
+
+---
+
+### DC82 — RetryQueueConsumer dispatches by payload.type with unknown-type passthrough
+
+**Decision (autonomous):** The retry queue stores JSON payloads with a `type` discriminant (`submitAnswers`, `submitSession`). An unknown type is treated as succeeded (deleted from queue) rather than failed — this prevents a malformed entry from blocking the queue forever. The backoff sequence [1s, 2s, 4s, 8s, 16s] is applied sequentially across retries (not in a single drain pass); each `drainPendingWrites()` call processes one attempt per entry. After 5 retries, `markWriteFailed()` is called and the entry is left in the table with `status='failed'` for manual inspection.
+
+**Revisit when:** Admin UI for failed writes is added; or payload types expand (e.g., trade photo re-upload).
+
+---
+
+### DC83 — PDF export via expo-print.printToFileAsync with text fallback
+
+**Decision (autonomous):** `SessionSummaryScreen` now generates a styled HTML report and exports it as a PDF via `expo-print.printToFileAsync`. On failure (e.g., expo-print unavailable on simulator), the catch block falls through to the original text-file share path. This dual-path approach means the Share button always works regardless of platform capability. `escapeHtml()` is added to sanitize customer/vehicle name inputs before injecting into HTML.
+
+**Revisit when:** N/A — expo-print is a first-party Expo package, stable for v56.
+

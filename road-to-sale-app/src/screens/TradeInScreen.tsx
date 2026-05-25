@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -21,7 +21,11 @@ import { useTheme } from '../theme';
 import { Typography } from '../theme';
 import { getSmartComplyClient } from '../api/clientSingleton';
 import { getSessionEngine } from '../session/sessionEngineSingleton';
+import { getVoiceEngine } from '../voice/NativeVoiceModule';
+import { getSessionRepository } from '../db/repositorySingleton';
 import type { TradePhotoSlot } from '../api/types';
+import type { TranscriptEvent } from '../voice/types';
+import type { DetectedCue } from '../session/types';
 
 // ─── Slot definitions ─────────────────────────────────────────────────────────
 
@@ -44,7 +48,9 @@ const SLOTS: PhotoSlot[] = [
   { id: 'vin',              label: 'VIN Plate',      apiSlot: 'vin' },
 ];
 
+const TOTAL_SLOTS = SLOTS.length;  // 7
 const TOTAL_QUESTIONS = 16;  // used in completion chip in HistoryScreen; kept here for consistency
+const NOTE_DEBOUNCE_MS = 500;
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -59,6 +65,10 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
   const [photos, setPhotos] = useState<Record<string, string>>({});
   const [conditionNote, setConditionNote] = useState('');
 
+  // ── Task 7.4: voice snippet state ─────────────────────────────────────────
+  // Rolling buffer of the last 3 final transcripts. Most recent first.
+  const [voiceSnippets, setVoiceSnippets] = useState<DetectedCue[]>([]);
+
   // Camera modal state
   const [cameraVisible, setCameraVisible] = useState(false);
   const [activeSlotId, setActiveSlotId] = useState<string | null>(null);
@@ -66,8 +76,107 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
 
   const cameraRef = useRef<CameraView>(null);
 
+  // ── Task 7.7: refs for debounced note persist and latest state snapshots ──
+  const noteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Keep refs to current values so async persist callbacks always see fresh data
+  const photosRef = useRef<Record<string, string>>(photos);
+  const voiceSnippetsRef = useRef<DetectedCue[]>(voiceSnippets);
+  const conditionNoteRef = useRef<string>(conditionNote);
+
+  // Sync refs on every render
+  photosRef.current = photos;
+  voiceSnippetsRef.current = voiceSnippets;
+  conditionNoteRef.current = conditionNote;
+
   const screenWidth = Dimensions.get('window').width;
   const cardSize = (screenWidth - 48) / 2;   // 16 padding each side + 16 gap
+
+  // ── Task 7.6: derived capture count ──────────────────────────────────────
+  const capturedCount = Object.keys(photos).length;
+  const isComplete = capturedCount === TOTAL_SLOTS;
+
+  // ── Task 7.7: persist helper ─────────────────────────────────────────────
+
+  const persistTradeIn = useCallback(async (
+    currentPhotos: Record<string, string>,
+    currentSnippets: DetectedCue[],
+    currentNote: string,
+  ): Promise<void> => {
+    try {
+      const photosNullable: Record<string, string | null> = {};
+      for (const slot of SLOTS) {
+        photosNullable[slot.id] = currentPhotos[slot.id] ?? null;
+      }
+      await getSessionRepository().updateSession({
+        id: sessionId,
+        tradeIn: {
+          photos: photosNullable,
+          spokenNotes: currentSnippets,
+          typedNote: currentNote,
+        },
+      });
+    } catch (e) {
+      console.warn('[TradeIn] Failed to persist trade-in state:', e);
+    }
+  }, [sessionId]);
+
+  // ── Task 7.4 & 7.7: voice subscription on mount, unsubscribe on unmount ──
+
+  useEffect(() => {
+    const voice = getVoiceEngine();
+
+    const unsub = voice.onTranscript((event: TranscriptEvent) => {
+      // Only collect final stability events
+      if (event.stability !== 'final') return;
+
+      const cue: DetectedCue = {
+        cueId: `trade_in_voice_${event.timestamp_ms}`,
+        cueSource: 'feature',
+        transcriptSnippet: event.text,
+        confidence: event.confidence,
+        detectedAtMs: event.timestamp_ms,
+      };
+
+      setVoiceSnippets((prev) => {
+        // Rolling buffer: most recent first, max 3 entries
+        const next = [cue, ...prev].slice(0, 3);
+        // Persist async after state update (use ref snapshot for photos/note)
+        persistTradeIn(photosRef.current, next, conditionNoteRef.current);
+        return next;
+      });
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [persistTradeIn]);
+
+  // ── Task 7.7: debounced persist on condition note change ─────────────────
+
+  const handleConditionNoteChange = useCallback((text: string) => {
+    setConditionNote(text);
+    if (noteDebounceRef.current !== null) {
+      clearTimeout(noteDebounceRef.current);
+    }
+    noteDebounceRef.current = setTimeout(() => {
+      persistTradeIn(photosRef.current, voiceSnippetsRef.current, text);
+      noteDebounceRef.current = null;
+    }, NOTE_DEBOUNCE_MS);
+  }, [persistTradeIn]);
+
+  // ── Task 7.7: final persist on unmount ───────────────────────────────────
+
+  useEffect(() => {
+    return () => {
+      // Cancel any pending debounce and do a final flush
+      if (noteDebounceRef.current !== null) {
+        clearTimeout(noteDebounceRef.current);
+        noteDebounceRef.current = null;
+      }
+      persistTradeIn(photosRef.current, voiceSnippetsRef.current, conditionNoteRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps — intentionally runs only on unmount
+  }, []);
 
   // ── Open camera for a slot ────────────────────────────────────────────────
 
@@ -90,12 +199,20 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
       if (!photo) return;
 
       const uri = photo.uri;
-      setPhotos((prev) => ({ ...prev, [activeSlotId]: uri }));
+      const slotId = activeSlotId;
+
+      setPhotos((prev) => {
+        const next = { ...prev, [slotId]: uri };
+        // Task 7.7: persist immediately after capture
+        persistTradeIn(next, voiceSnippetsRef.current, conditionNoteRef.current);
+        return next;
+      });
+
       setCameraVisible(false);
       setActiveSlotId(null);
 
       // Background upload — do not await; silent failure
-      const slot = SLOTS.find((s) => s.id === activeSlotId);
+      const slot = SLOTS.find((s) => s.id === slotId);
       if (slot) {
         uploadPhotoInBackground(sessionId, slot.apiSlot, uri);
       }
@@ -105,7 +222,7 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
     } finally {
       setCapturing(false);
     }
-  }, [capturing, activeSlotId, sessionId]);
+  }, [capturing, activeSlotId, sessionId, persistTradeIn]);
 
   // ── Background upload ─────────────────────────────────────────────────────
 
@@ -126,13 +243,11 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
 
   // ── Done ──────────────────────────────────────────────────────────────────
 
-  const handleDone = useCallback(() => {
-    // Persist typed note locally (session engine carries in-memory state for v1)
-    // DC68: Session engine has no setTradeInNote method yet; logged as a future
-    // extension. Note is stored in component state for the session's lifetime.
-    // When the session engine gains a updateTradeIn method, wire it here.
+  const handleDone = useCallback(async () => {
+    // Task 7.7: final persist before leaving the screen
+    await persistTradeIn(photosRef.current, voiceSnippetsRef.current, conditionNoteRef.current);
     navigation.goBack();
-  }, [navigation]);
+  }, [navigation, persistTradeIn]);
 
   // ── Permission denied state ───────────────────────────────────────────────
 
@@ -163,6 +278,32 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
 
+      {/* ── Task 7.6: Photo completeness banner ───────────────────────────── */}
+      <View
+        style={[
+          styles.completionBanner,
+          {
+            backgroundColor: isComplete ? colors.success : colors.surface,
+            borderColor: isComplete ? colors.success : colors.border,
+          },
+        ]}
+        accessibilityLabel={isComplete ? 'Trade-In Complete' : `${capturedCount} of ${TOTAL_SLOTS} photos captured`}
+      >
+        <Text
+          style={[
+            Typography.label,
+            {
+              color: isComplete ? '#FFFFFF' : colors.textSecondary,
+              textAlign: 'center',
+            },
+          ]}
+        >
+          {isComplete
+            ? '✅ Trade-In Complete'
+            : `${capturedCount} / ${TOTAL_SLOTS} photos captured`}
+        </Text>
+      </View>
+
       {/* ── Photo grid ────────────────────────────────────────────────────── */}
       <FlatList
         data={SLOTS}
@@ -184,28 +325,63 @@ export default function TradeInScreen({ navigation, route }: TradeInScreenProps)
         }}
         ListFooterComponent={
           /* Condition notes — rendered inside the list so it scrolls with the grid */
-          <View style={styles.notesSection}>
-            <Text style={[Typography.label, { color: colors.textSecondary, marginBottom: 8 }]}>
-              Condition Notes
-            </Text>
-            <TextInput
-              style={[
-                styles.notesInput,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border,
-                  color: colors.textPrimary,
-                },
-              ]}
-              multiline
-              numberOfLines={4}
-              placeholder="Describe any damage, missing items, or special notes..."
-              placeholderTextColor={colors.textMuted}
-              value={conditionNote}
-              onChangeText={setConditionNote}
-              textAlignVertical="top"
-              accessibilityLabel="Condition notes"
-            />
+          <View style={styles.footerContent}>
+
+            {/* ── Task 7.4: Voice Notes panel ─────────────────────────────── */}
+            {voiceSnippets.length > 0 && (
+              <View
+                style={[
+                  styles.voicePanel,
+                  { backgroundColor: colors.surface, borderColor: colors.border },
+                ]}
+                accessibilityLabel="Voice notes panel"
+              >
+                <Text style={[Typography.label, { color: colors.textSecondary, marginBottom: 6 }]}>
+                  🎤 Voice Notes
+                </Text>
+                {voiceSnippets.map((snippet, index) => (
+                  <Text
+                    key={`${snippet.detectedAtMs}-${index}`}
+                    style={[
+                      Typography.body,
+                      styles.voiceSnippetRow,
+                      {
+                        color: colors.textPrimary,
+                        borderTopColor: index > 0 ? colors.border : 'transparent',
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {snippet.transcriptSnippet}
+                  </Text>
+                ))}
+              </View>
+            )}
+
+            {/* ── Condition notes input ────────────────────────────────────── */}
+            <View style={styles.notesSection}>
+              <Text style={[Typography.label, { color: colors.textSecondary, marginBottom: 8 }]}>
+                Condition Notes
+              </Text>
+              <TextInput
+                style={[
+                  styles.notesInput,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.textPrimary,
+                  },
+                ]}
+                multiline
+                numberOfLines={4}
+                placeholder="Describe any damage, missing items, or special notes..."
+                placeholderTextColor={colors.textMuted}
+                value={conditionNote}
+                onChangeText={handleConditionNoteChange}
+                textAlignVertical="top"
+                accessibilityLabel="Condition notes"
+              />
+            </View>
           </View>
         }
       />
@@ -364,6 +540,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Task 7.6: Completion banner
+  completionBanner: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+
   // Grid
   gridContent: {
     padding: 16,
@@ -401,9 +588,26 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 
+  // Footer content wrapper (scrolls with list)
+  footerContent: {
+    marginTop: 4,
+  },
+
+  // Task 7.4: Voice Notes panel
+  voicePanel: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 12,
+  },
+  voiceSnippetRow: {
+    paddingVertical: 5,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+
   // Condition notes
   notesSection: {
-    marginTop: 4,
+    marginTop: 0,
   },
   notesInput: {
     borderWidth: 1,

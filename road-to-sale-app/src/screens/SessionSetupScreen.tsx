@@ -38,8 +38,10 @@ import type { SessionSetupScreenProps } from '../navigation/types';
 import { catalogLoader } from '../catalog/loader';
 import type { Make, Model, Trim, Feature } from '../catalog/loader';
 import { getSmartComplyClient } from '../api/clientSingleton';
+import { getSessionRepository } from '../db/repositorySingleton';
 import { loadRtsV1CuePack } from '../cue-packs/loader';
 import { getSessionEngine } from '../session/sessionEngineSingleton';
+import type { ChecksheetDTO } from '../api/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -182,12 +184,38 @@ export default function SessionSetupScreen({
     setLoading(true);
     try {
       const client = getSmartComplyClient();
+      const repo = getSessionRepository();
 
       const checksheetId = appointment?.checksheetId ?? DEFAULT_CHECKSHEET_ID;
       const assignmentId = appointment?.assignmentId ?? WALKIN_ASSIGNMENT_ID;
 
-      // Step 1: Fetch the SmartComply checksheet (always live — not cached here)
-      const checksheet = await client.getChecksheetDetail(checksheetId);
+      // Step 1: Cache-first fetch of the SmartComply checksheet.
+      // a. Try cache first.
+      const cached = await repo.getCachedTemplate(checksheetId);
+
+      // c. Attempt network fetch regardless (blocking; we have cache as fallback).
+      let networkChecksheet: ChecksheetDTO | null = null;
+      try {
+        networkChecksheet = await client.getChecksheetDetail(checksheetId);
+      } catch {
+        // Network unavailable — handled below.
+      }
+
+      let checksheet: ChecksheetDTO;
+
+      if (networkChecksheet !== null) {
+        // d. Network succeeded: update cache and use fresh data.
+        await repo.cacheTemplate(checksheetId, '', networkChecksheet as object).catch(() => {});
+        checksheet = networkChecksheet;
+      } else if (cached) {
+        // e. Network failed but cache exists: proceed with stale data and warn.
+        // b. Use cached data immediately; notify user of offline mode.
+        Alert.alert('Offline Mode', 'Using cached template.');
+        checksheet = cached.data as ChecksheetDTO;
+      } else {
+        // f. Network failed and no cache: cannot start.
+        throw new Error('No network connection and no cached template. Please connect and try again.');
+      }
 
       // Step 2: Load the Road to Sale V1 cue pack
       const cuePack = loadRtsV1CuePack();

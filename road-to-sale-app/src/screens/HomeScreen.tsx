@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
+  AppState,
   Easing,
   FlatList,
   StyleSheet,
@@ -12,15 +14,13 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 
 import { getSmartComplyClient } from '../api/clientSingleton';
+import { getSessionRepository } from '../db/repositorySingleton';
 import { AuditProCrmProvider } from '../crm/AuditProCrmProvider';
 import type { Appointment } from '../crm/types';
 import type { AppointmentBrief } from '../navigation/types';
 import type { HomeScreenProps } from '../navigation/types';
 import { useTheme } from '../theme';
 import { Typography } from '../theme';
-
-// TODO: wire SQLite cache in task 9
-// const repo: ISessionRepository = ...
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -30,44 +30,148 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // pendingSyncCount would be read from SQLite in task 9
-  const [pendingSyncCount] = useState(0);
+  // Task 9.5: wired to SQLite pending writes queue
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  // Task 4.4: cache timestamp for stale-data badge
+  const [cacheTimestamp, setCacheTimestamp] = useState<Date | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
 
-  // ── Header right badge ────────────────────────────────────────────────────
+  // ── Task 9.5: fetch pending writes count ──────────────────────────────────
+  const refreshPendingCount = useCallback(async () => {
+    try {
+      const writes = await getSessionRepository().getPendingWrites();
+      setPendingSyncCount(writes.length);
+    } catch {
+      // silently ignore — badge stays at previous value
+    }
+  }, []);
+
+  // AppState listener: refresh count when app comes to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        refreshPendingCount();
+      }
+    });
+    return () => sub.remove();
+  }, [refreshPendingCount]);
+
+  // ── Task 2.6: logout handler ──────────────────────────────────────────────
+  const handleLogout = useCallback(async () => {
+    try {
+      await getSmartComplyClient().logout();
+      navigation.replace('Auth');
+    } catch (err: unknown) {
+      Alert.alert(
+        'Logout Failed',
+        err instanceof Error ? err.message : 'Unable to log out. Please try again.',
+      );
+    }
+  }, [navigation]);
+
+  // ── Header right: [pending badge | logout button] ─────────────────────────
   useEffect(() => {
     navigation.setOptions({
-      headerRight: () =>
-        pendingSyncCount > 0 ? (
-          <View style={[styles.badge, { backgroundColor: colors.error }]}>
-            <Text style={styles.badgeText}>{pendingSyncCount}</Text>
-          </View>
-        ) : null,
+      headerRight: () => (
+        <View style={styles.headerRight}>
+          {pendingSyncCount > 0 && (
+            <View style={[styles.badge, { backgroundColor: colors.error }]}>
+              <Text style={styles.badgeText}>{pendingSyncCount}</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            onPress={handleLogout}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Logout"
+            style={styles.logoutButton}
+          >
+            <Text style={[styles.logoutText, { color: colors.accent }]}>Logout</Text>
+          </TouchableOpacity>
+        </View>
+      ),
     });
-  }, [navigation, pendingSyncCount, colors.error]);
+  }, [navigation, pendingSyncCount, colors.error, colors.accent, handleLogout]);
 
-  // ── Fetch appointments ────────────────────────────────────────────────────
+  // ── Task 4.4: fetch appointments with offline cache ───────────────────────
   const fetchAppointments = useCallback(async () => {
-    setLoading(true);
+    const today = new Date().toISOString().split('T')[0];
+    const repId = ''; // TODO: replace with real repId from auth context
+
+    // Step 1: load from cache immediately
+    try {
+      const cached = await getSessionRepository().getCachedAppointments(today, repId);
+      if (cached && cached.data.length > 0) {
+        setAppointments(cached.data as Appointment[]);
+        setCacheTimestamp(cached.fetchedAt);
+        setLoading(false);
+      }
+    } catch {
+      // cache miss or repo error — proceed to network fetch
+    }
+
+    // Step 2: fetch from network in background
     setError(null);
     try {
       const client = getSmartComplyClient();
       const provider = new AuditProCrmProvider(client);
-      // TODO (task 9): pass real storeId from auth context
+      // TODO: pass real storeId from auth context
       const result = await provider.getTodayAppointments('');
       setAppointments(result);
+      setIsOffline(false);
+      const now = new Date();
+      setCacheTimestamp(now);
+      setLoading(false);
+      // Persist fresh data to cache
+      try {
+        await getSessionRepository().cacheAppointments(today, repId, result as object[]);
+      } catch {
+        // cache write failure is non-fatal
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load appointments.');
-    } finally {
+      // Network failed — if we already have cached data, show offline badge instead of error
+      if (appointments.length > 0) {
+        setIsOffline(true);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load appointments.');
+      }
       setLoading(false);
     }
-  }, []);
+  }, [appointments.length]);
 
-  // Fetch on mount and each time the screen comes into focus
+  // Fetch on focus + refresh pending count
   useFocusEffect(
     useCallback(() => {
       fetchAppointments();
-    }, [fetchAppointments]),
+      refreshPendingCount();
+    }, [fetchAppointments, refreshPendingCount]),
   );
+
+  // ── Stale data / offline badge ────────────────────────────────────────────
+  function renderCacheBadge() {
+    if (isOffline && cacheTimestamp) {
+      const hh = cacheTimestamp.getHours().toString().padStart(2, '0');
+      const mm = cacheTimestamp.getMinutes().toString().padStart(2, '0');
+      return (
+        <Text style={[styles.staleBadge, { color: colors.textSecondary }]}>
+          Offline — showing cached data as of {hh}:{mm}
+        </Text>
+      );
+    }
+    if (cacheTimestamp) {
+      const ageMs = Date.now() - cacheTimestamp.getTime();
+      if (ageMs > 15 * 60 * 1000) {
+        const hh = cacheTimestamp.getHours().toString().padStart(2, '0');
+        const mm = cacheTimestamp.getMinutes().toString().padStart(2, '0');
+        return (
+          <Text style={[styles.staleBadge, { color: colors.textSecondary }]}>
+            Data as of {hh}:{mm}
+          </Text>
+        );
+      }
+    }
+    return null;
+  }
 
   // ── Navigate to SessionSetup ──────────────────────────────────────────────
   function handleAppointmentPress(appt: Appointment) {
@@ -136,18 +240,21 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     }
 
     return (
-      <FlatList
-        data={appointments}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => (
-          <AppointmentCard
-            appointment={item}
-            onPress={() => handleAppointmentPress(item)}
-            colors={colors}
-          />
-        )}
-      />
+      <>
+        <FlatList
+          data={appointments}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => (
+            <AppointmentCard
+              appointment={item}
+              onPress={() => handleAppointmentPress(item)}
+              colors={colors}
+            />
+          )}
+          ListFooterComponent={renderCacheBadge}
+        />
+      </>
     );
   }
 
@@ -336,6 +443,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
+  // Header right area
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  logoutButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+
   // Header badge
   badge: {
     minWidth: 20,
@@ -350,5 +472,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+
+  // Stale / offline data badge
+  staleBadge: {
+    ...Typography.caption,
+    textAlign: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
   },
 });

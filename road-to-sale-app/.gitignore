@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Keep hand-authored native module source files (config-plugin inputs)
+!/android/app/src/main/kotlin/com/trika/roadtosale/voice/
+!/ios/VoiceModule/
