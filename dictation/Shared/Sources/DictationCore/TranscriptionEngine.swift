@@ -101,21 +101,23 @@ public final class TranscriptionEngine: ObservableObject {
         let transcribeEnd = Date()
         let latencyMs = Int(transcribeEnd.timeIntervalSince(transcribeStart) * 1000)
 
-        guard let first = results?.first else {
+        // transcribe(audioArray:) returns [TranscriptionResult] (non-optional) in WhisperKit 0.9+
+        guard let first = results.first else {
             throw TranscriptionError.emptyResult
         }
 
         // Compute confidence: average exp(avgLogprob) across segments
         let confidence: Double
-        if let segs = results?.flatMap({ $0.segments }), !segs.isEmpty {
+        let segs = results.flatMap { $0.segments }
+        if !segs.isEmpty {
             let avgLogProb = segs.reduce(0.0) { $0 + Double($1.avgLogprob) } / Double(segs.count)
             confidence = max(0, min(1, exp(avgLogProb)))
         } else {
-            confidence = 0.5 // fallback
+            confidence = 0.5 // fallback if segments not available
         }
 
         return TranscriptionResult(
-            text: first.text.trimmingCharacters(in: .whitespacesAndNewlines),
+            text: first.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines),
             confidence: confidence,
             audioDurationMs: audioDurationMs,
             latencyMs: latencyMs,
