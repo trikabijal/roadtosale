@@ -6,13 +6,6 @@ import DictationCore
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
-    @State private var isListeningForKey = false
-    @State private var currentKeyLabel: String = {
-        let stored = UserDefaults.standard.integer(forKey: "hotkeyCode")
-        // 0x60 == kVK_F5; treat 0 (absent) as F5 as well
-        return stored == 0 || stored == 0x60 ? "F5" : "0x\(String(stored, radix: 16).uppercased())"
-    }()
-
     var body: some View {
         Form {
 
@@ -21,19 +14,11 @@ struct SettingsView: View {
                 HStack {
                     Text("Hotkey")
                     Spacer()
-                    Button(isListeningForKey ? "Press a key…" : currentKeyLabel) {
-                        isListeningForKey = true
-                    }
-                    .onKeyPress { press in
-                        guard isListeningForKey else { return .ignored }
-                        currentKeyLabel = press.characters.isEmpty
-                            ? "F5"
-                            : press.characters.uppercased()
-                        isListeningForKey = false
-                        return .handled
-                    }
-                    .buttonStyle(.bordered)
-                    .foregroundStyle(isListeningForKey ? .orange : .primary)
+                    // Fn is a modifier key (fires flagsChanged, not keyDown),
+                    // so it can't be captured with onKeyPress. Shown as a
+                    // fixed label for now.
+                    Text("Fn  (hold to record)")
+                        .foregroundStyle(.secondary)
                 }
 
                 Toggle("Auto-paste after transcription", isOn: Binding(

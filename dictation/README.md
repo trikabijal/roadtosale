@@ -40,8 +40,9 @@ In Xcode, for **each of the three targets**:
 1. Select the **DictationApp** scheme, build, and run.
 2. On first launch macOS will prompt for Microphone access — allow it.
 3. The app lives in the menu bar (no Dock icon by design).
-4. Hold **F5** to record; release to transcribe and paste.
+4. Hold **Fn** (Globe key) to record; release to transcribe and paste.
 5. If pasting does not work, open System Settings → Privacy & Security → Accessibility and grant access to Dictation.
+   Accessibility also suppresses the Globe/emoji-picker so Fn is dedicated to dictation.
 
 Model selection is in the menu bar menu. First launch downloads the selected WhisperKit model (~150 MB–1.5 GB depending on tier); progress is shown in the menu bar item.
 

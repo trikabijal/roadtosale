@@ -11,23 +11,25 @@ protocol HotkeyManagerDelegate: AnyObject {
 
 // MARK: - HotkeyManager
 
+/// Monitors the **Fn / Globe** key.
+///
+/// Fn is a modifier key — pressing or releasing it fires `kCGEventFlagsChanged`
+/// (not `keyDown`/`keyUp`). We detect `CGEventFlags.maskSecondaryFn` being
+/// set (press) or cleared (release).
+///
+/// With Accessibility granted we install a `CGEventTap` at `.cghidEventTap`
+/// (the earliest possible interception point) and return `nil` to suppress
+/// the event — this prevents the Globe emoji-picker from opening while the
+/// tap is active. Without Accessibility we fall back to
+/// `NSEvent.addGlobalMonitorForEvents`, which sees the events but cannot
+/// consume them, so the emoji-picker may open alongside recording.
 final class HotkeyManager {
     weak var delegate: HotkeyManagerDelegate?
 
-    /// Virtual key code. Default kVK_F5 = 0x60.
-    var keyCode: CGKeyCode {
-        get {
-            let stored = UserDefaults.standard.integer(forKey: "hotkeyCode")
-            return CGKeyCode(stored.nonZero ?? Int(kVK_F5))
-        }
-        set {
-            UserDefaults.standard.set(Int(newValue), forKey: "hotkeyCode")
-        }
-    }
-
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
-    private var isKeyDown = false
+    private var fallbackMonitor: Any?
+    private var fnIsDown = false
 
     init(delegate: HotkeyManagerDelegate) {
         self.delegate = delegate
@@ -42,8 +44,8 @@ final class HotkeyManager {
             startEventTap()
         } else {
             // CGEventTap cannot be installed without Accessibility.
-            // Fall back to NSEvent global monitor — recording still works,
-            // but the F5 key event will reach the frontmost app as well.
+            // Fall back to NSEvent global monitor — recording works, but
+            // the Fn key event reaches the OS (emoji-picker may appear).
             startFallbackMonitor()
         }
     }
@@ -57,12 +59,20 @@ final class HotkeyManager {
         }
         eventTap = nil
         runLoopSource = nil
+
+        if let monitor = fallbackMonitor {
+            NSEvent.removeMonitor(monitor)
+            fallbackMonitor = nil
+        }
     }
 
-    // MARK: - CGEventTap (requires Accessibility — suppresses the original F5 event)
+    // MARK: - CGEventTap (requires Accessibility — suppresses the Fn/Globe event)
 
     private func startEventTap() {
+        // Fn fires kCGEventFlagsChanged. We also include keyDown/keyUp so the
+        // tap is wired for future key additions without rebuilding it.
         let mask: CGEventMask =
+            (1 << CGEventType.flagsChanged.rawValue) |
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
 
@@ -98,49 +108,43 @@ final class HotkeyManager {
         type: CGEventType,
         event: CGEvent
     ) -> Unmanaged<CGEvent>? {
-        let code = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
-        guard code == keyCode else { return Unmanaged.passRetained(event) }
-
-        switch type {
-        case .keyDown:
-            // Ignore key-repeat events (isKeyDown already true)
-            guard !isKeyDown else { return nil }
-            isKeyDown = true
-            DispatchQueue.main.async { self.delegate?.hotkeyDidPress() }
-            return nil  // suppress F5 from reaching any other app
-
-        case .keyUp:
-            guard isKeyDown else { return nil }
-            isKeyDown = false
-            DispatchQueue.main.async { self.delegate?.hotkeyDidRelease() }
-            return nil
-
-        default:
-            return nil
+        // Only act on flags-changed events — that's what modifier keys fire.
+        guard type == .flagsChanged else {
+            return Unmanaged.passRetained(event)
         }
+
+        let fnNowDown = event.flags.contains(.maskSecondaryFn)
+
+        if fnNowDown && !fnIsDown {
+            fnIsDown = true
+            DispatchQueue.main.async { self.delegate?.hotkeyDidPress() }
+            return nil  // suppress — prevents Globe/emoji-picker from opening
+
+        } else if !fnNowDown && fnIsDown {
+            fnIsDown = false
+            DispatchQueue.main.async { self.delegate?.hotkeyDidRelease() }
+            return nil  // suppress release too
+
+        }
+
+        return Unmanaged.passRetained(event)
     }
 
     // MARK: - Fallback: NSEvent global monitor (no Accessibility — no event suppression)
 
     private func startFallbackMonitor() {
-        NSEvent.addGlobalMonitorForEvents(matching: [.keyDown, .keyUp]) { [weak self] event in
+        fallbackMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             guard let self else { return }
-            guard CGKeyCode(event.keyCode) == self.keyCode else { return }
+            // NSEvent uses .function for the Fn modifier flag.
+            let fnNowDown = event.modifierFlags.contains(.function)
 
-            if event.type == .keyDown && !self.isKeyDown {
-                self.isKeyDown = true
+            if fnNowDown && !self.fnIsDown {
+                self.fnIsDown = true
                 self.delegate?.hotkeyDidPress()
-            } else if event.type == .keyUp && self.isKeyDown {
-                self.isKeyDown = false
+            } else if !fnNowDown && self.fnIsDown {
+                self.fnIsDown = false
                 self.delegate?.hotkeyDidRelease()
             }
         }
     }
-}
-
-// MARK: - Helpers
-
-private extension Int {
-    /// Returns nil if self is 0, otherwise self. Used to treat a missing UserDefaults key (0) as absent.
-    var nonZero: Int? { self == 0 ? nil : self }
 }

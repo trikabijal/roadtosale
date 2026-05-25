@@ -66,7 +66,7 @@ public final class AppState: NSObject, ObservableObject {
         do {
             try await transcriptionEngine.loadModel()
             engineLoaded = true
-            statusMessage = "Ready — hold F5 to dictate"
+            statusMessage = "Ready — hold Fn to dictate"
         } catch {
             statusMessage = "Model load failed: \(error.localizedDescription)"
             return
@@ -116,7 +116,7 @@ public final class AppState: NSObject, ObservableObject {
     private func performTranscription(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async {
         defer {
             dictationState = .idle
-            statusMessage = "Ready — hold F5 to dictate"
+            statusMessage = "Ready — hold Fn to dictate"
         }
 
         do {
@@ -188,7 +188,7 @@ public final class AppState: NSObject, ObservableObject {
             do {
                 try await transcriptionEngine.setModelTier(tier)
                 engineLoaded = true
-                statusMessage = "Ready — hold F5 to dictate"
+                statusMessage = "Ready — hold Fn to dictate"
             } catch {
                 statusMessage = "Load failed: \(error.localizedDescription)"
             }
