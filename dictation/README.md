@@ -96,5 +96,5 @@ dictation/
 | Phase | Status | Scope |
 |-------|--------|-------|
 | 1 — Shared foundation | Done | DictationCore package, XcodeGen spec, docs |
-| 2 — macOS app | Pending | Menu bar UI, global hotkey, AX paste |
-| 3 — iOS keyboard | Pending | KeyboardViewController, in-keyboard mic UI |
+| 2 — macOS app | Done | Menu bar UI, F5 global hotkey, clipboard paste, GRDB telemetry |
+| 3 — iOS keyboard | Pending (requires paid Apple Developer Program) | KeyboardViewController, in-keyboard mic UI, App Group SQLite |

@@ -43,7 +43,7 @@ struct MenuBarView: View {
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
 
                 Spacer()
 
