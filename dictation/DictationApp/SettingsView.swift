@@ -315,9 +315,12 @@ final class KeyCaptureNSView: NSView {
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         if window != nil {
-            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handler(event)
-                return event
+            // Guard against re-parenting adding a second monitor (double-fire / leak).
+            if monitor == nil {
+                monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                    self?.handler(event)
+                    return event
+                }
             }
         } else {
             // View removed from window — tear down the monitor

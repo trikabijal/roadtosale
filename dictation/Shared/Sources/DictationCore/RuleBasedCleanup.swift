@@ -89,20 +89,28 @@ enum CleanupText {
         return out
     }
 
+    /// Capitalize the first letter of the text and the first letter after a
+    /// sentence-ending punctuation mark followed by whitespace (or a newline). Matches
+    /// the voice-engine TS reference. Deliberately does NOT capitalize after a period
+    /// that isn't followed by whitespace (e.g. "3.5", "e.g.") to avoid mangling decimals
+    /// and abbreviations.
     static func capitalizeSentences(_ text: String) -> String {
-        var result = ""
-        var capitalizeNext = true
-        for ch in text {
-            if capitalizeNext, ch.isLetter {
-                result.append(contentsOf: ch.uppercased())
-                capitalizeNext = false
-            } else {
-                result.append(ch)
-                if ch == "." || ch == "!" || ch == "?" || ch == "\n" {
-                    capitalizeNext = true
-                }
-            }
+        guard let re = try? NSRegularExpression(pattern: "(^|[.!?]\\s+|\\n+)([a-z])") else {
+            return text
         }
+        let ns = text as NSString
+        var result = ""
+        var last = 0
+        re.enumerateMatches(in: text, range: NSRange(location: 0, length: ns.length)) { match, _, _ in
+            guard let match, match.numberOfRanges == 3 else { return }
+            let sepRange = match.range(at: 1)
+            let letterRange = match.range(at: 2)
+            result += ns.substring(with: NSRange(location: last, length: letterRange.location - last))
+            result += ns.substring(with: letterRange).uppercased()
+            last = letterRange.location + letterRange.length
+            _ = sepRange
+        }
+        result += ns.substring(from: last)
         return result
     }
 

@@ -3,7 +3,17 @@ import CoreGraphics
 
 // MARK: - ClipboardPaster
 
+/// Writes transcripts to the clipboard, pastes them, and restores the user's prior
+/// clipboard. All methods run on the main thread (called from `@MainActor` `AppState`
+/// and from `DispatchQueue.main`), so the mutable bookkeeping below needs no locking.
 final class ClipboardPaster {
+
+    /// Increments on every paste. A scheduled restore only fires if it's still the
+    /// latest paste — so back-to-back dictations don't clobber each other.
+    private var generation = 0
+    /// The user's clipboard captured at the START of a paste burst, restored at the end.
+    private var burstSnapshot: [NSPasteboardItem]?
+    private var restorePending = false
 
     /// Writes `text` to the clipboard and, when `autoPaste` is true, fires a synthetic
     /// ⌘V into the frontmost window — then **restores the user's previous clipboard**
@@ -20,8 +30,14 @@ final class ClipboardPaster {
             return
         }
 
-        // Snapshot the current clipboard before we overwrite it.
-        let saved = snapshot(pasteboard)
+        // Snapshot the user's real clipboard only at the start of a burst — intermediate
+        // transcripts must not become the "saved" contents.
+        if !restorePending {
+            burstSnapshot = snapshot(pasteboard)
+            restorePending = true
+        }
+        generation += 1
+        let myGeneration = generation
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -31,10 +47,13 @@ final class ClipboardPaster {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
             self?.sendCmdV()
 
-            // 200 ms after the paste: the target app has read the pasteboard, so it is
-            // safe to put the user's original contents back.
+            // 200 ms after the paste: the target app has read the pasteboard. Only the
+            // most recent paste restores; superseded ones do nothing.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                self?.restore(saved, to: pasteboard)
+                guard let self, myGeneration == self.generation else { return }
+                self.restore(self.burstSnapshot ?? [], to: pasteboard)
+                self.burstSnapshot = nil
+                self.restorePending = false
             }
         }
     }

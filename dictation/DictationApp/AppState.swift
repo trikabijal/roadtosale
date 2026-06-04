@@ -62,6 +62,10 @@ public final class AppState: NSObject, ObservableObject {
     // Audio buffer accumulation
     private var audioBuffers: [AVAudioPCMBuffer] = []
     private var recordingStartDate: Date?
+    // Frontmost app at the moment recording started — the dictation target. Captured up
+    // front so per-app cleanup + telemetry resolve against the right app even if the user
+    // switches windows during the async transcribe.
+    private var recordingFrontmostApp: String?
 
     // Live HUD preview (E1): a separate tiny model transcribes accumulated audio while
     // recording, for display only. The batch path remains the source of truth.
@@ -70,6 +74,7 @@ public final class AppState: NSObject, ObservableObject {
 
     // Correction window: after a transcript lands, ⌘⇧Z marks it corrected for 5s
     private var correctionWindowTask: Task<Void, Never>?
+    private var correctionWindowOpen = false
 
     // MARK: - Init
 
@@ -167,6 +172,7 @@ public final class AppState: NSObject, ObservableObject {
         guard dictationState == .idle, engineLoaded else { return }
         audioBuffers = []
         recordingStartDate = Date()
+        recordingFrontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         do {
             try recordingEngine.start()
             dictationState = .recording
@@ -231,7 +237,8 @@ public final class AppState: NSObject, ObservableObject {
         guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
 
         let result = try? await preview.transcribe(buffers: buffers, audioStartDate: recordingStartDate ?? Date())
-        if let text = result?.text, dictationState == .recording {
+        // Ignore a result that arrives after the loop was cancelled (recording ended).
+        if let text = result?.text, !Task.isCancelled, dictationState == .recording {
             recordingHUD.update(previewText: text)
         }
     }
@@ -251,9 +258,9 @@ public final class AppState: NSObject, ObservableObject {
             let rawText = result.text
             guard !rawText.isEmpty else { return }
 
-            // The target app is still frontmost (global hotkey doesn't steal focus).
-            // Resolve the effective cleanup level — per-app overrides win over the global.
-            let frontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            // Resolve the effective cleanup level against the app that was frontmost when
+            // recording started — per-app overrides win over the global.
+            let frontmostApp = recordingFrontmostApp
             let level = effectiveLevel(forBundleId: frontmostApp)
 
             // Cleanup pass (the Wispr brain). Skipped when level is off or the clip is
@@ -309,8 +316,12 @@ public final class AppState: NSObject, ObservableObject {
 
             // Open 5-second correction window
             correctionWindowTask?.cancel()
-            correctionWindowTask = Task {
-                try? await Task.sleep(for: .seconds(5))
+            correctionWindowOpen = true
+            correctionWindowTask = Task { [weak self] in
+                // On cancel (a newer transcript opened its own window), bail without
+                // closing — the new window owns the flag. Only natural expiry closes it.
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                self?.correctionWindowOpen = false
             }
 
         } catch TranscriptionError.emptyResult {
@@ -327,7 +338,7 @@ public final class AppState: NSObject, ObservableObject {
 
     func markLastTranscriptCorrected() {
         // Only honour within the 5-second correction window
-        guard let task = correctionWindowTask, !task.isCancelled else { return }
+        guard correctionWindowOpen else { return }
         guard let record = recentTranscripts.first else { return }
         Task {
             try? await telemetryStore?.markCorrected(id: record.id, note: nil)
@@ -356,18 +367,23 @@ public final class AppState: NSObject, ObservableObject {
         Task {
             do {
                 try await transcriber.load { [weak self] fraction in
-                    guard let self else { return }
+                    // Ignore progress from a superseded switch.
+                    guard let self, self.sttConfig == config else { return }
                     if fraction < 1.0 {
                         self.statusMessage = "Downloading \(modelName)… \(Int(fraction * 100))%"
                     } else {
                         self.statusMessage = "Loading \(modelName)…"
                     }
                 }
+                // A newer setSTTConfig may have superseded this one mid-load — don't
+                // stomp its state.
+                guard sttConfig == config else { return }
                 engineLoaded = transcriber.isLoaded
                 statusMessage = engineLoaded
                     ? "Ready — hold Fn to dictate"
                     : "\(config.provider.displayName) unavailable"
             } catch {
+                guard sttConfig == config else { return }
                 statusMessage = "Load failed: \(error.localizedDescription)"
             }
         }

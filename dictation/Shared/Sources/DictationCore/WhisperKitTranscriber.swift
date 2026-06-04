@@ -160,18 +160,18 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
     // MARK: - Hallucination filter
 
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
-    static let silenceFloor: Float = 0.02
+    nonisolated static let silenceFloor: Float = 0.02
 
     /// Known WhisperKit silence/no-speech hallucinations, normalized. NOTE: candidate for
     /// the portable cleanup data-pack (PRD 0004 FR-B0) — keep it data-shaped.
-    static let junkPhrases: Set<String> = [
+    nonisolated static let junkPhrases: Set<String> = [
         "thank you", "thanks", "thank you for watching", "thanks for watching",
         "please subscribe", "you", "bye", "okay", "uh", "um", ".",
     ]
 
     /// Pure, testable: true when the transcript looks like a phantom phrase rather than
     /// real dictation. Only fires on short clips so genuine short answers survive.
-    static func isLikelyHallucination(text: String, confidence: Double, durationMs: Int) -> Bool {
+    nonisolated static func isLikelyHallucination(text: String, confidence: Double, durationMs: Int) -> Bool {
         let normalized = text
             .lowercased()
             .trimmingCharacters(in: CharacterSet(charactersIn: " .,!?\n"))

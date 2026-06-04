@@ -75,7 +75,7 @@ final class RecordingHUD {
     }
 
     private func position(_ panel: NSPanel) {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let visible = screen.visibleFrame
         let size = panel.frame.size
         panel.setFrameOrigin(NSPoint(

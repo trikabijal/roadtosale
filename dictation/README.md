@@ -6,7 +6,7 @@ Two model layers, both swappable behind a contract (`{provider, model}`):
 - **Speech-to-text** — `SpeechTranscriber` (WhisperKit today; Apple SpeechTranscriber next).
 - **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
 
-Two shipping targets: a macOS menu bar app (DictationApp) and an iOS custom keyboard extension (DictationKeyboard + DictationContainerApp). All three targets share the DictationCore Swift package for recording, transcription, cleanup, and telemetry.
+Two shipping targets: a macOS menu bar app (DictationApp) and an iOS custom keyboard extension (DictationKeyboard + DictationContainerApp). All three targets share the DictationCore Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is wired into the macOS app today; the iOS keyboard (Phase 3) currently inserts raw transcription and will adopt the same cleanup engine when that phase ships.
 
 ---
 
