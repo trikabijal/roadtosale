@@ -100,6 +100,46 @@ contract reuse 100%; prompt data is profile-specific but same format.
 
 ---
 
+## 2.6 Two pluggable contracts: STT and Cleanup (model-agnostic)
+
+There are **two** swappable model layers, and **both** sit behind a contract so we can
+call whichever model we want, chosen by config at runtime:
+
+| Contract | Abstracts | Implementations |
+|----------|-----------|-----------------|
+| `SpeechTranscriber` | the voice-understanding (STT) model | WhisperKit (now), Apple SpeechTranscriber, Argmax, sherpa-onnx, mock |
+| `TextCleanup` | the cleanup LLM | Apple Foundation Models, rule-based, local MLX/llama.cpp (future) |
+
+**This is not new architecture** — `voice-engine/` is already strategy-based for STT.
+The Mac app currently bypasses that and hardcodes WhisperKit inside
+`TranscriptionEngine`. This PRD brings the Mac app onto the same contract.
+
+**Configurable = `{provider, model}` selector per contract**, persisted in
+`UserDefaults` and exposed in Settings (two provider+model pickers), with a factory that
+builds the chosen implementation. `AppState` composes both via factories rather than
+constructing WhisperKit directly. Hot-swap follows the existing `setModelTier` pattern.
+
+```swift
+protocol SpeechTranscriber: AnyObject {
+    var isLoaded: Bool { get }
+    func load(onProgress: (@MainActor (Double) -> Void)?) async throws
+    func transcribe(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async throws -> TranscriptionResult
+}
+enum STTProvider: String, CaseIterable { case whisperKit, appleSpeech, mock }
+
+protocol TextCleanup {
+    func clean(_ text: String, level: CleanupLevel,
+               vocab: [String: String], grammar: CommandGrammar) async -> CleanupResult
+}
+enum CleanupProvider: String, CaseIterable { case foundationModels, ruleBased }
+```
+
+Both contracts are authored canonically in `voice-engine/` (language-neutral) and
+implemented natively per platform — so iOS/Android implement the *same two contracts*
+with their own engines (Apple Speech / Foundation Models, Argmax / Gemini Nano).
+
+---
+
 ## 3. Supersedes from PRD 0003
 
 PRD 0003 declared these non-goals. Daily-driver use reverses them:
@@ -165,11 +205,19 @@ gracefully where Foundation Models is unavailable.
 - **FR-A3** Hallucination filter: drop results that are empty, below a confidence floor on short audio, or match a known-junk phrase list ("thank you", "thanks for watching", etc.) when audio was effectively silent.
 - **FR-A4** Model-download progress: surface WhisperKit first-run download progress (%) in the menu bar status.
 
+### FR-S — Pluggable contracts (Phase B prerequisite)
+- **FR-S1** `SpeechTranscriber` protocol; refactor `TranscriptionEngine` into a
+  `WhisperKitTranscriber` implementation behind it. `mock` implementation for tests.
+- **FR-S2** `STTProvider` + `STTConfig {provider, model}`, persisted; factory builds the
+  selected transcriber. `AppState` composes via factory.
+- **FR-S3** Settings: STT provider + model pickers (today: WhisperKit + tier).
+- **FR-S4** Symmetry: `TextCleanup` gets the same `{provider, model}` config + factory.
+
 ### FR-B — AI cleanup (Phase B)
-- **FR-B0** Portable layer (authored in `voice-engine/`): the `TextCleanup` contract, the
-  data-pack schema (prompts per level, filler list, command grammar, vocab map,
-  junk-phrase list, thresholds), the `dictation` profile pack, and the cross-platform
-  telemetry schema. This is what iOS/Android reuse.
+- **FR-B0** Portable layer (authored in `voice-engine/`): the `SpeechTranscriber` and
+  `TextCleanup` contracts, the cleanup data-pack schema (prompts per level, filler list,
+  command grammar, vocab map, junk-phrase list, thresholds), the `dictation` profile
+  pack, and the cross-platform telemetry schema. This is what iOS/Android reuse.
 - **FR-B1** `TextCleanup` protocol + `FoundationModelsCleanup` + `RuleBasedCleanup` fallback in `DictationCore`, loading the data pack from FR-B0 (no cleanup knowledge hardcoded in Swift).
 - **FR-B2** Cleanup wired into `AppState.performTranscription` between transcribe and paste.
 - **FR-B3** Settings control for intensity (Off / Light / Full), persisted; default Full.

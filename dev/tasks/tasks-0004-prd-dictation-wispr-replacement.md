@@ -23,14 +23,22 @@ All paths relative to `dictation/`.
   - [x] Split one-shot init into `WhisperKit.download(...progressCallback:)` → load; surface % in the status message.
 - [x] **A — commit:** `fix(dictation): preserve clipboard, self-heal hotkey, filter hallucinations, show model progress`
 
+## Phase B0 — Pluggable contracts (model-agnostic STT + Cleanup)
+
+- [x] **S1 — `SpeechTranscriber` protocol** — `SpeechTranscriber.swift` (protocol + provider/config/factory + `MockTranscriber` + `UnavailableTranscriber`); WhisperKit moved to `WhisperKitTranscriber.swift`. Result is now provider-agnostic (`provider` + `model`).
+- [x] **S2 — STT provider config + factory** — `STTProvider`, `STTConfig {provider, model}` persisted (legacy `modelTier` migrated); `SpeechTranscriberFactory.make`; `AppState` composes via factory + `setSTTConfig`.
+- [x] **S3 — Settings: STT provider + model pickers** (WhisperKit + tier live; appleSpeech shown "coming soon").
+- [x] **B0 — Portable contracts** (in `voice-engine/`)
+  - [x] `TextCleanup` contract authored: `src/cleanup/{types,base,registry,rule-based}.ts` + exports + 6 tests; `docs/model-contracts.md` documents both STT + cleanup contracts, `{provider,model}` config, platform matrix, telemetry schema.
+  - [x] `rule-based` reference fallback implementation (cross-platform behavior spec).
+  - [ ] Cleanup data-pack YAML (prompts per level, filler list, command grammar, vocab, junk list, thresholds) — **deferred to B1** (authored alongside the Swift engine that loads it).
+  - [ ] `dictation` profile pack — deferred to B1. Telemetry schema documented; freeze in B4.
+
 ## Phase B — The Wispr brain (on-device AI cleanup)
 
-- [ ] **B0 — Portable contract + data pack** (in `voice-engine/`, NOT in the Mac app)
-  - [ ] Define the `TextCleanup` contract (language-neutral doc + TS facade types).
-  - [ ] Data-pack schema (YAML/JSON): prompts per level, filler list, command grammar, vocab map, junk-phrase list, thresholds.
-  - [ ] Author the `dictation` profile pack (first profile; `road-to-sale` profile deferred to RTS work).
-  - [ ] Freeze the cross-platform telemetry schema (raw · cleaned · level · was_corrected · latency · confidence · frontmost_app · failure_tags).
-- [ ] **B1 — TextCleanup protocol + engines** (`Shared/Sources/DictationCore/CleanupEngine.swift`), loading the FR-B0 pack — no cleanup knowledge hardcoded in Swift.
+- [ ] **B1 — TextCleanup protocol + engines + provider config** (`Shared/Sources/DictationCore/CleanupEngine.swift`)
+  - [ ] `CleanupProvider` enum + `CleanupConfig {provider, model, level}` persisted; `TextCleanupFactory.make(config)`.
+  - [ ] `FoundationModelsCleanup` + `RuleBasedCleanup` fallback, loading the FR-B0 pack — no cleanup knowledge hardcoded in Swift.
   - [ ] `protocol TextCleanup { func clean(_ text:String, level:CleanupLevel) async -> String }`.
   - [ ] `FoundationModelsCleanup` (`import FoundationModels`) with conservative prompt per level.
   - [ ] `RuleBasedCleanup` fallback (filler regex, capitalization, command-word substitution).
@@ -70,7 +78,7 @@ All paths relative to `dictation/`.
 ## Order
 
 ```
-A (sequential A1→A4)  →  B  →  C (C1–C4 parallelizable)  →  D  →  [E optional]
+A (done)  →  B0 (contracts: STT + cleanup)  →  B (cleanup brain)  →  C (C1–C4 parallelizable)  →  D  →  [E optional]
 ```
 
 ## Definition of done — see PRD 0004 §9.

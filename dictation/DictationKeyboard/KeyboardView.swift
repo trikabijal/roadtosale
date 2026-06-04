@@ -152,7 +152,7 @@ struct KeyboardView: View {
                     viewModel.markLastCorrected()
                 } label: {
                     Image(systemName: viewModel.lastWasCorrected ? "xmark.circle.fill" : "xmark.circle")
-                        .foregroundStyle(viewModel.lastWasCorrected ? .orange : .tertiary)
+                        .foregroundStyle(viewModel.lastWasCorrected ? AnyShapeStyle(.orange) : AnyShapeStyle(.tertiary))
                 }
                 .buttonStyle(.plain)
             }

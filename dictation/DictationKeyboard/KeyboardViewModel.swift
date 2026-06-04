@@ -21,8 +21,9 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
     var deleteBackCallback: (() -> Void)?
 
     private let recordingEngine = RecordingEngine()
-    // tinyEn — ~40MB, fits iOS keyboard extension memory budget (~50MB active)
-    private let transcriptionEngine = TranscriptionEngine(modelTier: .tinyEn)
+    // tinyEn — ~40MB, fits iOS keyboard extension memory budget (~50MB active).
+    // WhisperKit is one implementation of the SpeechTranscriber contract.
+    private let transcriber: any SpeechTranscriber = WhisperKitTranscriber(modelTier: .tinyEn)
     private var telemetryStore: TelemetryStore?
 
     private var audioBuffers: [AVAudioPCMBuffer] = []
@@ -45,8 +46,8 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
         }
 
         do {
-            try await transcriptionEngine.loadModel()
-            engineLoaded = true
+            try await transcriber.load()
+            engineLoaded = transcriber.isLoaded
             statusMessage = "Tap mic to dictate"
         } catch {
             statusMessage = "Model load failed"
@@ -106,7 +107,7 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
         }
 
         do {
-            let result = try await transcriptionEngine.transcribe(buffers: buffers, audioStartDate: audioStartDate)
+            let result = try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
             guard !result.text.isEmpty else { return }
 
             // Insert into the text field
@@ -121,7 +122,7 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
                 transcriptText: result.text,
                 whisperkitConfidence: result.confidence,
                 latencyMs: result.latencyMs,
-                modelTier: result.modelTier.rawValue
+                modelTier: "\(result.provider.rawValue)/\(result.model)"
             )
             try? await telemetryStore?.save(record)
 

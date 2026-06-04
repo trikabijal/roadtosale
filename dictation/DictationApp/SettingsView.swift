@@ -27,20 +27,41 @@ struct SettingsView: View {
                 ))
             }
 
-            // MARK: Model section
-            Section("Model") {
-                Picker("WhisperKit model", selection: Binding(
-                    get: {
-                        ModelTier(rawValue: UserDefaults.standard.string(forKey: "modelTier") ?? "")
-                            ?? .largeV3Turbo
-                    },
-                    set: { appState.setModelTier($0) }
+            // MARK: Speech-to-text section
+            Section("Speech-to-text") {
+                // Provider — the voice-understanding model, swappable behind a contract.
+                Picker("Provider", selection: Binding(
+                    get: { appState.sttConfig.provider },
+                    set: { newProvider in
+                        let model = newProvider == .whisperKit
+                            ? (ModelTier(rawValue: appState.sttConfig.model)?.rawValue
+                               ?? ModelTier.largeV3Turbo.rawValue)
+                            : "default"
+                        appState.setSTTConfig(STTConfig(provider: newProvider, model: model))
+                    }
                 )) {
-                    ForEach(ModelTier.allCases, id: \.self) { tier in
-                        Text(tier.displayName).tag(tier)
+                    ForEach(STTProvider.selectable, id: \.self) { provider in
+                        Text(provider.isAvailable
+                             ? provider.displayName
+                             : "\(provider.displayName) — coming soon")
+                            .tag(provider)
                     }
                 }
-                .pickerStyle(.radioGroup)
+
+                // Model — only WhisperKit exposes selectable tiers today.
+                if appState.sttConfig.provider == .whisperKit {
+                    Picker("Model", selection: Binding(
+                        get: { ModelTier(rawValue: appState.sttConfig.model) ?? .largeV3Turbo },
+                        set: { tier in
+                            appState.setSTTConfig(STTConfig(provider: .whisperKit, model: tier.rawValue))
+                        }
+                    )) {
+                        ForEach(ModelTier.allCases, id: \.self) { tier in
+                            Text(tier.displayName).tag(tier)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                }
 
                 if !appState.engineLoaded {
                     HStack(spacing: 6) {

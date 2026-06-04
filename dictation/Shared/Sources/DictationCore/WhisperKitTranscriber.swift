@@ -1,7 +1,7 @@
 import AVFoundation
 import WhisperKit
 
-// MARK: - Types
+// MARK: - WhisperKit model tiers
 
 public enum ModelTier: String, CaseIterable, Sendable {
     /// ~40 MB — fits in iOS keyboard extension memory limit
@@ -24,56 +24,39 @@ public enum ModelTier: String, CaseIterable, Sendable {
     }
 }
 
-public struct TranscriptionResult: Sendable {
-    public let text: String
-    public let confidence: Double     // 0.0–1.0, average segment log-prob converted
-    public let audioDurationMs: Int
-    public let latencyMs: Int
-    public let modelTier: ModelTier
-}
+// MARK: - WhisperKit implementation of SpeechTranscriber
 
-// MARK: - Engine
-
+/// On-device WhisperKit transcriber. One implementation of the `SpeechTranscriber`
+/// contract — selected via `STTProvider.whisperKit`.
 @MainActor
-public final class TranscriptionEngine: ObservableObject {
+public final class WhisperKitTranscriber: SpeechTranscriber {
 
-    @Published public private(set) var isLoaded = false
-    @Published public private(set) var isTranscribing = false
-    @Published public private(set) var modelTier: ModelTier
-    /// First-run model download progress, 0.0–1.0. 1.0 once the model is local.
-    @Published public private(set) var downloadProgress: Double = 0
+    public private(set) var isLoaded = false
+    public let modelTier: ModelTier
 
     private var whisperKit: WhisperKit?
     private var loadTask: Task<Void, Error>?
 
-    public init(modelTier: ModelTier = .baseEn) {
+    public init(modelTier: ModelTier = .largeV3Turbo) {
         self.modelTier = modelTier
     }
 
-    // MARK: - Public
+    // MARK: - Load
 
-    /// Downloads (first run only) and loads the current model.
-    /// `onProgress` reports download completion fraction (0.0–1.0) on the main actor —
-    /// the large models are ~150 MB–1 GB, so the first launch needs visible progress.
-    public func loadModel(onProgress: (@MainActor (Double) -> Void)? = nil) async throws {
+    /// Downloads (first run only) and loads the model. `onProgress` reports download
+    /// completion fraction (0.0–1.0) on the main actor — the large models are
+    /// ~150 MB–1 GB, so the first launch needs visible progress.
+    public func load(onProgress: (@MainActor (Double) -> Void)? = nil) async throws {
         isLoaded = false
-        downloadProgress = 0
-        // Cancel any in-flight load
         loadTask?.cancel()
         let tier = modelTier
         loadTask = Task {
-            // 1. Fetch the model files (returns immediately from cache on later runs).
+            // 1. Fetch model files (returns immediately from cache on later runs).
             let modelFolder = try await WhisperKit.download(variant: tier.rawValue) { progress in
-                Task { @MainActor in
-                    self.downloadProgress = progress.fractionCompleted
-                    onProgress?(progress.fractionCompleted)
-                }
+                Task { @MainActor in onProgress?(progress.fractionCompleted) }
             }
             if Task.isCancelled { return }
-            await MainActor.run {
-                self.downloadProgress = 1.0
-                onProgress?(1.0)
-            }
+            onProgress?(1.0)
 
             // 2. Load from the local folder (no re-download). Pass the variant name too
             //    so WhisperKit selects the matching tokenizer.
@@ -91,12 +74,8 @@ public final class TranscriptionEngine: ObservableObject {
         try await loadTask!.value
     }
 
-    public func setModelTier(_ tier: ModelTier, onProgress: (@MainActor (Double) -> Void)? = nil) async throws {
-        modelTier = tier
-        try await loadModel(onProgress: onProgress)
-    }
+    // MARK: - Transcribe
 
-    /// Transcribe accumulated audio buffers. audioStartDate is when recording began.
     public func transcribe(
         buffers: [AVAudioPCMBuffer],
         audioStartDate: Date
@@ -104,9 +83,6 @@ public final class TranscriptionEngine: ObservableObject {
         guard let wk = whisperKit else {
             throw TranscriptionError.modelNotLoaded
         }
-
-        isTranscribing = true
-        defer { isTranscribing = false }
 
         let transcribeStart = Date()
 
@@ -133,22 +109,20 @@ public final class TranscriptionEngine: ObservableObject {
         }
 
         let results = try await wk.transcribe(audioArray: samples)
-        let transcribeEnd = Date()
-        let latencyMs = Int(transcribeEnd.timeIntervalSince(transcribeStart) * 1000)
+        let latencyMs = Int(Date().timeIntervalSince(transcribeStart) * 1000)
 
-        // transcribe(audioArray:) returns [TranscriptionResult] (non-optional) in WhisperKit 0.9+
         guard let first = results.first else {
             throw TranscriptionError.emptyResult
         }
 
-        // Compute confidence: average exp(avgLogprob) across segments
+        // Confidence: average exp(avgLogprob) across segments
         let confidence: Double
         let segs = results.flatMap { $0.segments }
         if !segs.isEmpty {
             let avgLogProb = segs.reduce(0.0) { $0 + Double($1.avgLogprob) } / Double(segs.count)
             confidence = max(0, min(1, exp(avgLogProb)))
         } else {
-            confidence = 0.5 // fallback if segments not available
+            confidence = 0.5
         }
 
         let text = first.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
@@ -163,50 +137,31 @@ public final class TranscriptionEngine: ObservableObject {
             confidence: confidence,
             audioDurationMs: audioDurationMs,
             latencyMs: latencyMs,
-            modelTier: modelTier
+            provider: .whisperKit,
+            model: modelTier.rawValue
         )
     }
 
     // MARK: - Hallucination filter
 
-    /// RMS/peak below this counts as silence (≈ -34 dBFS). Tuned conservatively so real
-    /// quiet speech still transcribes.
+    /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
     static let silenceFloor: Float = 0.02
 
-    /// Known WhisperKit silence/no-speech hallucinations, normalized (lowercased, no
-    /// trailing punctuation). NOTE: this list is a candidate for the portable cleanup
-    /// data-pack (PRD 0004 FR-B0) — keep it data-shaped so it can move to `voice-engine/`.
+    /// Known WhisperKit silence/no-speech hallucinations, normalized. NOTE: candidate for
+    /// the portable cleanup data-pack (PRD 0004 FR-B0) — keep it data-shaped.
     static let junkPhrases: Set<String> = [
         "thank you", "thanks", "thank you for watching", "thanks for watching",
         "please subscribe", "you", "bye", "okay", "uh", "um", ".",
     ]
 
     /// Pure, testable: true when the transcript looks like a phantom phrase rather than
-    /// real dictation. Only fires on short clips so we never drop genuine short answers
-    /// that happen to be high-confidence.
+    /// real dictation. Only fires on short clips so genuine short answers survive.
     static func isLikelyHallucination(text: String, confidence: Double, durationMs: Int) -> Bool {
         let normalized = text
             .lowercased()
             .trimmingCharacters(in: CharacterSet(charactersIn: " .,!?\n"))
         guard !normalized.isEmpty else { return true }
         guard junkPhrases.contains(normalized) else { return false }
-        // It's a junk phrase — drop it on short and/or low-confidence clips.
         return durationMs < 1500 || confidence < 0.5
-    }
-}
-
-// MARK: - Errors
-
-public enum TranscriptionError: Error, LocalizedError {
-    case modelNotLoaded
-    case noAudioData
-    case emptyResult
-
-    public var errorDescription: String? {
-        switch self {
-        case .modelNotLoaded: return "WhisperKit model is not loaded yet."
-        case .noAudioData: return "No audio was recorded."
-        case .emptyResult: return "Transcription returned no text."
-        }
     }
 }

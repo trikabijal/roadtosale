@@ -27,3 +27,22 @@ export {
   MicPermissionError,
   NotImplementedError,
 } from './types/index.js';
+
+// --- TextCleanup contract (second configurable model layer: the cleanup LLM) ---
+export type { CleanupStrategy } from './cleanup/base.js';
+export { RuleBasedCleanupStrategy } from './cleanup/rule-based.js';
+export {
+  registerCleanupStrategy,
+  unregisterCleanupStrategy,
+  getCleanupStrategy,
+  listCleanupStrategies,
+  bootstrapDefaultCleanupStrategies,
+} from './cleanup/registry.js';
+export type {
+  CleanupLevel,
+  CleanupRequest,
+  CleanupResult,
+  CommandGrammar,
+  VocabMap,
+} from './cleanup/types.js';
+export { CleanupError } from './cleanup/types.js';

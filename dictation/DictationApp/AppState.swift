@@ -22,11 +22,12 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var engineLoaded: Bool = false
     @Published public var statusMessage: String = "Ready"
     @Published public var autoPaste: Bool = true
+    @Published public private(set) var sttConfig: STTConfig = .default
 
     // MARK: - Engines
 
     private let recordingEngine = RecordingEngine()
-    private let transcriptionEngine: TranscriptionEngine
+    private var transcriber: any SpeechTranscriber
     private let clipboardPaster = ClipboardPaster()
     private var telemetryStore: TelemetryStore?
     private var hotkeyManager: HotkeyManager?
@@ -41,9 +42,15 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Init
 
     public override init() {
-        let tier = ModelTier(rawValue: UserDefaults.standard.string(forKey: "modelTier") ?? "") ?? .largeV3Turbo
-        self.transcriptionEngine = TranscriptionEngine(modelTier: tier)
-        self.autoPaste = UserDefaults.standard.object(forKey: "autoPaste") as? Bool ?? true
+        let defaults = UserDefaults.standard
+        let provider = STTProvider(rawValue: defaults.string(forKey: "sttProvider") ?? "") ?? .whisperKit
+        let model = defaults.string(forKey: "sttModel")
+            ?? defaults.string(forKey: "modelTier")          // legacy key from PRD 0003
+            ?? ModelTier.largeV3Turbo.rawValue
+        let config = STTConfig(provider: provider, model: model)
+        self.sttConfig = config
+        self.transcriber = SpeechTranscriberFactory.make(config)
+        self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         super.init()
         recordingEngine.delegate = self
 
@@ -61,19 +68,19 @@ public final class AppState: NSObject, ObservableObject {
             return
         }
 
-        // 2. Load WhisperKit model (downloads on first run — show progress)
-        let tierName = transcriptionEngine.modelTier.displayName
-        statusMessage = "Preparing \(tierName) model…"
+        // 2. Load the speech model (downloads on first run — show progress)
+        let modelName = sttConfig.modelDisplayName
+        statusMessage = "Preparing \(modelName)…"
         do {
-            try await transcriptionEngine.loadModel { [weak self] fraction in
+            try await transcriber.load { [weak self] fraction in
                 guard let self else { return }
                 if fraction < 1.0 {
-                    self.statusMessage = "Downloading \(tierName)… \(Int(fraction * 100))%"
+                    self.statusMessage = "Downloading \(modelName)… \(Int(fraction * 100))%"
                 } else {
-                    self.statusMessage = "Loading \(tierName)…"
+                    self.statusMessage = "Loading \(modelName)…"
                 }
             }
-            engineLoaded = true
+            engineLoaded = transcriber.isLoaded
             statusMessage = "Ready — hold Fn to dictate"
         } catch {
             statusMessage = "Model load failed: \(error.localizedDescription)"
@@ -128,7 +135,7 @@ public final class AppState: NSObject, ObservableObject {
         }
 
         do {
-            let result = try await transcriptionEngine.transcribe(buffers: buffers, audioStartDate: audioStartDate)
+            let result = try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
 
             guard !result.text.isEmpty else { return }
 
@@ -144,7 +151,7 @@ public final class AppState: NSObject, ObservableObject {
                 transcriptText: result.text,
                 whisperkitConfidence: result.confidence,
                 latencyMs: result.latencyMs,
-                modelTier: result.modelTier.rawValue,
+                modelTier: "\(result.provider.rawValue)/\(result.model)",
                 frontmostApp: frontmostApp
             )
 
@@ -188,22 +195,33 @@ public final class AppState: NSObject, ObservableObject {
 
     // MARK: - Settings
 
-    func setModelTier(_ tier: ModelTier) {
-        UserDefaults.standard.set(tier.rawValue, forKey: "modelTier")
+    /// Switch STT provider and/or model. Persists the choice, rebuilds the transcriber
+    /// via the factory, and reloads with progress.
+    func setSTTConfig(_ config: STTConfig) {
+        guard config != sttConfig else { return }
+        sttConfig = config
+        let defaults = UserDefaults.standard
+        defaults.set(config.provider.rawValue, forKey: "sttProvider")
+        defaults.set(config.model, forKey: "sttModel")
+
         engineLoaded = false
-        statusMessage = "Preparing \(tier.displayName)…"
+        transcriber = SpeechTranscriberFactory.make(config)
+        let modelName = config.modelDisplayName
+        statusMessage = "Preparing \(modelName)…"
         Task {
             do {
-                try await transcriptionEngine.setModelTier(tier) { [weak self] fraction in
+                try await transcriber.load { [weak self] fraction in
                     guard let self else { return }
                     if fraction < 1.0 {
-                        self.statusMessage = "Downloading \(tier.displayName)… \(Int(fraction * 100))%"
+                        self.statusMessage = "Downloading \(modelName)… \(Int(fraction * 100))%"
                     } else {
-                        self.statusMessage = "Loading \(tier.displayName)…"
+                        self.statusMessage = "Loading \(modelName)…"
                     }
                 }
-                engineLoaded = true
-                statusMessage = "Ready — hold Fn to dictate"
+                engineLoaded = transcriber.isLoaded
+                statusMessage = engineLoaded
+                    ? "Ready — hold Fn to dictate"
+                    : "\(config.provider.displayName) unavailable"
             } catch {
                 statusMessage = "Load failed: \(error.localizedDescription)"
             }
