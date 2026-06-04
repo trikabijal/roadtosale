@@ -25,6 +25,7 @@
 		A5D121B36BAEB3746F99F1CC /* RecordingHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0D7BCBCC11B04BED7F80D6 /* RecordingHUD.swift */; };
 		B23F39A534E5CA7E7F2F0654 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32027EE74DAEBC2941119213 /* MenuBarView.swift */; };
 		BFFAE8079D85E8343BC2CB69 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F025B2FC9418006328C9828 /* Assets.xcassets */; };
+		C71C111C0C05BB9AD26D5E33 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07516F34C7DC680386D2DEBF /* HistoryView.swift */; };
 		D1B0DB7869A88C834B38C4C2 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA16F718EAE03DD7AB9DD43 /* AppState.swift */; };
 /* End PBXBuildFile section */
 
@@ -54,6 +55,7 @@
 
 /* Begin PBXFileReference section */
 		01890624510CD275A4C30EB4 /* KeyboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewModel.swift; sourceTree = "<group>"; };
+		07516F34C7DC680386D2DEBF /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		15307C3865CB6707DF19534D /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
 		2BEDE44D29C8252B3214EAD7 /* DictationApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DictationApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32027EE74DAEBC2941119213 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
@@ -127,6 +129,7 @@
 				F893381EA572620312F7A2AA /* ClipboardPaster.swift */,
 				FF872B27AD0C32469AE69D86 /* DictationApp.entitlements */,
 				888388B0B045E88481C1043B /* DictationApp.swift */,
+				07516F34C7DC680386D2DEBF /* HistoryView.swift */,
 				6C601E327CB04D74E5AD1C9A /* HotkeyManager.swift */,
 				AC198E3C20403986C286C56F /* Info.plist */,
 				6A656F57CB9A3B48DF6FC115 /* LoginItem.swift */,
@@ -333,6 +336,7 @@
 				D1B0DB7869A88C834B38C4C2 /* AppState.swift in Sources */,
 				03AE99BDB8D97E6C1E2AAAA9 /* ClipboardPaster.swift in Sources */,
 				914EA6A02DC3169EC75C21A6 /* DictationApp.swift in Sources */,
+				C71C111C0C05BB9AD26D5E33 /* HistoryView.swift in Sources */,
 				5C3A024A857271A7DB5CFCFB /* HotkeyManager.swift in Sources */,
 				48C088A41988BBDAC9CE27CC /* LoginItem.swift in Sources */,
 				B23F39A534E5CA7E7F2F0654 /* MenuBarView.swift in Sources */,

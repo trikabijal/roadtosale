@@ -129,6 +129,14 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // MARK: Per-app cleanup section
+            Section("Per-App Cleanup") {
+                AppProfilesEditor()
+                Text("Override the cleanup level for specific apps — e.g. Off in your terminal or code editor.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             // MARK: Custom vocabulary section
             Section("Custom Vocabulary") {
                 VocabularyEditor()
@@ -162,6 +170,67 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+}
+
+// MARK: - AppProfilesEditor
+
+/// Map specific apps to a cleanup level override. New overrides default to Off
+/// (the common case: don't rewrite commands/code in a terminal or editor).
+struct AppProfilesEditor: View {
+    @EnvironmentObject var appState: AppState
+
+    private var runningApps: [NSRunningApplication] {
+        NSWorkspace.shared.runningApplications
+            .filter { $0.activationPolicy == .regular && $0.bundleIdentifier != nil }
+            .sorted { ($0.localizedName ?? "") < ($1.localizedName ?? "") }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Menu("Add app…") {
+                ForEach(runningApps, id: \.bundleIdentifier) { app in
+                    Button(app.localizedName ?? app.bundleIdentifier ?? "App") {
+                        appState.setAppProfile(
+                            bundleId: app.bundleIdentifier ?? "",
+                            name: app.localizedName ?? app.bundleIdentifier ?? "App",
+                            level: .off
+                        )
+                    }
+                }
+            }
+            .fixedSize()
+
+            if appState.appProfiles.isEmpty {
+                Text("No per-app overrides")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(appState.appProfiles) { profile in
+                    HStack {
+                        Text(profile.name).lineLimit(1)
+                        Spacer()
+                        Picker("", selection: Binding(
+                            get: { profile.level },
+                            set: { appState.setAppProfile(bundleId: profile.bundleId, name: profile.name, level: $0) }
+                        )) {
+                            ForEach(CleanupLevel.allCases, id: \.self) { level in
+                                Text(level.displayName).tag(level)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+
+                        Button {
+                            appState.removeAppProfile(bundleId: profile.bundleId)
+                        } label: {
+                            Image(systemName: "minus.circle.fill").foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -64,9 +64,15 @@ All paths relative to `dictation/`.
 
 ## Phase E — Optional polish (post-cancel)
 
-- [ ] Streaming partial transcripts.
-- [ ] Per-app formatting profiles.
-- [ ] Dictation history search / re-paste.
+- [ ] **E1 — Streaming partial transcripts** — DEFERRED pending decision: reworks the core
+  batch pipeline (can't be validated without an on-device run); benefit is mostly live HUD
+  feedback since cleanup needs the full utterance. Awaiting user choice of approach.
+- [x] **E2 — Per-app cleanup profiles** — `AppCleanupProfile` (bundleId→level), persisted;
+  `effectiveLevel(forBundleId:)` resolves per-app override over global at transcribe time;
+  Settings `AppProfilesEditor` (add running app, level picker, remove).
+- [x] **E3 — History search / re-paste** — `TelemetryStore.search(matching:)`;
+  `HistoryView` Window (searchable list, copy-to-clipboard re-paste); "History" menu-bar button.
+- [x] **E (E2+E3) — commit:** `feat(dictation): per-app cleanup profiles + searchable history`
 
 ---
 

@@ -5,6 +5,7 @@ import DictationCore
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,6 +42,13 @@ struct MenuBarView: View {
             HStack {
                 Button("Settings") {
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+
+                Button("History") {
+                    openWindow(id: "history")
+                    NSApp.activate(ignoringOtherApps: true)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)

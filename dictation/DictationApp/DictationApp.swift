@@ -18,6 +18,12 @@ struct DictationApp: App {
             SettingsView()
                 .environmentObject(appState)
         }
+
+        Window("Dictation History", id: "history") {
+            HistoryView()
+                .environmentObject(appState)
+        }
+        .windowResizability(.contentSize)
     }
 }
 

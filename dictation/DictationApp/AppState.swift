@@ -19,6 +19,14 @@ public enum HotkeyMode: String, CaseIterable {
     }
 }
 
+/// Per-app cleanup override: e.g. turn cleanup Off in code editors/terminals.
+public struct AppCleanupProfile: Codable, Identifiable, Equatable {
+    public var bundleId: String
+    public var name: String
+    public var level: CleanupLevel
+    public var id: String { bundleId }
+}
+
 // MARK: - AppState
 
 @MainActor
@@ -38,6 +46,7 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var hotkeyMode: HotkeyMode = .hold
     @Published public var soundEnabled: Bool = false
     @Published public private(set) var launchAtLogin: Bool = false
+    @Published public private(set) var appProfiles: [AppCleanupProfile] = []
 
     // MARK: - Engines
 
@@ -85,6 +94,10 @@ public final class AppState: NSObject, ObservableObject {
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .hold
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
         self.launchAtLogin = LoginItem.isEnabled
+        if let data = defaults.data(forKey: "appProfiles"),
+           let profiles = try? JSONDecoder().decode([AppCleanupProfile].self, from: data) {
+            self.appProfiles = profiles
+        }
         super.init()
         recordingEngine.delegate = self
         transcriber.setVocabularyBias(vocabulary)
@@ -193,10 +206,15 @@ public final class AppState: NSObject, ObservableObject {
             let rawText = result.text
             guard !rawText.isEmpty else { return }
 
+            // The target app is still frontmost (global hotkey doesn't steal focus).
+            // Resolve the effective cleanup level — per-app overrides win over the global.
+            let frontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+            let level = effectiveLevel(forBundleId: frontmostApp)
+
             // Cleanup pass (the Wispr brain). Skipped when level is off or the clip is
             // too short to benefit. Never throws — falls back internally.
             let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
-            let shouldClean = cleanupConfig.level != .off && wordCount >= cleanupPack.minWordsForCleanup
+            let shouldClean = level != .off && wordCount >= cleanupPack.minWordsForCleanup
             let cleanupResult: CleanupResult?
             if shouldClean {
                 statusMessage = "Cleaning…"
@@ -204,7 +222,7 @@ public final class AppState: NSObject, ObservableObject {
                 cleanupResult = await cleanup.clean(
                     CleanupRequest(
                         rawText: rawText,
-                        level: cleanupConfig.level,
+                        level: level,
                         vocab: vocabularyMap,
                         commandGrammar: cleanupPack.commandGrammar,
                         profile: cleanupPack.profile
@@ -223,7 +241,6 @@ public final class AppState: NSObject, ObservableObject {
 
             // Build record — transcriptText is what was pasted; rawText keeps the
             // pre-cleanup STT output for the cross-platform learnings dataset.
-            let frontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
             let record = TranscriptRecord(
                 platform: "mac",
                 audioDurationMs: result.audioDurationMs,
@@ -233,7 +250,7 @@ public final class AppState: NSObject, ObservableObject {
                 modelTier: "\(result.provider.rawValue)/\(result.model)",
                 frontmostApp: frontmostApp,
                 rawText: rawText,
-                cleanupLevel: shouldClean ? cleanupConfig.level.rawValue : CleanupLevel.off.rawValue,
+                cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
                 cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
             )
 
@@ -359,6 +376,48 @@ public final class AppState: NSObject, ObservableObject {
     /// engine restores the exact casing/spelling after the LLM pass.
     private var vocabularyMap: [String: String] {
         Dictionary(vocabulary.map { ($0.lowercased(), $0) }, uniquingKeysWith: { _, b in b })
+    }
+
+    // MARK: - Per-app cleanup profiles (E2)
+
+    /// Cleanup level for the given app: a per-app override if set, else the global level.
+    func effectiveLevel(forBundleId bundleId: String?) -> CleanupLevel {
+        guard let bundleId, let profile = appProfiles.first(where: { $0.bundleId == bundleId }) else {
+            return cleanupConfig.level
+        }
+        return profile.level
+    }
+
+    func setAppProfile(bundleId: String, name: String, level: CleanupLevel) {
+        if let idx = appProfiles.firstIndex(where: { $0.bundleId == bundleId }) {
+            appProfiles[idx].level = level
+        } else {
+            appProfiles.append(AppCleanupProfile(bundleId: bundleId, name: name, level: level))
+        }
+        persistAppProfiles()
+    }
+
+    func removeAppProfile(bundleId: String) {
+        appProfiles.removeAll { $0.bundleId == bundleId }
+        persistAppProfiles()
+    }
+
+    private func persistAppProfiles() {
+        if let data = try? JSONEncoder().encode(appProfiles) {
+            UserDefaults.standard.set(data, forKey: "appProfiles")
+        }
+    }
+
+    // MARK: - History (E3)
+
+    func searchHistory(matching query: String) async -> [TranscriptRecord] {
+        (try? await telemetryStore?.search(matching: query, limit: 200)) ?? []
+    }
+
+    /// Copy text to the clipboard for re-paste (used by the history window).
+    func copyToClipboard(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     // MARK: - Refresh helpers

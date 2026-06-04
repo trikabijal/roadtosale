@@ -118,6 +118,19 @@ public actor TelemetryStore {
         }
     }
 
+    /// Full-text-ish search over transcript text (case-insensitive substring).
+    /// Empty query returns the most recent records.
+    public func search(matching query: String, limit: Int = 100) throws -> [TranscriptRecord] {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try dbQueue.read { db in
+            var request = TranscriptRecord.order(Column("recorded_at").desc).limit(limit)
+            if !trimmed.isEmpty {
+                request = request.filter(Column("transcript_text").like("%\(trimmed)%"))
+            }
+            return try request.fetchAll(db)
+        }
+    }
+
     public func fetchWeeklyStats() throws -> WeeklyStats {
         let weekAgo = Date().addingTimeInterval(-7 * 24 * 3600)
         return try dbQueue.read { db in

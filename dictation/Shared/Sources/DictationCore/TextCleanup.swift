@@ -14,7 +14,7 @@ public protocol TextCleanup: Sendable {
 
 // MARK: - Levels + provider
 
-public enum CleanupLevel: String, CaseIterable, Sendable {
+public enum CleanupLevel: String, CaseIterable, Sendable, Codable {
     case off, light, full
 
     public var displayName: String {
