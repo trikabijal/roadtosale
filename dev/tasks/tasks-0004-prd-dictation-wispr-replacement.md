@@ -64,9 +64,10 @@ All paths relative to `dictation/`.
 
 ## Phase E — Optional polish (post-cancel)
 
-- [ ] **E1 — Streaming partial transcripts** — DEFERRED pending decision: reworks the core
-  batch pipeline (can't be validated without an on-device run); benefit is mostly live HUD
-  feedback since cleanup needs the full utterance. Awaiting user choice of approach.
+- [x] **E1 — Live HUD preview** (chosen: HUD-preview-only, not full pipeline rework). A tiny
+  preview model loads lazily in the background; while recording, it transcribes accumulated
+  audio every ~1.2s and shows live text in the HUD (`previewText`, head-truncated). Batch path
+  unchanged = source of truth for cleanup + paste. Isolated tiny instance → no reentrancy.
 - [x] **E2 — Per-app cleanup profiles** — `AppCleanupProfile` (bundleId→level), persisted;
   `effectiveLevel(forBundleId:)` resolves per-app override over global at transcribe time;
   Settings `AppProfilesEditor` (add running app, level picker, remove).

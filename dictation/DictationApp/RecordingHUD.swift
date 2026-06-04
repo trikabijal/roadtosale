@@ -11,6 +11,7 @@ final class RecordingHUDModel: ObservableObject {
     @Published var level: Float = 0          // 0…~1 mic RMS
     @Published var phase: RecordingHUDPhase = .recording
     @Published var label: String = "Listening…"
+    @Published var previewText: String = ""  // live partial transcript while recording
 }
 
 /// A small always-on-top floating panel shown near the bottom of the screen while
@@ -25,6 +26,7 @@ final class RecordingHUD {
         model.phase = phase
         model.label = label
         model.level = 0
+        model.previewText = ""
         let panel = ensurePanel()
         position(panel)
         panel.orderFrontRegardless()
@@ -34,10 +36,15 @@ final class RecordingHUD {
         model.phase = phase
         model.label = label
         model.level = 0
+        model.previewText = ""
     }
 
     func update(level: Float) {
         model.level = level
+    }
+
+    func update(previewText: String) {
+        model.previewText = previewText
     }
 
     func hide() {
@@ -49,7 +56,7 @@ final class RecordingHUD {
     private func ensurePanel() -> NSPanel {
         if let panel { return panel }
         let p = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 240, height: 56),
+            contentRect: NSRect(x: 0, y: 0, width: 380, height: 60),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -83,6 +90,10 @@ final class RecordingHUD {
 private struct HUDContentView: View {
     @ObservedObject var model: RecordingHUDModel
 
+    private var displayText: String {
+        (model.phase == .recording && !model.previewText.isEmpty) ? model.previewText : model.label
+    }
+
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: model.phase == .recording ? "mic.fill" : "waveform")
@@ -90,18 +101,21 @@ private struct HUDContentView: View {
                 .foregroundStyle(model.phase == .recording ? Color.red : Color.orange)
 
             LevelMeter(level: model.level, active: model.phase == .recording)
-                .frame(width: 70, height: 20)
+                .frame(width: 60, height: 18)
 
-            Text(model.label)
+            // Live partial transcript (truncates from the head so the latest words show).
+            Text(displayText)
                 .font(.callout)
                 .foregroundStyle(.primary)
                 .lineLimit(1)
+                .truncationMode(.head)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
+        .frame(width: 360)
         .background(.ultraThinMaterial, in: Capsule())
         .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
-        .fixedSize()
     }
 }
 

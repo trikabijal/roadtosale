@@ -63,6 +63,11 @@ public final class AppState: NSObject, ObservableObject {
     private var audioBuffers: [AVAudioPCMBuffer] = []
     private var recordingStartDate: Date?
 
+    // Live HUD preview (E1): a separate tiny model transcribes accumulated audio while
+    // recording, for display only. The batch path remains the source of truth.
+    private var previewTranscriber: WhisperKitTranscriber?
+    private var previewTask: Task<Void, Never>?
+
     // Correction window: after a transcript lands, ⌘⇧Z marks it corrected for 5s
     private var correctionWindowTask: Task<Void, Never>?
 
@@ -147,6 +152,13 @@ public final class AppState: NSObject, ObservableObject {
         // 4. Start hotkey listener
         hotkeyManager = HotkeyManager(delegate: self)
         hotkeyManager?.start()
+
+        // 5. Load the tiny live-preview model in the background (best-effort).
+        Task { [weak self] in
+            let preview = WhisperKitTranscriber(modelTier: .tinyEn)
+            try? await preview.load()
+            if preview.isLoaded { self?.previewTranscriber = preview }
+        }
     }
 
     // MARK: - Recording control (called by HotkeyManager)
@@ -161,6 +173,7 @@ public final class AppState: NSObject, ObservableObject {
             statusMessage = "Recording…"
             recordingHUD.show(phase: .recording, label: "Listening…")
             playSound("Tink")
+            startPreviewLoop()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -169,6 +182,8 @@ public final class AppState: NSObject, ObservableObject {
     func stopRecordingAndTranscribe() {
         guard dictationState == .recording else { return }
         recordingEngine.stop()
+        previewTask?.cancel()
+        previewTask = nil
         dictationState = .transcribing
         statusMessage = "Transcribing…"
         recordingHUD.setPhase(.processing, label: "Transcribing…")
@@ -189,6 +204,36 @@ public final class AppState: NSObject, ObservableObject {
     private func playSound(_ name: String) {
         guard soundEnabled, let sound = NSSound(named: name) else { return }
         sound.play()
+    }
+
+    // MARK: - Live HUD preview (E1)
+
+    /// While recording, periodically transcribe the accumulated audio with the tiny
+    /// preview model and show it in the HUD. Display only — never touches the paste path.
+    private func startPreviewLoop() {
+        guard previewTranscriber != nil else { return }
+        previewTask?.cancel()
+        previewTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(1200))
+                if Task.isCancelled { return }
+                await self?.runPreview()
+            }
+        }
+    }
+
+    private func runPreview() async {
+        guard dictationState == .recording,
+              let preview = previewTranscriber, preview.isLoaded else { return }
+        let buffers = audioBuffers
+        // Need ~0.6s of audio before a preview is meaningful.
+        let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
+        guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
+
+        let result = try? await preview.transcribe(buffers: buffers, audioStartDate: recordingStartDate ?? Date())
+        if let text = result?.text, dictationState == .recording {
+            recordingHUD.update(previewText: text)
+        }
     }
 
     // MARK: - Transcription
