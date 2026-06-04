@@ -61,10 +61,18 @@ public final class AppState: NSObject, ObservableObject {
             return
         }
 
-        // 2. Load WhisperKit model
-        statusMessage = "Loading \(transcriptionEngine.modelTier.displayName) model…"
+        // 2. Load WhisperKit model (downloads on first run — show progress)
+        let tierName = transcriptionEngine.modelTier.displayName
+        statusMessage = "Preparing \(tierName) model…"
         do {
-            try await transcriptionEngine.loadModel()
+            try await transcriptionEngine.loadModel { [weak self] fraction in
+                guard let self else { return }
+                if fraction < 1.0 {
+                    self.statusMessage = "Downloading \(tierName)… \(Int(fraction * 100))%"
+                } else {
+                    self.statusMessage = "Loading \(tierName)…"
+                }
+            }
             engineLoaded = true
             statusMessage = "Ready — hold Fn to dictate"
         } catch {
@@ -183,10 +191,17 @@ public final class AppState: NSObject, ObservableObject {
     func setModelTier(_ tier: ModelTier) {
         UserDefaults.standard.set(tier.rawValue, forKey: "modelTier")
         engineLoaded = false
-        statusMessage = "Loading \(tier.displayName)…"
+        statusMessage = "Preparing \(tier.displayName)…"
         Task {
             do {
-                try await transcriptionEngine.setModelTier(tier)
+                try await transcriptionEngine.setModelTier(tier) { [weak self] fraction in
+                    guard let self else { return }
+                    if fraction < 1.0 {
+                        self.statusMessage = "Downloading \(tier.displayName)… \(Int(fraction * 100))%"
+                    } else {
+                        self.statusMessage = "Loading \(tier.displayName)…"
+                    }
+                }
                 engineLoaded = true
                 statusMessage = "Ready — hold Fn to dictate"
             } catch {

@@ -108,6 +108,16 @@ final class HotkeyManager {
         type: CGEventType,
         event: CGEvent
     ) -> Unmanaged<CGEvent>? {
+        // macOS disables an event tap that responds too slowly, or after the system
+        // wakes from sleep. If we don't re-enable it, the Fn hotkey silently dies and
+        // the app stops responding until relaunch. Re-arm it here.
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+            return nil
+        }
+
         // Only act on flags-changed events — that's what modifier keys fire.
         guard type == .flagsChanged else {
             return Unmanaged.passRetained(event)
