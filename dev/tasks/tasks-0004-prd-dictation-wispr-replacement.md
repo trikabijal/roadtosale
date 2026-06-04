@@ -31,25 +31,20 @@ All paths relative to `dictation/`.
 - [x] **B0 — Portable contracts** (in `voice-engine/`)
   - [x] `TextCleanup` contract authored: `src/cleanup/{types,base,registry,rule-based}.ts` + exports + 6 tests; `docs/model-contracts.md` documents both STT + cleanup contracts, `{provider,model}` config, platform matrix, telemetry schema.
   - [x] `rule-based` reference fallback implementation (cross-platform behavior spec).
-  - [ ] Cleanup data-pack YAML (prompts per level, filler list, command grammar, vocab, junk list, thresholds) — **deferred to B1** (authored alongside the Swift engine that loads it).
-  - [ ] `dictation` profile pack — deferred to B1. Telemetry schema documented; freeze in B4.
+  - [x] Cleanup data-pack JSON authored: `voice-engine/cleanup-packs/dictation.json`, vendored as `DictationCore/Resources/dictation-cleanup-pack.json`.
+  - [x] `dictation` profile pack done. Telemetry schema documented + frozen in B4.
 
 ## Phase B — The Wispr brain (on-device AI cleanup)
 
-- [ ] **B1 — TextCleanup protocol + engines + provider config** (`Shared/Sources/DictationCore/CleanupEngine.swift`)
-  - [ ] `CleanupProvider` enum + `CleanupConfig {provider, model, level}` persisted; `TextCleanupFactory.make(config)`.
-  - [ ] `FoundationModelsCleanup` + `RuleBasedCleanup` fallback, loading the FR-B0 pack — no cleanup knowledge hardcoded in Swift.
-  - [ ] `protocol TextCleanup { func clean(_ text:String, level:CleanupLevel) async -> String }`.
-  - [ ] `FoundationModelsCleanup` (`import FoundationModels`) with conservative prompt per level.
-  - [ ] `RuleBasedCleanup` fallback (filler regex, capitalization, command-word substitution).
-  - [ ] Degenerate-output guard → fall back; never throw to caller.
-- [ ] **B2 — Wire into pipeline** (`DictationApp/AppState.swift`)
-  - [ ] Run cleanup between `transcribe` and `clipboardPaster.writeAndPaste`.
-  - [ ] Skip cleanup for very short clips.
-- [ ] **B3 — Settings: intensity** (`DictationApp/SettingsView.swift`, persisted; default Full).
-- [ ] **B4 — Telemetry: raw + cleaned** (`Shared/Sources/DictationCore/TelemetryStore.swift` migration v2).
-- [ ] **B — tests:** cleanup unit tests incl. canonical example; rule-based fallback tests.
-- [ ] **B — commit:** `feat(dictation): on-device AI cleanup via Apple Foundation Models`
+- [x] **B1 — TextCleanup protocol + engines + provider config**
+  - [x] `TextCleanup.swift`: protocol + `CleanupLevel`/`CleanupProvider`/`CleanupConfig` (persisted) + `CleanupPack`/loader + `TextCleanupFactory`.
+  - [x] `FoundationModelsCleanup.swift` (Apple FM, availability-gated) + `RuleBasedCleanup.swift` fallback, loading the pack — no cleanup knowledge hardcoded.
+  - [x] Degenerate-output guard (empty / ballooned / collapsed) → fall back; `clean` never throws.
+- [x] **B2 — Wire into pipeline** (`AppState.swift`) — cleanup runs between transcribe and paste ("Cleaning…"); skipped when off or word count < pack threshold.
+- [x] **B3 — Settings: level + engine pickers** (default Full; on-device note).
+- [x] **B4 — Telemetry: raw + cleaned** (migration v2: `raw_text`, `cleanup_level`, `cleanup_provider`; fixed camelCase↔snake_case column mapping).
+- [x] **B — tests:** rule-based reference + 6 cleanup tests in voice-engine (21 pass). Swift unit tests + LLM canonical-example validation deferred to on-device run (no DictationCore test target; FM needs the on-device model).
+- [x] **B — commit:** `feat(dictation): on-device AI cleanup via Apple Foundation Models`
 
 ## Phase C — Daily-driver ergonomics
 

@@ -23,11 +23,14 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var statusMessage: String = "Ready"
     @Published public var autoPaste: Bool = true
     @Published public private(set) var sttConfig: STTConfig = .default
+    @Published public private(set) var cleanupConfig: CleanupConfig = .default
 
     // MARK: - Engines
 
     private let recordingEngine = RecordingEngine()
     private var transcriber: any SpeechTranscriber
+    private var cleanup: any TextCleanup
+    private let cleanupPack: CleanupPack
     private let clipboardPaster = ClipboardPaster()
     private var telemetryStore: TelemetryStore?
     private var hotkeyManager: HotkeyManager?
@@ -50,6 +53,18 @@ public final class AppState: NSObject, ObservableObject {
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
         self.transcriber = SpeechTranscriberFactory.make(config)
+
+        // Cleanup layer (the on-device LLM brain).
+        let pack = CleanupPackLoader.load()
+        let cleanupProvider = CleanupProvider(rawValue: defaults.string(forKey: "cleanupProvider") ?? "")
+            ?? CleanupConfig.default.provider
+        let cleanupLevel = CleanupLevel(rawValue: defaults.string(forKey: "cleanupLevel") ?? "")
+            ?? CleanupConfig.default.level
+        let cleanupConfig = CleanupConfig(provider: cleanupProvider, level: cleanupLevel)
+        self.cleanupPack = pack
+        self.cleanupConfig = cleanupConfig
+        self.cleanup = TextCleanupFactory.make(cleanupConfig, pack: pack)
+
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         super.init()
         recordingEngine.delegate = self
@@ -137,22 +152,48 @@ public final class AppState: NSObject, ObservableObject {
         do {
             let result = try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
 
-            guard !result.text.isEmpty else { return }
+            let rawText = result.text
+            guard !rawText.isEmpty else { return }
+
+            // Cleanup pass (the Wispr brain). Skipped when level is off or the clip is
+            // too short to benefit. Never throws — falls back internally.
+            let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
+            let shouldClean = cleanupConfig.level != .off && wordCount >= cleanupPack.minWordsForCleanup
+            let cleanupResult: CleanupResult?
+            if shouldClean {
+                statusMessage = "Cleaning…"
+                cleanupResult = await cleanup.clean(
+                    CleanupRequest(
+                        rawText: rawText,
+                        level: cleanupConfig.level,
+                        commandGrammar: cleanupPack.commandGrammar,
+                        profile: cleanupPack.profile
+                    )
+                )
+            } else {
+                cleanupResult = nil
+            }
+            let finalText = cleanupResult?.cleanedText ?? rawText
+            guard !finalText.isEmpty else { return }
 
             // Write to clipboard and optionally paste
             let ap = autoPaste
-            clipboardPaster.writeAndPaste(text: result.text, autoPaste: ap)
+            clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap)
 
-            // Build record — wordCount is computed automatically from transcriptText
+            // Build record — transcriptText is what was pasted; rawText keeps the
+            // pre-cleanup STT output for the cross-platform learnings dataset.
             let frontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
             let record = TranscriptRecord(
                 platform: "mac",
                 audioDurationMs: result.audioDurationMs,
-                transcriptText: result.text,
+                transcriptText: finalText,
                 whisperkitConfidence: result.confidence,
                 latencyMs: result.latencyMs,
                 modelTier: "\(result.provider.rawValue)/\(result.model)",
-                frontmostApp: frontmostApp
+                frontmostApp: frontmostApp,
+                rawText: rawText,
+                cleanupLevel: shouldClean ? cleanupConfig.level.rawValue : CleanupLevel.off.rawValue,
+                cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
             )
 
             // Save telemetry (actor method — synchronous throw, async via actor isolation)
@@ -231,6 +272,16 @@ public final class AppState: NSObject, ObservableObject {
     func setAutoPaste(_ value: Bool) {
         autoPaste = value
         UserDefaults.standard.set(value, forKey: "autoPaste")
+    }
+
+    /// Switch cleanup provider and/or level. Persists and rebuilds the cleanup engine.
+    func setCleanupConfig(_ config: CleanupConfig) {
+        guard config != cleanupConfig else { return }
+        cleanupConfig = config
+        let defaults = UserDefaults.standard
+        defaults.set(config.provider.rawValue, forKey: "cleanupProvider")
+        defaults.set(config.level.rawValue, forKey: "cleanupLevel")
+        cleanup = TextCleanupFactory.make(config, pack: cleanupPack)
     }
 
     // MARK: - Refresh helpers

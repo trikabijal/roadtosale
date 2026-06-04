@@ -6,18 +6,26 @@ import GRDB
 public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, PersistableRecord, Sendable {
     public static var databaseTableName = "transcript_records"
 
+    // The table uses snake_case columns; map camelCase properties to them.
+    public static let databaseColumnEncodingStrategy = DatabaseColumnEncodingStrategy.convertToSnakeCase
+    public static let databaseColumnDecodingStrategy = DatabaseColumnDecodingStrategy.convertFromSnakeCase
+
     public var id: String
     public var platform: String           // "mac" | "ios"
     public var recordedAt: Date
     public var audioDurationMs: Int
-    public var transcriptText: String
+    public var transcriptText: String     // final pasted text (post-cleanup)
     public var wordCount: Int
     public var whisperkitConfidence: Double
     public var latencyMs: Int
-    public var modelTier: String
+    public var modelTier: String          // "<sttProvider>/<model>"
     public var frontmostApp: String?      // macOS only
     public var wasCorrected: Bool
     public var correctionNote: String?
+    // Cleanup telemetry (PRD 0004) — the labelled dataset for the shared cleanup pack.
+    public var rawText: String?           // pre-cleanup STT output
+    public var cleanupLevel: String?      // "off" | "light" | "full"
+    public var cleanupProvider: String?   // cleanup provider used, nil if cleanup skipped
 
     public init(
         id: String = UUID().uuidString,
@@ -31,7 +39,10 @@ public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, Persista
         modelTier: String,
         frontmostApp: String? = nil,
         wasCorrected: Bool = false,
-        correctionNote: String? = nil
+        correctionNote: String? = nil,
+        rawText: String? = nil,
+        cleanupLevel: String? = nil,
+        cleanupProvider: String? = nil
     ) {
         self.id = id
         self.platform = platform
@@ -45,6 +56,9 @@ public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, Persista
         self.frontmostApp = frontmostApp
         self.wasCorrected = wasCorrected
         self.correctionNote = correctionNote
+        self.rawText = rawText
+        self.cleanupLevel = cleanupLevel
+        self.cleanupProvider = cleanupProvider
     }
 }
 
@@ -150,6 +164,13 @@ public actor TelemetryStore {
                 t.column("frontmost_app", .text)
                 t.column("was_corrected", .boolean).notNull().defaults(to: false)
                 t.column("correction_note", .text)
+            }
+        }
+        migrator.registerMigration("v2_add_cleanup_columns") { db in
+            try db.alter(table: TranscriptRecord.databaseTableName) { t in
+                t.add(column: "raw_text", .text)
+                t.add(column: "cleanup_level", .text)
+                t.add(column: "cleanup_provider", .text)
             }
         }
         try migrator.migrate(dbQueue)

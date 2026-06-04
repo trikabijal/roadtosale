@@ -73,6 +73,43 @@ struct SettingsView: View {
                 }
             }
 
+            // MARK: AI cleanup section
+            Section("AI Cleanup") {
+                // Level — how aggressively to rewrite dictated speech.
+                Picker("Cleanup", selection: Binding(
+                    get: { appState.cleanupConfig.level },
+                    set: { level in
+                        appState.setCleanupConfig(
+                            CleanupConfig(provider: appState.cleanupConfig.provider, level: level))
+                    }
+                )) {
+                    ForEach(CleanupLevel.allCases, id: \.self) { level in
+                        Text(level.displayName).tag(level)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+
+                // Provider — the cleanup model, swappable behind a contract.
+                Picker("Engine", selection: Binding(
+                    get: { appState.cleanupConfig.provider },
+                    set: { provider in
+                        appState.setCleanupConfig(
+                            CleanupConfig(provider: provider, level: appState.cleanupConfig.level))
+                    }
+                )) {
+                    ForEach(CleanupProvider.allCases, id: \.self) { provider in
+                        Text(provider.isAvailable
+                             ? provider.displayName
+                             : "\(provider.displayName) — unavailable")
+                            .tag(provider)
+                    }
+                }
+
+                Text("On-device only. Nothing you say or type leaves this Mac.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             // MARK: Weekly stats section
             Section("This Week") {
                 let s = appState.weeklyStats

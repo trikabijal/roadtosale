@@ -20,6 +20,10 @@ let package = Package(
             dependencies: [
                 .product(name: "GRDB", package: "GRDB.swift"),
                 .product(name: "WhisperKit", package: "WhisperKit"),
+            ],
+            resources: [
+                // Canonical copy lives at voice-engine/cleanup-packs/dictation.json
+                .process("Resources"),
             ]
         ),
     ]
