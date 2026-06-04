@@ -48,19 +48,19 @@ All paths relative to `dictation/`.
 
 ## Phase C — Daily-driver ergonomics
 
-- [ ] **C1 — Launch at login** (`SMAppService`; Settings toggle).
-- [ ] **C2 — Recording HUD** (new `DictationApp/RecordingHUD.swift`: floating always-on-top panel, live level, state).
-- [ ] **C3 — Custom vocabulary** (Settings list → WhisperKit prompt bias + post-cleanup replacement map).
-- [ ] **C4 — Toggle mode** (tap-to-start/stop; Settings selects hold vs toggle).
-- [ ] **C5 — (optional) start/stop sound.**
-- [ ] **C — commit(s):** one per sub-feature.
+- [x] **C1 — Launch at login** (`LoginItem.swift` / `SMAppService`; Startup toggle).
+- [x] **C2 — Recording HUD** (`RecordingHUD.swift`: floating non-activating panel, live level meter, phase label; driven by new `RecordingEngine` level delegate).
+- [x] **C3 — Custom vocabulary** (Settings `VocabularyEditor` → WhisperKit `promptTokens` bias + post-cleanup forced-spelling vocab map).
+- [x] **C4 — Toggle mode** (hold vs tap-to-start/stop; Settings picker; `HotkeyMode`).
+- [x] **C5 — Start/stop sounds** (NSSound, Settings toggle, default off).
+- [x] **C — commit:** `feat(dictation): daily-driver ergonomics — login item, HUD, vocabulary, toggle, sounds`
 
 ## Phase D — Permanent install
 
-- [ ] **D1 — `build.sh` + `run.sh`** (Release build → `/Applications`).
-- [ ] **D2 — Docs** (README + `docs/architecture.md`: cleanup engine, HUD, login item, supersede note).
-- [ ] **D — commit:** `chore(dictation): build/run scripts + docs for daily-driver install`
-- [ ] **D — final:** install, reboot test, then cancel Wispr Flow.
+- [x] **D1 — `build.sh` + `run.sh`** (Release build → `./build`; `install` → `/Applications`; optional `DEVELOPMENT_TEAM` for persistent permissions).
+- [x] **D2 — Docs** (README + `docs/architecture.md`: contracts, cleanup engine, HUD, login item, data flow).
+- [x] **D — commit:** folded into the C/D commit.
+- [ ] **D — final:** install, reboot test, then cancel Wispr Flow. *(on-device, user)*
 
 ## Phase E — Optional polish (post-cancel)
 

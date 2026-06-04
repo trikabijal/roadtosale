@@ -40,16 +40,32 @@ Owns the AVAudioEngine session. Responsibilities:
 
 The VAD is intentionally simple — energy-only, no ML. This makes failure modes transparent and lets the telemetry data guide future improvements.
 
-#### TranscriptionEngine (`TranscriptionEngine.swift`)
+#### Two pluggable model contracts
 
-A `@MainActor ObservableObject` wrapping WhisperKit. Responsibilities:
+Both model layers sit behind a contract, chosen at runtime by `{provider, model}` config.
+This mirrors the strategy pattern in `voice-engine/` (see `voice-engine/docs/model-contracts.md`),
+so iOS/Android implement the *same* contracts with their native engines.
 
-- Loads and hot-swaps WhisperKit models by `ModelTier` (tiny → large-v3-turbo).
-- Accumulates `[AVAudioPCMBuffer]` from the recording session, flattens them to `[Float]`, and calls `WhisperKit.transcribe(audioArray:)`.
-- Derives a **confidence score** (0.0–1.0) from `avgLogprob` across all returned segments: `confidence = exp(mean(avgLogprob))`.
-- Returns a `TranscriptionResult` with text, confidence, audio duration, transcription latency, and the model tier used.
+**`SpeechTranscriber`** (`SpeechTranscriber.swift`) — the voice-understanding model.
 
-Published properties (`isLoaded`, `isTranscribing`) drive UI state in the target apps without coupling them to WhisperKit types.
+- `load(onProgress:)`, `transcribe(buffers:audioStartDate:)`, optional `setVocabularyBias`.
+- `STTProvider` (`whisperKit`, `appleSpeech`, `mock`) + `STTConfig {provider, model}` + `SpeechTranscriberFactory`.
+- `WhisperKitTranscriber` is the WhisperKit implementation: loads/hot-swaps models by `ModelTier`
+  (split into explicit `WhisperKit.download(progressCallback:)` → load for first-run progress),
+  flattens buffers to `[Float]`, derives confidence from `avgLogprob`, filters silence-hallucinations,
+  and applies custom-vocabulary biasing via `DecodingOptions.promptTokens`.
+- `TranscriptionResult` is provider-agnostic (`provider` + `model`).
+
+**`TextCleanup`** (`TextCleanup.swift`) — the cleanup LLM. `clean(_:)` never throws.
+
+- `CleanupProvider` (`foundationModels`, `ruleBased`) + `CleanupConfig {provider, level}` + `TextCleanupFactory`.
+- `FoundationModelsCleanup` (`FoundationModelsCleanup.swift`) uses Apple's on-device
+  `SystemLanguageModel` / `LanguageModelSession`. Availability-gated, with a degenerate-output
+  guard and a deterministic command/vocab post-pass; falls back to rule-based on any failure.
+- `RuleBasedCleanup` (`RuleBasedCleanup.swift`) is the deterministic fallback + `ruleBased` provider,
+  mirroring the `voice-engine` reference implementation.
+- **Knowledge as data:** prompts/fillers/command-grammar/junk-list/thresholds load from
+  `Resources/dictation-cleanup-pack.json` (canonical copy in `voice-engine/cleanup-packs/`).
 
 #### TelemetryStore (`TelemetryStore.swift`)
 
@@ -80,16 +96,21 @@ RecordingEngine
                                            │                  │
                                            │ (silence fires)  │
                                            ▼◄─────────────────┘
-                                  TranscriptionEngine
-                                    └── WhisperKit.transcribe(audioArray:)
+                                  SpeechTranscriber (WhisperKit)
+                                    └── transcribe(audioArray:) → raw text
                                                │
                                                ▼
-                                      TranscriptionResult
-                                        ├── text ──► clipboard (macOS) / textDocumentProxy (iOS)
-                                        └── record ──► TelemetryStore.save()
+                                  TextCleanup (Foundation Models)
+                                    └── clean(rawText, level, vocab, grammar)
+                                        └── fallback → RuleBasedCleanup
+                                               │
+                                               ▼
+                                      cleaned text
+                                        ├──► clipboard+paste (clipboard restored after)
+                                        └──► TranscriptRecord {raw, cleaned, level, provider}
                                                             │
                                                             ▼
-                                                     GRDB SQLite
+                                                     GRDB SQLite (v2)
                                                      (platform DB URL)
 ```
 
@@ -112,6 +133,7 @@ Daily personal use at the developer's desk is the cheapest possible test harness
 ## Isolation Guarantees
 
 - DictationCore never imports from any target-specific module.
-- macOS-only code (Accessibility API, `NSWorkspace` for frontmost app) lives exclusively in `DictationApp/`.
+- macOS-only code (Accessibility API, `NSWorkspace` for frontmost app, the floating
+  `RecordingHUD`, and `LoginItem`/`SMAppService` launch-at-login) lives exclusively in `DictationApp/`.
 - iOS-only code (`UIInputViewController`, `textDocumentProxy`) lives exclusively in `DictationKeyboard/`.
 - The App Group shared container is the only cross-process communication channel (telemetry DB). No XPC, no shared memory.

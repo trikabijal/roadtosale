@@ -38,10 +38,14 @@ public protocol SpeechTranscriber: AnyObject {
     /// Downloads (first run) and loads the model. `onProgress` reports 0.0–1.0.
     func load(onProgress: (@MainActor (Double) -> Void)?) async throws
     func transcribe(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async throws -> TranscriptionResult
+    /// Optional custom-vocabulary biasing (names, jargon). Providers that don't support
+    /// biasing ignore it. Default: no-op.
+    func setVocabularyBias(_ terms: [String])
 }
 
 public extension SpeechTranscriber {
     func load() async throws { try await load(onProgress: nil) }
+    func setVocabularyBias(_ terms: [String]) {}
 }
 
 // MARK: - Provider + config

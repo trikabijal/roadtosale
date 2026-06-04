@@ -7,6 +7,12 @@ public protocol RecordingEngineDelegate: AnyObject {
     func recordingEngine(_ engine: RecordingEngine, didReceiveBuffer buffer: AVAudioPCMBuffer)
     /// Called when silence is detected for longer than silenceDurationMs after speech has been heard.
     func recordingEngineDidDetectSilence(_ engine: RecordingEngine)
+    /// Per-buffer RMS level (0…~1), for UI meters. Optional.
+    func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float)
+}
+
+public extension RecordingEngineDelegate {
+    func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {}
 }
 
 // MARK: - Errors
@@ -155,6 +161,7 @@ public final class RecordingEngine: NSObject {
 
         // VAD: compute RMS
         let rms = computeRMS(buffer: convertedBuffer)
+        delegate?.recordingEngine(self, didUpdateLevel: rms)
         let now = Date()
 
         if rms >= silenceThreshold {

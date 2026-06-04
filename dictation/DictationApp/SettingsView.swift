@@ -14,16 +14,35 @@ struct SettingsView: View {
                 HStack {
                     Text("Hotkey")
                     Spacer()
-                    // Fn is a modifier key (fires flagsChanged, not keyDown),
-                    // so it can't be captured with onKeyPress. Shown as a
-                    // fixed label for now.
-                    Text("Fn  (hold to record)")
+                    Text("Fn (Globe)")
                         .foregroundStyle(.secondary)
+                }
+
+                Picker("Activation", selection: Binding(
+                    get: { appState.hotkeyMode },
+                    set: { appState.setHotkeyMode($0) }
+                )) {
+                    ForEach(HotkeyMode.allCases, id: \.self) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
                 }
 
                 Toggle("Auto-paste after transcription", isOn: Binding(
                     get: { appState.autoPaste },
                     set: { appState.setAutoPaste($0) }
+                ))
+
+                Toggle("Play start/stop sounds", isOn: Binding(
+                    get: { appState.soundEnabled },
+                    set: { appState.setSoundEnabled($0) }
+                ))
+            }
+
+            // MARK: Startup section
+            Section("Startup") {
+                Toggle("Launch at login", isOn: Binding(
+                    get: { appState.launchAtLogin },
+                    set: { appState.setLaunchAtLogin($0) }
                 ))
             }
 
@@ -110,6 +129,14 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            // MARK: Custom vocabulary section
+            Section("Custom Vocabulary") {
+                VocabularyEditor()
+                Text("Names and jargon — biases transcription and forces spelling after cleanup.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             // MARK: Weekly stats section
             Section("This Week") {
                 let s = appState.weeklyStats
@@ -123,7 +150,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 400, height: 420)
+        .frame(width: 420, height: 560)
         .padding()
         .navigationTitle("Dictation Settings")
         .onAppear { Task { await appState.refreshStats() } }
@@ -135,6 +162,57 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+}
+
+// MARK: - VocabularyEditor
+
+/// Add/remove custom vocabulary terms. Persists through `AppState.setVocabulary`.
+struct VocabularyEditor: View {
+    @EnvironmentObject var appState: AppState
+    @State private var newTerm: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                TextField("Add a name or term…", text: $newTerm)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(add)
+                Button("Add", action: add)
+                    .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+
+            if appState.vocabulary.isEmpty {
+                Text("No custom terms yet")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ForEach(appState.vocabulary, id: \.self) { term in
+                    HStack {
+                        Text(term)
+                        Spacer()
+                        Button {
+                            remove(term)
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private func add() {
+        let trimmed = newTerm.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, !appState.vocabulary.contains(trimmed) else { return }
+        appState.setVocabulary(appState.vocabulary + [trimmed])
+        newTerm = ""
+    }
+
+    private func remove(_ term: String) {
+        appState.setVocabulary(appState.vocabulary.filter { $0 != term })
     }
 }
 

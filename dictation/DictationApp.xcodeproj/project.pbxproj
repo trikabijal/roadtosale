@@ -12,6 +12,7 @@
 		0F4CDA7E4641462C7C7177A6 /* KeyboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 01890624510CD275A4C30EB4 /* KeyboardViewModel.swift */; };
 		2D5B753C002980167ADB25D5 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A2805EDCBC448FE97F2F90C /* ContentView.swift */; };
 		46621AF5C5BA0815B3EE0B46 /* DictationKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = AB734E3F36488701FED1B129 /* DictationKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		48C088A41988BBDAC9CE27CC /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A656F57CB9A3B48DF6FC115 /* LoginItem.swift */; };
 		579481DFF171ABA4EE5304B6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F97B899A97B4F3B5B85F6786 /* SettingsView.swift */; };
 		5C3A024A857271A7DB5CFCFB /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C601E327CB04D74E5AD1C9A /* HotkeyManager.swift */; };
 		604185F96C5AAC980428E7EF /* DictationContainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F70B54D2321F41E75152BD7 /* DictationContainerApp.swift */; };
@@ -21,6 +22,7 @@
 		99185F57719FEA84EF120C61 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 2705919702309D804336F6EF /* DictationCore */; };
 		9A915D4B3075BE62D95E31A4 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8BE29B8F9C617FDF501D8FE4 /* DictationCore */; };
 		A27AF33A1FB87FD4D02A53E9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9A88AA362405D41E5E904895 /* Assets.xcassets */; };
+		A5D121B36BAEB3746F99F1CC /* RecordingHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0D7BCBCC11B04BED7F80D6 /* RecordingHUD.swift */; };
 		B23F39A534E5CA7E7F2F0654 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32027EE74DAEBC2941119213 /* MenuBarView.swift */; };
 		BFFAE8079D85E8343BC2CB69 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F025B2FC9418006328C9828 /* Assets.xcassets */; };
 		D1B0DB7869A88C834B38C4C2 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA16F718EAE03DD7AB9DD43 /* AppState.swift */; };
@@ -55,11 +57,13 @@
 		15307C3865CB6707DF19534D /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
 		2BEDE44D29C8252B3214EAD7 /* DictationApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DictationApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		32027EE74DAEBC2941119213 /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
-		4F231A4EECBC7CE0F17AF2DD /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Shared; sourceTree = SOURCE_ROOT; };
+		4F231A4EECBC7CE0F17AF2DD /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Shared; path = Shared; sourceTree = SOURCE_ROOT; };
 		53A1BB5F2F7803FB812B70FD /* DictationContainerApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A2805EDCBC448FE97F2F90C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		5F025B2FC9418006328C9828 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		6A656F57CB9A3B48DF6FC115 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
 		6C601E327CB04D74E5AD1C9A /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
+		6F0D7BCBCC11B04BED7F80D6 /* RecordingHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingHUD.swift; sourceTree = "<group>"; };
 		732756D9E94768DA56B07A2E /* DictationContainerApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DictationContainerApp.entitlements; sourceTree = "<group>"; };
 		888388B0B045E88481C1043B /* DictationApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationApp.swift; sourceTree = "<group>"; };
 		9A88AA362405D41E5E904895 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -125,7 +129,9 @@
 				888388B0B045E88481C1043B /* DictationApp.swift */,
 				6C601E327CB04D74E5AD1C9A /* HotkeyManager.swift */,
 				AC198E3C20403986C286C56F /* Info.plist */,
+				6A656F57CB9A3B48DF6FC115 /* LoginItem.swift */,
 				32027EE74DAEBC2941119213 /* MenuBarView.swift */,
+				6F0D7BCBCC11B04BED7F80D6 /* RecordingHUD.swift */,
 				F97B899A97B4F3B5B85F6786 /* SettingsView.swift */,
 			);
 			path = DictationApp;
@@ -328,7 +334,9 @@
 				03AE99BDB8D97E6C1E2AAAA9 /* ClipboardPaster.swift in Sources */,
 				914EA6A02DC3169EC75C21A6 /* DictationApp.swift in Sources */,
 				5C3A024A857271A7DB5CFCFB /* HotkeyManager.swift in Sources */,
+				48C088A41988BBDAC9CE27CC /* LoginItem.swift in Sources */,
 				B23F39A534E5CA7E7F2F0654 /* MenuBarView.swift in Sources */,
+				A5D121B36BAEB3746F99F1CC /* RecordingHUD.swift in Sources */,
 				579481DFF171ABA4EE5304B6 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -509,7 +517,6 @@
 				CODE_SIGN_ENTITLEMENTS = DictationApp/DictationApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -570,7 +577,6 @@
 				CODE_SIGN_ENTITLEMENTS = DictationApp/DictationApp.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationApp/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

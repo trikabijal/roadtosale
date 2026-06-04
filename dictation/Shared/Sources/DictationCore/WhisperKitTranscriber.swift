@@ -36,9 +36,18 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
     private var whisperKit: WhisperKit?
     private var loadTask: Task<Void, Error>?
+    private var biasPrompt: String?
 
     public init(modelTier: ModelTier = .largeV3Turbo) {
         self.modelTier = modelTier
+    }
+
+    /// Custom-vocabulary biasing: the terms become a decoder conditioning prompt so
+    /// names/jargon transcribe correctly.
+    public func setVocabularyBias(_ terms: [String]) {
+        let cleaned = terms.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        biasPrompt = cleaned.isEmpty ? nil : cleaned.joined(separator: ", ")
     }
 
     // MARK: - Load
@@ -108,7 +117,13 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
             throw TranscriptionError.noAudioData
         }
 
-        let results = try await wk.transcribe(audioArray: samples)
+        // Apply custom-vocabulary biasing as a decoder prompt when set.
+        var decodeOptions: DecodingOptions?
+        if let biasPrompt, let promptTokens = wk.tokenizer?.encode(text: " " + biasPrompt) {
+            decodeOptions = DecodingOptions(promptTokens: promptTokens)
+        }
+
+        let results = try await wk.transcribe(audioArray: samples, decodeOptions: decodeOptions)
         let latencyMs = Int(Date().timeIntervalSince(transcribeStart) * 1000)
 
         guard let first = results.first else {

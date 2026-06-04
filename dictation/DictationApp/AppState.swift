@@ -9,6 +9,16 @@ public enum DictationState {
     case idle, recording, transcribing
 }
 
+public enum HotkeyMode: String, CaseIterable {
+    case hold, toggle
+    public var displayName: String {
+        switch self {
+        case .hold:   return "Hold to talk"
+        case .toggle: return "Tap to start/stop"
+        }
+    }
+}
+
 // MARK: - AppState
 
 @MainActor
@@ -24,6 +34,10 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var autoPaste: Bool = true
     @Published public private(set) var sttConfig: STTConfig = .default
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
+    @Published public private(set) var vocabulary: [String] = []
+    @Published public private(set) var hotkeyMode: HotkeyMode = .hold
+    @Published public var soundEnabled: Bool = false
+    @Published public private(set) var launchAtLogin: Bool = false
 
     // MARK: - Engines
 
@@ -32,6 +46,7 @@ public final class AppState: NSObject, ObservableObject {
     private var cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
     private let clipboardPaster = ClipboardPaster()
+    private let recordingHUD = RecordingHUD()
     private var telemetryStore: TelemetryStore?
     private var hotkeyManager: HotkeyManager?
 
@@ -66,8 +81,13 @@ public final class AppState: NSObject, ObservableObject {
         self.cleanup = TextCleanupFactory.make(cleanupConfig, pack: pack)
 
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
+        self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
+        self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .hold
+        self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
+        self.launchAtLogin = LoginItem.isEnabled
         super.init()
         recordingEngine.delegate = self
+        transcriber.setVocabularyBias(vocabulary)
 
         Task { await setup() }
     }
@@ -126,6 +146,8 @@ public final class AppState: NSObject, ObservableObject {
             try recordingEngine.start()
             dictationState = .recording
             statusMessage = "Recording…"
+            recordingHUD.show(phase: .recording, label: "Listening…")
+            playSound("Tink")
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -136,9 +158,24 @@ public final class AppState: NSObject, ObservableObject {
         recordingEngine.stop()
         dictationState = .transcribing
         statusMessage = "Transcribing…"
+        recordingHUD.setPhase(.processing, label: "Transcribing…")
         let buffers = audioBuffers
         let startDate = recordingStartDate ?? Date()
         Task { await performTranscription(buffers: buffers, audioStartDate: startDate) }
+    }
+
+    /// Toggle-mode entry: tap to start, tap to stop.
+    func toggleRecording() {
+        switch dictationState {
+        case .idle:         startRecording()
+        case .recording:    stopRecordingAndTranscribe()
+        case .transcribing: break
+        }
+    }
+
+    private func playSound(_ name: String) {
+        guard soundEnabled, let sound = NSSound(named: name) else { return }
+        sound.play()
     }
 
     // MARK: - Transcription
@@ -147,6 +184,7 @@ public final class AppState: NSObject, ObservableObject {
         defer {
             dictationState = .idle
             statusMessage = "Ready — hold Fn to dictate"
+            recordingHUD.hide()
         }
 
         do {
@@ -162,10 +200,12 @@ public final class AppState: NSObject, ObservableObject {
             let cleanupResult: CleanupResult?
             if shouldClean {
                 statusMessage = "Cleaning…"
+                recordingHUD.setPhase(.processing, label: "Cleaning…")
                 cleanupResult = await cleanup.clean(
                     CleanupRequest(
                         rawText: rawText,
                         level: cleanupConfig.level,
+                        vocab: vocabularyMap,
                         commandGrammar: cleanupPack.commandGrammar,
                         profile: cleanupPack.profile
                     )
@@ -179,6 +219,7 @@ public final class AppState: NSObject, ObservableObject {
             // Write to clipboard and optionally paste
             let ap = autoPaste
             clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap)
+            playSound("Pop")
 
             // Build record — transcriptText is what was pasted; rawText keeps the
             // pre-cleanup STT output for the cross-platform learnings dataset.
@@ -247,6 +288,7 @@ public final class AppState: NSObject, ObservableObject {
 
         engineLoaded = false
         transcriber = SpeechTranscriberFactory.make(config)
+        transcriber.setVocabularyBias(vocabulary)
         let modelName = config.modelDisplayName
         statusMessage = "Preparing \(modelName)…"
         Task {
@@ -284,6 +326,41 @@ public final class AppState: NSObject, ObservableObject {
         cleanup = TextCleanupFactory.make(config, pack: cleanupPack)
     }
 
+    /// Custom vocabulary (names/jargon): biases WhisperKit and forces spelling in cleanup.
+    func setVocabulary(_ terms: [String]) {
+        let cleaned = terms.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        vocabulary = cleaned
+        UserDefaults.standard.set(cleaned, forKey: "vocabulary")
+        transcriber.setVocabularyBias(cleaned)
+    }
+
+    func setHotkeyMode(_ mode: HotkeyMode) {
+        hotkeyMode = mode
+        UserDefaults.standard.set(mode.rawValue, forKey: "hotkeyMode")
+    }
+
+    func setSoundEnabled(_ value: Bool) {
+        soundEnabled = value
+        UserDefaults.standard.set(value, forKey: "soundEnabled")
+    }
+
+    func setLaunchAtLogin(_ value: Bool) {
+        do {
+            try LoginItem.setEnabled(value)
+            launchAtLogin = LoginItem.isEnabled
+        } catch {
+            statusMessage = "Login item failed: \(error.localizedDescription)"
+            launchAtLogin = LoginItem.isEnabled
+        }
+    }
+
+    /// Forced-spelling map for cleanup: each vocab term maps to itself so the cleanup
+    /// engine restores the exact casing/spelling after the LLM pass.
+    private var vocabularyMap: [String: String] {
+        Dictionary(vocabulary.map { ($0.lowercased(), $0) }, uniquingKeysWith: { _, b in b })
+    }
+
     // MARK: - Refresh helpers
 
     func refreshTranscripts() async {
@@ -311,11 +388,26 @@ extension AppState: RecordingEngineDelegate {
             self.stopRecordingAndTranscribe()
         }
     }
+
+    /// Live mic level — drives the recording HUD meter.
+    public nonisolated func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {
+        Task { @MainActor in
+            self.recordingHUD.update(level: level)
+        }
+    }
 }
 
 // MARK: - HotkeyManagerDelegate
 
 extension AppState: HotkeyManagerDelegate {
-    func hotkeyDidPress() { startRecording() }
-    func hotkeyDidRelease() { stopRecordingAndTranscribe() }
+    func hotkeyDidPress() {
+        switch hotkeyMode {
+        case .hold:   startRecording()
+        case .toggle: toggleRecording()
+        }
+    }
+
+    func hotkeyDidRelease() {
+        if hotkeyMode == .hold { stopRecordingAndTranscribe() }
+    }
 }
