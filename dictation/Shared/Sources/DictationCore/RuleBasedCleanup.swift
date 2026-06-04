@@ -103,12 +103,12 @@ enum CleanupText {
         var last = 0
         re.enumerateMatches(in: text, range: NSRange(location: 0, length: ns.length)) { match, _, _ in
             guard let match, match.numberOfRanges == 3 else { return }
-            let sepRange = match.range(at: 1)
+            // The separator (group 1) is preserved implicitly: it's inside the verbatim
+            // span we copy from `last` up to the letter. Only the letter is uppercased.
             let letterRange = match.range(at: 2)
             result += ns.substring(with: NSRange(location: last, length: letterRange.location - last))
             result += ns.substring(with: letterRange).uppercased()
             last = letterRange.location + letterRange.length
-            _ = sepRange
         }
         result += ns.substring(from: last)
         return result

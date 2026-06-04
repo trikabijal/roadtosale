@@ -75,6 +75,8 @@ public final class AppState: NSObject, ObservableObject {
     // Correction window: after a transcript lands, ⌘⇧Z marks it corrected for 5s
     private var correctionWindowTask: Task<Void, Never>?
     private var correctionWindowOpen = false
+    // Monotonic token so a superseded STT load can't apply state for an old switch.
+    private var sttLoadGeneration = 0
 
     // MARK: - Init
 
@@ -314,7 +316,9 @@ public final class AppState: NSObject, ObservableObject {
             if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
             await refreshStats()
 
-            // Open 5-second correction window
+            // Open 5-second correction window. No `await` sits between the insert above
+            // and here, so recentTranscripts.first is exactly this record when the window
+            // opens — markLastTranscriptCorrected relies on that.
             correctionWindowTask?.cancel()
             correctionWindowOpen = true
             correctionWindowTask = Task { [weak self] in
@@ -362,13 +366,15 @@ public final class AppState: NSObject, ObservableObject {
         engineLoaded = false
         transcriber = SpeechTranscriberFactory.make(config)
         transcriber.setVocabularyBias(vocabulary)
+        sttLoadGeneration += 1
+        let token = sttLoadGeneration
         let modelName = config.modelDisplayName
         statusMessage = "Preparing \(modelName)…"
         Task {
             do {
                 try await transcriber.load { [weak self] fraction in
                     // Ignore progress from a superseded switch.
-                    guard let self, self.sttConfig == config else { return }
+                    guard let self, self.sttLoadGeneration == token else { return }
                     if fraction < 1.0 {
                         self.statusMessage = "Downloading \(modelName)… \(Int(fraction * 100))%"
                     } else {
@@ -376,14 +382,15 @@ public final class AppState: NSObject, ObservableObject {
                     }
                 }
                 // A newer setSTTConfig may have superseded this one mid-load — don't
-                // stomp its state.
-                guard sttConfig == config else { return }
+                // stomp its state. Keyed on the load token, not the config value, so
+                // rapid same-value switches (A→B→A→B) are disambiguated.
+                guard sttLoadGeneration == token else { return }
                 engineLoaded = transcriber.isLoaded
                 statusMessage = engineLoaded
                     ? "Ready — hold Fn to dictate"
                     : "\(config.provider.displayName) unavailable"
             } catch {
-                guard sttConfig == config else { return }
+                guard sttLoadGeneration == token else { return }
                 statusMessage = "Load failed: \(error.localizedDescription)"
             }
         }

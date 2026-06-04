@@ -42,6 +42,13 @@ final class RuleBasedCleanupTests: XCTestCase {
         XCTAssertEqual(r.cleanedText, "The car is fast")
     }
 
+    // Repeat-collapsing is full-only; light must preserve repeats.
+    func testLightDoesNotCollapseRepeats() async {
+        let r = await clean("the the car", level: .light)
+        XCTAssertEqual(r.cleanedText, "The the car")
+        XCTAssertFalse(r.opsApplied.contains("repeats"))
+    }
+
     // Regression: capitalizeSentences must NOT capitalize after a period that isn't a
     // sentence break (decimals, abbreviations). This was a real bug.
     // A period NOT followed by whitespace (decimals, version numbers) must not trigger
@@ -94,6 +101,13 @@ final class HallucinationFilterTests: XCTestCase {
 }
 
 final class CleanupPackTests: XCTestCase {
+
+    func testBundledPackResourceIsPresent() {
+        // Prove the JSON is actually bundled (not silently falling back to .fallback,
+        // which is byte-identical and would mask a missing resource).
+        XCTAssertNotNil(CleanupPackLoader.resourceURL(),
+                        "cleanup pack resource missing from DictationCore bundle")
+    }
 
     func testBundledPackLoads() {
         let pack = CleanupPackLoader.load()

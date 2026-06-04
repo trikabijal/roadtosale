@@ -156,10 +156,16 @@ public struct CleanupPack: Codable, Sendable {
 }
 
 public enum CleanupPackLoader {
+    /// URL of the bundled pack resource in the DictationCore bundle (nil if missing).
+    /// Resolves against DictationCore's own `Bundle.module`, not the caller's.
+    static func resourceURL(profile: String = "dictation") -> URL? {
+        Bundle.module.url(forResource: "\(profile)-cleanup-pack", withExtension: "json")
+    }
+
     /// Loads the bundled cleanup pack for a profile; falls back to a built-in default.
     public static func load(profile: String = "dictation") -> CleanupPack {
         guard
-            let url = Bundle.module.url(forResource: "\(profile)-cleanup-pack", withExtension: "json"),
+            let url = resourceURL(profile: profile),
             let data = try? Data(contentsOf: url),
             let pack = try? JSONDecoder().decode(CleanupPack.self, from: data)
         else {

@@ -25,6 +25,11 @@ final class ClipboardPaster {
         let pasteboard = NSPasteboard.general
 
         guard autoPaste else {
+            // Invalidate any in-flight restore so a pending burst restore can't clobber
+            // this manual write.
+            generation += 1
+            restorePending = false
+            burstSnapshot = nil
             pasteboard.clearContents()
             pasteboard.setString(text, forType: .string)
             return

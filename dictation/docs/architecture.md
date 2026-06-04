@@ -11,7 +11,7 @@ Dictation is a three-target Apple-platforms app that replaces Wispr Flow with a 
 | Target | Platform | Type | Bundle ID |
 |--------|----------|------|-----------|
 | DictationApp | macOS 14+ | Application (menu bar, LSUIElement) | com.trika.dictation |
-| DictationKeyboard | iOS 17+ | App Extension (custom keyboard) | com.trika.dictation.keyboard |
+| DictationKeyboard | iOS 17+ | App Extension (custom keyboard) | com.trika.dictation.ios.keyboard |
 | DictationContainerApp | iOS 17+ | Application (host for keyboard ext) | com.trika.dictation |
 
 DictationKeyboard is embedded in DictationContainerApp. Both iOS targets share the App Group `group.com.trika.dictation` so TelemetryStore's SQLite database is accessible to both processes.
