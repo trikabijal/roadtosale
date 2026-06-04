@@ -60,7 +60,9 @@ targets:
       path: DictationKeyboard/DictationKeyboard.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.keyboard
+        # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
+        # app-extension's bundle id has to be a child of its host app's.
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.ios.keyboard
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
