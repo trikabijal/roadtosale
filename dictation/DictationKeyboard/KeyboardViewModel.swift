@@ -26,10 +26,23 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
     private let transcriber: any SpeechTranscriber = WhisperKitTranscriber(modelTier: .tinyEn)
     private var telemetryStore: TelemetryStore?
 
+    // AI cleanup — the SAME contract + data pack as macOS. Apple Foundation Models runs as an
+    // on-device system service (not loaded into the extension's own memory budget), with a
+    // deterministic rule-based fallback. Default level Full. The <transcript>-tag sanitizer and
+    // prompt fixes live in DictationCore, so iOS inherits them automatically.
+    private let cleanupPack: CleanupPack
+    private let cleanupConfig: CleanupConfig
+    private let cleanup: any TextCleanup
+
     private var audioBuffers: [AVAudioPCMBuffer] = []
     private var recordingStartDate: Date?
 
     override public init() {
+        let pack = CleanupPackLoader.load()
+        self.cleanupPack = pack
+        let config = CleanupConfig.default
+        self.cleanupConfig = config
+        self.cleanup = TextCleanupFactory.make(config, pack: pack)
         super.init()
         recordingEngine.delegate = self
         Task { await setup() }
@@ -108,21 +121,47 @@ public final class KeyboardViewModel: NSObject, ObservableObject {
 
         do {
             let result = try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
-            guard !result.text.isEmpty else { return }
+            let rawText = result.text
+            guard !rawText.isEmpty else { return }
+
+            // AI cleanup pass (the Wispr brain). Skipped when off or too short to benefit.
+            // Never throws — falls back to rule-based internally.
+            let level = cleanupConfig.level
+            let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
+            let shouldClean = level != .off && wordCount >= cleanupPack.minWordsForCleanup
+            let cleanupResult: CleanupResult?
+            if shouldClean {
+                statusMessage = "Cleaning…"
+                cleanupResult = await cleanup.clean(CleanupRequest(
+                    rawText: rawText,
+                    level: level,
+                    vocab: [:],
+                    commandGrammar: cleanupPack.commandGrammar,
+                    profile: cleanupPack.profile
+                ))
+            } else {
+                cleanupResult = nil
+            }
+            let finalText = cleanupResult?.cleanedText ?? rawText
+            guard !finalText.isEmpty else { return }
 
             // Insert into the text field
-            insertTextCallback?(result.text + " ")
-            lastTranscript = result.text
+            insertTextCallback?(finalText + " ")
+            lastTranscript = finalText
             lastWasCorrected = false
 
-            // Telemetry
+            // Telemetry (v2 — raw + cleaned + cleanup metadata, parity with macOS)
             let record = TranscriptRecord(
                 platform: "ios",
                 audioDurationMs: result.audioDurationMs,
-                transcriptText: result.text,
+                transcriptText: finalText,
                 whisperkitConfidence: result.confidence,
                 latencyMs: result.latencyMs,
-                modelTier: "\(result.provider.rawValue)/\(result.model)"
+                modelTier: "\(result.provider.rawValue)/\(result.model)",
+                frontmostApp: nil,
+                rawText: rawText,
+                cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
+                cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
             )
             try? await telemetryStore?.save(record)
 
@@ -155,7 +194,9 @@ extension KeyboardViewModel: RecordingEngineDelegate {
         Task { @MainActor in self.audioBuffers.append(buffer) }
     }
 
+    /// VAD silence does NOT auto-stop — the user taps the mic again to stop (same decision as
+    /// macOS, where auto-stopping on a pause chopped sentences off mid-thought).
     public nonisolated func recordingEngineDidDetectSilence(_ engine: RecordingEngine) {
-        Task { @MainActor in self.stopRecordingAndTranscribe() }
+        // no-op
     }
 }
