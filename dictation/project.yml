@@ -1,4 +1,4 @@
-name: DictationApp
+name: JustTalk
 options:
   bundleIdPrefix: com.trika
   deploymentTarget:
@@ -14,39 +14,56 @@ packages:
 
 targets:
 
-  DictationApp:
+  JustTalk:
     type: application
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: DictationApp
+      - path: JustTalk
     resources:
-      - path: DictationApp/Assets.xcassets
+      - path: JustTalk/Assets.xcassets
     dependencies:
       - package: DictationCore
     entitlements:
-      path: DictationApp/DictationApp.entitlements
+      path: JustTalk/JustTalk.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.mac
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         CODE_SIGN_STYLE: Automatic
-        INFOPLIST_FILE: DictationApp/Info.plist
-        CODE_SIGN_ENTITLEMENTS: DictationApp/DictationApp.entitlements
+        INFOPLIST_FILE: JustTalk/Info.plist
+        CODE_SIGN_ENTITLEMENTS: JustTalk/JustTalk.entitlements
         # No dock icon — menu bar app
         LSUIElement: YES
       configs:
         Debug:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
     info:
-      path: DictationApp/Info.plist
+      path: JustTalk/Info.plist
       properties:
-        CFBundleName: Dictation
-        CFBundleDisplayName: Dictation
-        NSMicrophoneUsageDescription: "Dictation uses the microphone to record your voice for transcription."
-        NSAppleEventsUsageDescription: "Dictation needs to send keyboard events to paste transcribed text."
+        CFBundleName: Just Talk
+        CFBundleDisplayName: Just Talk
+        NSMicrophoneUsageDescription: "Just Talk uses the microphone to record your voice for transcription. Audio never leaves your Mac."
+        NSAppleEventsUsageDescription: "Just Talk sends keyboard events to paste transcribed text into the app you're using."
         LSUIElement: true
+    scheme:
+      testTargets:
+        - JustTalkTests
+
+  JustTalkTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: JustTalkTests
+    dependencies:
+      - target: JustTalk
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac.tests
 
   DictationKeyboard:
     type: app-extension

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build and launch the macOS Dictation app locally.
+# Build and launch the macOS Just Talk app locally.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -15,4 +15,4 @@ fi
 
 echo "▶ Launching $APP…"
 open "$APP"
-echo "✓ Running in the menu bar. Hold Fn (Globe) to dictate."
+echo "✓ Running in the menu bar. Hold your activation key to talk."

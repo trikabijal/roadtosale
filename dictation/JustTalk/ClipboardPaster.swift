@@ -21,7 +21,7 @@ final class ClipboardPaster {
     ///
     /// When `autoPaste` is false the transcript is intentionally left on the clipboard
     /// for the user to paste manually, so there is nothing to restore.
-    func writeAndPaste(text: String, autoPaste: Bool) {
+    func writeAndPaste(text: String, autoPaste: Bool, targetApp: NSRunningApplication? = nil) {
         let pasteboard = NSPasteboard.general
 
         guard autoPaste else {
@@ -47,14 +47,19 @@ final class ClipboardPaster {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
 
-        // 50 ms: let the frontmost window regain focus after the menu-bar interaction,
-        // then paste.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+        // Re-focus the app that was frontmost when recording started, so the paste lands
+        // where the user intended even if the menu-bar panel or anything else stole focus.
+        targetApp?.activate()
+
+        // Let activation/focus settle, then paste.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
             self?.sendCmdV()
 
-            // 200 ms after the paste: the target app has read the pasteboard. Only the
-            // most recent paste restores; superseded ones do nothing.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            // Restore the user's clipboard only AFTER the target app has read the pasteboard.
+            // 700 ms is generous on purpose — slow apps (Terminal especially) read ⌘V late,
+            // and restoring too early left them pasting an already-restored, empty clipboard.
+            // Only the most recent paste restores; superseded bursts do nothing.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
                 guard let self, myGeneration == self.generation else { return }
                 self.restore(self.burstSnapshot ?? [], to: pasteboard)
                 self.burstSnapshot = nil

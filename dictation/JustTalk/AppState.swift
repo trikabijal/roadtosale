@@ -14,7 +14,7 @@ public enum HotkeyMode: String, CaseIterable {
     public var displayName: String {
         switch self {
         case .hold:   return "Hold to talk"
-        case .toggle: return "Tap to start/stop"
+        case .toggle: return "Sticky — tap to start, tap to stop"
         }
     }
 }
@@ -37,16 +37,43 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var dictationState: DictationState = .idle
     @Published public var recentTranscripts: [TranscriptRecord] = []
     @Published public var weeklyStats: WeeklyStats = .empty
+    @Published public var usageTotals: UsageTotals = .empty
     @Published public var engineLoaded: Bool = false
     @Published public var statusMessage: String = "Ready"
     @Published public var autoPaste: Bool = true
     @Published public private(set) var sttConfig: STTConfig = .default
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
     @Published public private(set) var vocabulary: [String] = []
-    @Published public private(set) var hotkeyMode: HotkeyMode = .hold
+    @Published public private(set) var hotkeyMode: HotkeyMode = .toggle
     @Published public var soundEnabled: Bool = false
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
+
+    // Onboarding / permissions (drives the setup wizard's live ticks)
+    @Published private(set) var hotkeyConfig: HotkeyConfig = .fn
+    @Published public var micGranted: Bool = false
+    @Published public var accessibilityGranted: Bool = false
+    /// Set true the moment the configured key is received during the wizard "test" step.
+    @Published public var hotkeyTestPassed: Bool = false
+
+    // MARK: - Permissions / onboarding
+
+    let permissions = PermissionsService()
+    private let onboardingWindow = OnboardingWindow()
+    private var permissionTimer: Timer?
+
+    /// The two permissions Just Talk genuinely needs to function.
+    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted }
+
+    private var hasCompletedOnboarding: Bool {
+        get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
+        set { UserDefaults.standard.set(newValue, forKey: "hasCompletedOnboarding") }
+    }
+
+    private var readyMessage: String {
+        let verb = hotkeyMode == .toggle ? "tap" : "hold"
+        return "Ready — \(verb) \(hotkeyConfig.shortName) to talk"
+    }
 
     // MARK: - Engines
 
@@ -66,6 +93,12 @@ public final class AppState: NSObject, ObservableObject {
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
     private var recordingFrontmostApp: String?
+    // The actual app object frontmost at record start — re-activated before paste so the
+    // text lands where the user intended even if focus moved (e.g. the menu-bar panel).
+    private var recordingTargetApp: NSRunningApplication?
+    // Audio preserved when transcription fails, so the dictation can be retried instead of
+    // silently lost (Wispr-style). Cleared on success or explicit discard.
+    private var pendingAudio: (buffers: [AVAudioPCMBuffer], startDate: Date)?
 
     // Live HUD preview (E1): a separate tiny model transcribes accumulated audio while
     // recording, for display only. The batch path remains the source of truth.
@@ -103,7 +136,8 @@ public final class AppState: NSObject, ObservableObject {
 
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
-        self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .hold
+        self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .toggle
+        self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
         self.launchAtLogin = LoginItem.isEnabled
         if let data = defaults.data(forKey: "appProfiles"),
@@ -120,15 +154,28 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Setup
 
     private func setup() async {
-        // 1. Request mic permission
-        do {
-            try await recordingEngine.requestPermission()
-        } catch {
-            statusMessage = "Mic permission denied — check System Settings"
-            return
+        // 1. Read permission status WITHOUT prompting (the fix for "Settings opens out of
+        //    the blue"). Prompts now happen only from explicit onboarding buttons.
+        refreshPermissions()
+
+        // 2. Build the hotkey listener; only install the event tap once Accessibility is
+        //    granted (refreshPermissions starts it on the grant transition).
+        hotkeyManager = HotkeyManager(delegate: self, config: hotkeyConfig)
+        if accessibilityGranted { hotkeyManager?.start() }
+
+        // 3. Poll permissions so the wizard's ticks update live as the user grants them in
+        //    System Settings, and so a later revoke is noticed. Also re-check on activation.
+        startPermissionPolling()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appDidBecomeActive),
+            name: NSApplication.didBecomeActiveNotification, object: nil)
+
+        // 4. Show onboarding if it's never been completed or a required permission is missing.
+        if !hasCompletedOnboarding || !requiredPermissionsGranted {
+            showOnboardingWindow()
         }
 
-        // 2. Load the speech model (downloads on first run — show progress)
+        // 5. Load the speech model (downloads on first run — show progress).
         let modelName = sttConfig.modelDisplayName
         statusMessage = "Preparing \(modelName)…"
         do {
@@ -141,13 +188,13 @@ public final class AppState: NSObject, ObservableObject {
                 }
             }
             engineLoaded = transcriber.isLoaded
-            statusMessage = "Ready — hold Fn to dictate"
+            statusMessage = readyMessage
         } catch {
             statusMessage = "Model load failed: \(error.localizedDescription)"
             return
         }
 
-        // 3. Open telemetry store (non-fatal)
+        // 6. Open telemetry store (non-fatal).
         do {
             let url = try TelemetryStore.macOSDatabaseURL()
             telemetryStore = try TelemetryStore(databaseURL: url)
@@ -156,16 +203,85 @@ public final class AppState: NSObject, ObservableObject {
             // Non-fatal — app still works without telemetry
         }
 
-        // 4. Start hotkey listener
-        hotkeyManager = HotkeyManager(delegate: self)
-        hotkeyManager?.start()
-
-        // 5. Load the tiny live-preview model in the background (best-effort).
+        // 7. Load the tiny live-preview model in the background (best-effort).
         Task { [weak self] in
             let preview = WhisperKitTranscriber(modelTier: .tinyEn)
             try? await preview.load()
             if preview.isLoaded { self?.previewTranscriber = preview }
         }
+    }
+
+    // MARK: - Permissions & onboarding
+
+    private func startPermissionPolling() {
+        permissionTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.2, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.refreshPermissions() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        permissionTimer = timer
+    }
+
+    /// Non-prompting status read. Installs the hotkey tap the moment Accessibility flips on.
+    func refreshPermissions() {
+        micGranted = permissions.micStatus == .granted
+        let ax = permissions.accessibilityGranted
+        let wasGranted = accessibilityGranted
+        accessibilityGranted = ax
+        if ax && !wasGranted {
+            hotkeyManager?.start()
+        }
+    }
+
+    @objc private func appDidBecomeActive() { refreshPermissions() }
+
+    func showOnboardingWindow() {
+        refreshPermissions()
+        onboardingWindow.show(appState: self)
+    }
+
+    /// Trigger the system mic prompt (only on a wizard button tap).
+    func requestMicrophone() {
+        Task {
+            _ = await permissions.requestMic()
+            refreshPermissions()
+        }
+    }
+
+    /// Trigger the Accessibility prompt + open the pane (only on a wizard button tap).
+    func requestAccessibility() {
+        permissions.promptAccessibility()
+    }
+
+    /// Begin the wizard "press your key to test" step: route presses to a confirmation
+    /// signal only (no recording) so we can prove the key reaches us — the definitive
+    /// conflict check, since macOS won't tell us who else holds the key.
+    func beginHotkeyTest() {
+        hotkeyTestPassed = false
+        hotkeyManager?.isTesting = true
+        if accessibilityGranted { hotkeyManager?.start() }
+    }
+
+    func endHotkeyTest() {
+        hotkeyManager?.isTesting = false
+    }
+
+    func completeOnboarding() {
+        hasCompletedOnboarding = true
+        endHotkeyTest()
+        onboardingWindow.close()
+    }
+
+    /// Relaunch the app. `AXIsProcessTrusted()` frequently does not refresh inside a running
+    /// (agent) process after the user enables Accessibility — a fresh process always reads
+    /// the current grant. This is the reliable escape hatch the wizard offers.
+    func relaunch() {
+        let path = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", path]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 
     // MARK: - Recording control (called by HotkeyManager)
@@ -174,7 +290,9 @@ public final class AppState: NSObject, ObservableObject {
         guard dictationState == .idle, engineLoaded else { return }
         audioBuffers = []
         recordingStartDate = Date()
-        recordingFrontmostApp = NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        recordingFrontmostApp = frontApp?.bundleIdentifier
+        recordingTargetApp = frontApp
         do {
             try recordingEngine.start()
             dictationState = .recording
@@ -248,94 +366,153 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Transcription
 
     private func performTranscription(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async {
-        defer {
-            dictationState = .idle
-            statusMessage = "Ready — hold Fn to dictate"
-            recordingHUD.hide()
-        }
-
+        // Transcribe with automatic retries — STT can fail transiently. The audio is preserved
+        // so a failure is never silently lost (Wispr-style: keep audio, retry, then discard).
+        let result: TranscriptionResult
         do {
-            let result = try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
-
-            let rawText = result.text
-            guard !rawText.isEmpty else { return }
-
-            // Resolve the effective cleanup level against the app that was frontmost when
-            // recording started — per-app overrides win over the global.
-            let frontmostApp = recordingFrontmostApp
-            let level = effectiveLevel(forBundleId: frontmostApp)
-
-            // Cleanup pass (the Wispr brain). Skipped when level is off or the clip is
-            // too short to benefit. Never throws — falls back internally.
-            let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
-            let shouldClean = level != .off && wordCount >= cleanupPack.minWordsForCleanup
-            let cleanupResult: CleanupResult?
-            if shouldClean {
-                statusMessage = "Cleaning…"
-                recordingHUD.setPhase(.processing, label: "Cleaning…")
-                cleanupResult = await cleanup.clean(
-                    CleanupRequest(
-                        rawText: rawText,
-                        level: level,
-                        vocab: vocabularyMap,
-                        commandGrammar: cleanupPack.commandGrammar,
-                        profile: cleanupPack.profile
-                    )
-                )
-            } else {
-                cleanupResult = nil
-            }
-            let finalText = cleanupResult?.cleanedText ?? rawText
-            guard !finalText.isEmpty else { return }
-
-            // Write to clipboard and optionally paste
-            let ap = autoPaste
-            clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap)
-            playSound("Pop")
-
-            // Build record — transcriptText is what was pasted; rawText keeps the
-            // pre-cleanup STT output for the cross-platform learnings dataset.
-            let record = TranscriptRecord(
-                platform: "mac",
-                audioDurationMs: result.audioDurationMs,
-                transcriptText: finalText,
-                whisperkitConfidence: result.confidence,
-                latencyMs: result.latencyMs,
-                modelTier: "\(result.provider.rawValue)/\(result.model)",
-                frontmostApp: frontmostApp,
-                rawText: rawText,
-                cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
-                cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
-            )
-
-            // Save telemetry (actor method — synchronous throw, async via actor isolation)
-            try? await telemetryStore?.save(record)
-
-            // Update UI
-            recentTranscripts.insert(record, at: 0)
-            if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
-            await refreshStats()
-
-            // Open 5-second correction window. No `await` sits between the insert above
-            // and here, so recentTranscripts.first is exactly this record when the window
-            // opens — markLastTranscriptCorrected relies on that.
-            correctionWindowTask?.cancel()
-            correctionWindowOpen = true
-            correctionWindowTask = Task { [weak self] in
-                // On cancel (a newer transcript opened its own window), bail without
-                // closing — the new window owns the flag. Only natural expiry closes it.
-                do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                self?.correctionWindowOpen = false
-            }
-
-        } catch TranscriptionError.emptyResult {
-            // Silent — nothing was said
-        } catch TranscriptionError.noAudioData {
-            // Silent — empty recording
+            result = try await transcribeWithRetry(buffers: buffers, audioStartDate: audioStartDate)
+        } catch TranscriptionError.emptyResult, TranscriptionError.noAudioData {
+            handleEmpty(buffers: buffers, audioStartDate: audioStartDate)
+            return
         } catch {
-            statusMessage = "Error: \(error.localizedDescription)"
-            try? await Task.sleep(for: .seconds(2))
+            failWithRetry(buffers: buffers, audioStartDate: audioStartDate, message: "Transcription failed")
+            return
         }
+
+        let rawText = result.text
+        guard !rawText.isEmpty else {
+            handleEmpty(buffers: buffers, audioStartDate: audioStartDate)
+            return
+        }
+
+        // Resolve the effective cleanup level against the app frontmost at record start.
+        let frontmostApp = recordingFrontmostApp
+        let level = effectiveLevel(forBundleId: frontmostApp)
+
+        // Cleanup pass (the Wispr brain). Never throws — falls back internally.
+        let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
+        let shouldClean = level != .off && wordCount >= cleanupPack.minWordsForCleanup
+        let cleanupResult: CleanupResult?
+        if shouldClean {
+            statusMessage = "Cleaning…"
+            recordingHUD.setPhase(.processing, label: "Cleaning…")
+            cleanupResult = await cleanup.clean(
+                CleanupRequest(
+                    rawText: rawText,
+                    level: level,
+                    vocab: vocabularyMap,
+                    commandGrammar: cleanupPack.commandGrammar,
+                    profile: cleanupPack.profile
+                )
+            )
+        } else {
+            cleanupResult = nil
+        }
+        let finalText = cleanupResult?.cleanedText ?? rawText
+        guard !finalText.isEmpty else { finishIdle(); return }
+
+        // Write to clipboard and optionally paste
+        let ap = autoPaste
+        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp)
+        playSound("Pop")
+
+        // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
+        // STT output for the cross-platform learnings dataset.
+        let record = TranscriptRecord(
+            platform: "mac",
+            audioDurationMs: result.audioDurationMs,
+            transcriptText: finalText,
+            whisperkitConfidence: result.confidence,
+            latencyMs: result.latencyMs,
+            modelTier: "\(result.provider.rawValue)/\(result.model)",
+            frontmostApp: frontmostApp,
+            rawText: rawText,
+            cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
+            cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
+        )
+        try? await telemetryStore?.save(record)
+
+        recentTranscripts.insert(record, at: 0)
+        if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
+        await refreshStats()
+
+        // Open 5-second correction window (recentTranscripts.first is this record; nothing
+        // between the insert and here mutates recentTranscripts).
+        correctionWindowTask?.cancel()
+        correctionWindowOpen = true
+        correctionWindowTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            self?.correctionWindowOpen = false
+        }
+
+        // Success — drop the preserved audio and reset.
+        pendingAudio = nil
+        finishIdle()
+    }
+
+    /// Transcribe with automatic retries on transient failure. Genuine empty / no-audio is
+    /// rethrown immediately (no point retrying silence).
+    private func transcribeWithRetry(buffers: [AVAudioPCMBuffer], audioStartDate: Date,
+                                     attempts: Int = 3) async throws -> TranscriptionResult {
+        var lastError: Error?
+        for attempt in 1...attempts {
+            do {
+                return try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
+            } catch TranscriptionError.emptyResult {
+                throw TranscriptionError.emptyResult
+            } catch TranscriptionError.noAudioData {
+                throw TranscriptionError.noAudioData
+            } catch {
+                lastError = error
+                if attempt < attempts { try? await Task.sleep(for: .milliseconds(300)) }
+            }
+        }
+        throw lastError ?? TranscriptionError.emptyResult
+    }
+
+    /// Empty transcript. If there was real audio, the user likely spoke and STT dropped it —
+    /// surface a retry; if it was basically silence, reset quietly.
+    private func handleEmpty(buffers: [AVAudioPCMBuffer], audioStartDate: Date) {
+        let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
+        if Double(frames) > RecordingEngine.targetSampleRate * 1.0 {
+            failWithRetry(buffers: buffers, audioStartDate: audioStartDate, message: "Didn't catch that")
+        } else {
+            pendingAudio = nil
+            finishIdle()
+        }
+    }
+
+    /// Preserve the audio and show a retry affordance in the HUD instead of losing the dictation.
+    private func failWithRetry(buffers: [AVAudioPCMBuffer], audioStartDate: Date, message: String) {
+        pendingAudio = (buffers, audioStartDate)
+        dictationState = .idle
+        statusMessage = "\(message) — retry from the box"
+        recordingHUD.showFailed(
+            message: message,
+            onRetry: { [weak self] in self?.retryPendingDictation() },
+            onDismiss: { [weak self] in self?.discardPendingDictation() }
+        )
+    }
+
+    /// Re-run transcription on the preserved audio (HUD "Retry").
+    func retryPendingDictation() {
+        guard let pending = pendingAudio else { return }
+        dictationState = .transcribing
+        statusMessage = "Retrying…"
+        recordingHUD.setPhase(.processing, label: "Retrying…")
+        Task { await performTranscription(buffers: pending.buffers, audioStartDate: pending.startDate) }
+    }
+
+    /// Discard the preserved audio (HUD "✕").
+    func discardPendingDictation() {
+        pendingAudio = nil
+        finishIdle()
+    }
+
+    private func finishIdle() {
+        dictationState = .idle
+        statusMessage = readyMessage
+        recordingHUD.hide()
     }
 
     // MARK: - Correction
@@ -387,7 +564,7 @@ public final class AppState: NSObject, ObservableObject {
                 guard sttLoadGeneration == token else { return }
                 engineLoaded = transcriber.isLoaded
                 statusMessage = engineLoaded
-                    ? "Ready — hold Fn to dictate"
+                    ? readyMessage
                     : "\(config.provider.displayName) unavailable"
             } catch {
                 guard sttLoadGeneration == token else { return }
@@ -423,6 +600,17 @@ public final class AppState: NSObject, ObservableObject {
     func setHotkeyMode(_ mode: HotkeyMode) {
         hotkeyMode = mode
         UserDefaults.standard.set(mode.rawValue, forKey: "hotkeyMode")
+    }
+
+    /// Switch the activation key. Persists, reconfigures the live listener, and resets the
+    /// wizard test state so the user re-confirms the new key.
+    func setHotkey(_ config: HotkeyConfig) {
+        guard config != hotkeyConfig else { return }
+        hotkeyConfig = config
+        config.save()
+        hotkeyManager?.setConfig(config)
+        hotkeyTestPassed = false
+        if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
     }
 
     func setSoundEnabled(_ value: Bool) {
@@ -496,6 +684,7 @@ public final class AppState: NSObject, ObservableObject {
 
     func refreshStats() async {
         weeklyStats = (try? await telemetryStore?.fetchWeeklyStats()) ?? .empty
+        usageTotals = (try? await telemetryStore?.fetchUsageTotals()) ?? .empty
     }
 }
 
@@ -509,11 +698,11 @@ extension AppState: RecordingEngineDelegate {
         }
     }
 
-    /// Called when VAD detects silence — bridge back to MainActor.
+    /// VAD silence is intentionally NOT used to auto-stop. Recording is controlled by the
+    /// activation key — release in hold mode, a second tap in sticky/toggle mode. Auto-stopping
+    /// on a pause chopped sentences off mid-thought while the user was still holding the key.
     public nonisolated func recordingEngineDidDetectSilence(_ engine: RecordingEngine) {
-        Task { @MainActor in
-            self.stopRecordingAndTranscribe()
-        }
+        // no-op (kept for the delegate contract; VAD signal retained for future use)
     }
 
     /// Live mic level — drives the recording HUD meter.
@@ -536,5 +725,10 @@ extension AppState: HotkeyManagerDelegate {
 
     func hotkeyDidRelease() {
         if hotkeyMode == .hold { stopRecordingAndTranscribe() }
+    }
+
+    /// The configured key reached us — used by the onboarding test step.
+    func hotkeyDidReceiveConfiguredKey() {
+        hotkeyTestPassed = true
     }
 }

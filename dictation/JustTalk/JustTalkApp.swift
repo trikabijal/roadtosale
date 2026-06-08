@@ -2,7 +2,7 @@ import SwiftUI
 import DictationCore
 
 @main
-struct DictationApp: App {
+struct JustTalkApp: App {
     @StateObject private var appState = AppState()
 
     var body: some Scene {
@@ -19,7 +19,7 @@ struct DictationApp: App {
                 .environmentObject(appState)
         }
 
-        Window("Dictation History", id: "history") {
+        Window("Just Talk History", id: "history") {
             HistoryView()
                 .environmentObject(appState)
         }
@@ -27,7 +27,7 @@ struct DictationApp: App {
     }
 }
 
-/// Mic icon that changes based on dictation state
+/// Menu bar glyph that changes with dictation state.
 struct MenuBarIcon: View {
     let state: DictationState
 
