@@ -1,8 +1,8 @@
-# Dictation — Architecture
+# Just Talk — Architecture
 
 ## Overview
 
-Dictation is a three-target Apple-platforms app that replaces Wispr Flow with a fully on-device, WhisperKit-powered speech-to-text pipeline. All product logic lives in **DictationCore**, a local Swift Package consumed by every target. No target-specific code leaks into the shared package.
+Just Talk is a multi-target Apple-platforms app that replaces Wispr Flow with a fully on-device, WhisperKit-powered speech-to-text pipeline. All product logic lives in **DictationCore**, a local Swift Package consumed by every target. No target-specific code leaks into the shared package. (The shared package and the iOS targets keep the `Dictation*` names for now; only the macOS product was renamed to Just Talk.)
 
 ---
 
@@ -10,9 +10,10 @@ Dictation is a three-target Apple-platforms app that replaces Wispr Flow with a 
 
 | Target | Platform | Type | Bundle ID |
 |--------|----------|------|-----------|
-| DictationApp | macOS 14+ | Application (menu bar, LSUIElement) | com.trika.dictation |
+| JustTalk | macOS 14+ | Application (menu bar, LSUIElement) | com.trika.justtalk.mac |
+| JustTalkTests | macOS 14+ | Unit-test bundle (hosted by JustTalk) | com.trika.justtalk.mac.tests |
 | DictationKeyboard | iOS 17+ | App Extension (custom keyboard) | com.trika.dictation.ios.keyboard |
-| DictationContainerApp | iOS 17+ | Application (host for keyboard ext) | com.trika.dictation |
+| DictationContainerApp | iOS 17+ | Application (host for keyboard ext) | com.trika.dictation.ios |
 
 DictationKeyboard is embedded in DictationContainerApp. Both iOS targets share the App Group `group.com.trika.dictation` so TelemetryStore's SQLite database is accessible to both processes.
 
@@ -79,6 +80,36 @@ A Swift `actor` backed by a GRDB `DatabaseQueue`. Responsibilities:
 
 ---
 
+## macOS Onboarding, Permissions & Hotkey (JustTalk target)
+
+This UI/permission layer is macOS-only and lives entirely in `JustTalk/`.
+
+- **PermissionsService** — the single source of truth for the two required permissions
+  (Microphone, Accessibility). All status reads are **non-prompting** (`AVCaptureDevice.authorizationStatus`,
+  `AXIsProcessTrusted()`), so the app can poll them freely. System prompts fire *only* from
+  the explicit `requestMic()` / `promptAccessibility()` methods, which are wired to wizard
+  buttons. This is the fix for prompts appearing "out of the blue": `AppState.setup()` no
+  longer requests anything automatically at launch.
+- **Onboarding wizard** (`OnboardingView` + `OnboardingWindow`) — a card-based setup flow
+  with live status ticks, shown on first launch or whenever a required permission is missing,
+  and reopenable from the menu bar → Setup. A 1.2s poll (`AppState.startPermissionPolling`)
+  plus `didBecomeActive` make the ticks update as the user toggles settings; once granted, the
+  hotkey event tap is installed automatically (`refreshPermissions` on the grant transition).
+- **Configurable hotkey** (`HotkeyConfig` + `HotkeyManager`) — the activation key is chosen
+  from a curated set (Fn, right ⌘/⌥/⌃, F5/F6/F13). `HotkeyManager` installs a `CGEventTap`
+  and matches the active `HotkeyConfig`: Fn/right-modifiers via `.flagsChanged` (right keys
+  disambiguated from their left twins by virtual keyCode), function keys via `.keyDown/.keyUp`.
+  Matched keys are suppressed (return `nil`) so the Globe picker / stray key never reaches the
+  foreground app.
+- **Conflict detection** (`HotkeyConflict`) — macOS exposes no API to enumerate other apps'
+  event taps, so conflict detection is best-effort: it reads the OS Globe setting
+  (`AppleFnUsageType`) and scans `NSWorkspace.runningApplications` for known competitors
+  (Wispr Flow). The **definitive** check is the wizard's "press your key to test" step: in
+  `HotkeyManager.isTesting` mode a press routes to `hotkeyDidReceiveConfiguredKey()` only (no
+  recording), proving the key reaches the app regardless of what might be intercepting it.
+
+---
+
 ## Data Flow
 
 ```
@@ -133,7 +164,8 @@ Daily personal use at the developer's desk is the cheapest possible test harness
 ## Isolation Guarantees
 
 - DictationCore never imports from any target-specific module.
-- macOS-only code (Accessibility API, `NSWorkspace` for frontmost app, the floating
-  `RecordingHUD`, and `LoginItem`/`SMAppService` launch-at-login) lives exclusively in `DictationApp/`.
+- macOS-only code (Accessibility API, `NSWorkspace`, the floating `RecordingHUD`,
+  `LoginItem`/`SMAppService` launch-at-login, the onboarding wizard, `PermissionsService`,
+  `HotkeyManager`/`HotkeyConfig`/`HotkeyConflict`) lives exclusively in `JustTalk/`.
 - iOS-only code (`UIInputViewController`, `textDocumentProxy`) lives exclusively in `DictationKeyboard/`.
 - The App Group shared container is the only cross-process communication channel (telemetry DB). No XPC, no shared memory.

@@ -1,12 +1,12 @@
-# Dictation
+# Just Talk
 
-A Wispr Flow replacement built on WhisperKit. Press a hotkey, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Runs entirely on-device: neither audio nor text ever leaves the machine.
+A Wispr Flow replacement built on WhisperKit. Press your activation key, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Runs entirely on-device: neither audio nor text ever leaves the machine.
 
 Two model layers, both swappable behind a contract (`{provider, model}`):
 - **Speech-to-text** — `SpeechTranscriber` (WhisperKit today; Apple SpeechTranscriber next).
 - **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
 
-Two shipping targets: a macOS menu bar app (DictationApp) and an iOS custom keyboard extension (DictationKeyboard + DictationContainerApp). All three targets share the DictationCore Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is wired into the macOS app today; the iOS keyboard (Phase 3) currently inserts raw transcription and will adopt the same cleanup engine when that phase ships.
+Two shipping targets: a macOS menu bar app (JustTalk) and an iOS custom keyboard extension (DictationKeyboard + DictationContainerApp — iOS rename deferred until the paid Apple Developer account is set up). All targets share the DictationCore Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is now wired into **both** the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix for free). The iOS keyboard compiles for the Simulator but can only be fully validated on a physical device with a paid Apple Developer account (custom keyboards don't run in the Simulator).
 
 ---
 
@@ -24,8 +24,8 @@ Two shipping targets: a macOS menu bar app (DictationApp) and an iOS custom keyb
 ```bash
 brew install xcodegen       # one-time
 cd dictation
-xcodegen generate           # creates DictationApp.xcodeproj
-open DictationApp.xcodeproj
+xcodegen generate           # creates JustTalk.xcodeproj
+open JustTalk.xcodeproj
 ```
 
 XcodeGen resolves `Shared/` as a local Swift Package. Xcode then fetches GRDB and WhisperKit from GitHub on first open — allow the package resolution to complete before building.
@@ -39,17 +39,16 @@ In Xcode, for **each of the three targets**:
 
 ---
 
-## macOS Usage (DictationApp)
+## macOS Usage (JustTalk)
 
-1. Select the **DictationApp** scheme, build, and run.
-2. On first launch macOS will prompt for Microphone access — allow it.
+1. Select the **JustTalk** scheme, build, and run.
+2. A **setup wizard** opens on first launch with live-ticking cards — grant **Microphone** and **Accessibility**, pick your activation key, and press it once to confirm it reaches the app. Permissions are only requested when you tap a button (nothing pops up out of the blue), and the wizard auto-advances as you grant each one. Reopen it anytime from the menu bar → **Setup**.
 3. The app lives in the menu bar (no Dock icon by design).
-4. Hold **Fn** (Globe key) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
-5. If pasting does not work, open System Settings → Privacy & Security → Accessibility and grant access to Dictation.
-   Accessibility also suppresses the Globe/emoji-picker so Fn is dedicated to dictation.
+4. Hold your **activation key** (default **Fn / Globe**) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
+5. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. The wizard's "press your key to test" step confirms the key actually reaches Just Talk. For Fn, also set System Settings → Keyboard → "Press 🌐 key to" → **Do Nothing**.
 
 Settings (menu bar → Settings):
-- **Recording** — activation mode (hold-to-talk or tap-to-toggle), auto-paste, start/stop sounds.
+- **Recording** — activation key (Fn, right ⌘/⌥/⌃, F5/F6/F13), activation mode (hold-to-talk or tap-to-toggle), auto-paste, start/stop sounds. "Re-run setup…" reopens the wizard.
 - **Startup** — launch at login.
 - **Speech-to-text** — provider + model.
 - **AI Cleanup** — level (Off / Light / **Full**, default) + engine (Foundation Models / rule-based).
@@ -108,11 +107,17 @@ dictation/
 │       ├── TelemetryStore.swift           GRDB SQLite — TranscriptRecord, WeeklyStats
 │       └── Resources/
 │           └── dictation-cleanup-pack.json  Cleanup data pack (canonical: voice-engine/)
-├── DictationApp/               macOS menu bar app
-│   ├── AppState.swift, MenuBarView.swift, SettingsView.swift
-│   ├── HotkeyManager.swift, ClipboardPaster.swift
+├── JustTalk/                   macOS menu bar app
+│   ├── JustTalkApp.swift, AppState.swift, MenuBarView.swift, SettingsView.swift
+│   ├── HotkeyManager.swift     CGEventTap listener, matches the active HotkeyConfig
+│   ├── HotkeyConfig.swift      Curated activation-key set + persistence
+│   ├── HotkeyConflict.swift    OS Globe-setting + competitor-app detection
+│   ├── PermissionsService.swift  Non-prompting mic/accessibility status + explicit requests
+│   ├── OnboardingView.swift    Setup wizard (cards w/ live ticks) + window controller
+│   ├── ClipboardPaster.swift
 │   ├── RecordingHUD.swift      Floating live-level HUD
 │   └── LoginItem.swift         Launch-at-login (SMAppService)
+├── JustTalkTests/              macOS app unit tests (HotkeyConfig, HotkeyConflict)
 ├── DictationKeyboard/          iOS custom keyboard extension (Phase 3)
 ├── DictationContainerApp/      iOS container app (Phase 3)
 ├── docs/
@@ -136,5 +141,5 @@ dictation/
 | B — AI cleanup | Done | On-device Foundation Models cleanup (default Full) + rule-based fallback |
 | C — Daily-driver ergonomics | Done | Launch at login, recording HUD, custom vocabulary, toggle mode, sounds |
 | D — Permanent install | Done | `build.sh` / `run.sh`, docs |
-| 3 — iOS keyboard | Pending (requires paid Apple Developer Program) | KeyboardViewController, in-keyboard mic UI, App Group SQLite |
+| 3 — iOS keyboard | Code-complete, compiles for Simulator; device validation pending paid Apple Developer Program | KeyboardViewController, in-keyboard mic UI, **on-device AI cleanup (Foundation Models + fallback)**, App Group SQLite telemetry |
 | E — Optional | Future | Streaming partials, per-app profiles, history search |
