@@ -62,11 +62,16 @@ private struct HistoryRow: View {
             Spacer()
             Button {
                 onCopy()
-                copied = true
+                withAnimation(.easeInOut(duration: 0.15)) { copied = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    withAnimation(.easeInOut(duration: 0.15)) { copied = false }
+                }
             } label: {
                 Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
                     .labelStyle(.titleAndIcon)
                     .font(.caption)
+                    .foregroundStyle(copied ? Color.green : Color.secondary)
             }
             .buttonStyle(.borderless)
         }

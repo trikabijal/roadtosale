@@ -49,6 +49,7 @@ struct OnboardingView: View {
 
                 MicCard(appState: appState)
                 AccessibilityCard(appState: appState)
+                InputMonitoringCard(appState: appState)
                 HotkeyCard(appState: appState)
                 LaunchCard(appState: appState)
 
@@ -168,6 +169,26 @@ private struct AccessibilityCard: View {
     }
 }
 
+private struct InputMonitoringCard: View {
+    @ObservedObject var appState: AppState
+
+    var body: some View {
+        Card(number: 3, title: "Input Monitoring", done: appState.inputMonitoringGranted) {
+            Text("Lets Just Talk see your activation key press. macOS treats this separately "
+                 + "from Accessibility — both are needed for the hotkey to work reliably.")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if !appState.inputMonitoringGranted {
+                Button("Allow Input Monitoring…") { appState.requestInputMonitoring() }
+                Text("Turn **Just Talk** on under Input Monitoring. macOS may need a relaunch to "
+                     + "notice — use the relaunch button in step 2 if it stays grey.")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
 private struct HotkeyCard: View {
     @ObservedObject var appState: AppState
 
@@ -176,7 +197,7 @@ private struct HotkeyCard: View {
     private var hasConflict: Bool { osClaimsFn || (appState.hotkeyConfig.isFn && !competitors.isEmpty) }
 
     var body: some View {
-        Card(number: 3, title: "Activation key", done: appState.hotkeyTestPassed) {
+        Card(number: 4, title: "Activation key", done: appState.hotkeyTestPassed) {
             Picker("Key", selection: Binding(
                 get: { appState.hotkeyConfig },
                 set: { appState.setHotkey($0) }
@@ -253,7 +274,7 @@ private struct LaunchCard: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        Card(number: 4, title: "Launch at login (optional)", done: appState.launchAtLogin) {
+        Card(number: 5, title: "Launch at login (optional)", done: appState.launchAtLogin) {
             Toggle("Start Just Talk automatically when I log in", isOn: Binding(
                 get: { appState.launchAtLogin },
                 set: { appState.setLaunchAtLogin($0) }

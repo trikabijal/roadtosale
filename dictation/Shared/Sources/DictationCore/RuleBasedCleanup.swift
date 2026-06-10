@@ -26,6 +26,10 @@ public struct RuleBasedCleanup: TextCleanup {
         }
         text = CleanupText.normalize(text, ops: &ops)
         text = CleanupText.applyMap(text, req.vocab, op: "vocab", ops: &ops)
+        // Domain lexicon from the pack: expand spoken acronyms/phrasings, then force the
+        // canonical spelling of known terms.
+        text = CleanupText.applyMap(text, pack.lexicon.expansions, op: "lexicon", ops: &ops)
+        text = CleanupText.applyMap(text, pack.lexicon.termMap, op: "terms", ops: &ops)
 
         return CleanupResult(
             cleanedText: text.trimmingCharacters(in: .whitespacesAndNewlines),

@@ -12,6 +12,7 @@ final class RecordingHUDModel: ObservableObject {
     @Published var phase: RecordingHUDPhase = .recording
     @Published var label: String = "Listening…"
     @Published var previewText: String = ""  // live partial transcript while recording
+    @Published var lowInput: Bool = false    // mic level too low to transcribe reliably
     // Failure actions, set when `phase == .failed`.
     var onRetry: (() -> Void)?
     var onDismiss: (() -> Void)?
@@ -30,6 +31,7 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
+        model.lowInput = false
         let panel = ensurePanel()
         position(panel)
         panel.orderFrontRegardless()
@@ -40,10 +42,16 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
+        model.lowInput = false
     }
 
     func update(level: Float) {
         model.level = level
+    }
+
+    /// Show/clear the "I can barely hear you" warning while recording.
+    func setLowInput(_ low: Bool) {
+        if model.lowInput != low { model.lowInput = low }
     }
 
     func update(previewText: String) {
@@ -145,7 +153,20 @@ private struct HUDContentView: View {
     @ObservedObject var model: RecordingHUDModel
 
     private var displayText: String {
-        (model.phase == .recording && !model.previewText.isEmpty) ? model.previewText : model.label
+        if model.phase == .recording && model.lowInput {
+            return "Speak up — I can barely hear you"
+        }
+        return (model.phase == .recording && !model.previewText.isEmpty) ? model.previewText : model.label
+    }
+
+    private var micColor: Color {
+        guard model.phase == .recording else { return .orange }
+        return model.lowInput ? .orange : .red
+    }
+
+    private var micIcon: String {
+        if model.phase == .recording { return model.lowInput ? "mic.slash.fill" : "mic.fill" }
+        return "waveform"
     }
 
     var body: some View {
@@ -165,17 +186,18 @@ private struct HUDContentView: View {
 
     private var activeContent: some View {
         HStack(spacing: 10) {
-            Image(systemName: model.phase == .recording ? "mic.fill" : "waveform")
+            Image(systemName: micIcon)
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(model.phase == .recording ? Color.red : Color.orange)
+                .foregroundStyle(micColor)
 
             LevelMeter(level: model.level, active: model.phase == .recording)
                 .frame(width: 60, height: 18)
 
-            // Live partial transcript (truncates from the head so the latest words show).
+            // Live partial transcript (truncates from the head so the latest words show);
+            // replaced by the low-input warning when the mic is too quiet.
             Text(displayText)
                 .font(.callout)
-                .foregroundStyle(.primary)
+                .foregroundStyle(model.phase == .recording && model.lowInput ? Color.orange : Color.primary)
                 .lineLimit(1)
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)

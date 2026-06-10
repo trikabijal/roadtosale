@@ -27,6 +27,28 @@ public struct AppCleanupProfile: Codable, Identifiable, Equatable {
     public var id: String { bundleId }
 }
 
+// MARK: - BufferAccumulator
+
+/// Thread-safe, ORDER-PRESERVING store for captured audio buffers. The audio tap delivers
+/// buffers serially on its render thread, so appending under a lock keeps them in temporal
+/// order. This replaces a `Task { @MainActor in append }` per buffer, which did NOT preserve
+/// order — independent tasks can run out of sequence on the actor, scrambling long recordings
+/// into garbage audio (short ones happened to stay ordered, hence "short worked, long failed").
+final class BufferAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffers: [AVAudioPCMBuffer] = []
+
+    func append(_ buffer: AVAudioPCMBuffer) {
+        lock.lock(); buffers.append(buffer); lock.unlock()
+    }
+    func snapshot() -> [AVAudioPCMBuffer] {
+        lock.lock(); defer { lock.unlock() }; return buffers
+    }
+    func reset() {
+        lock.lock(); buffers.removeAll(); lock.unlock()
+    }
+}
+
 // MARK: - AppState
 
 @MainActor
@@ -53,6 +75,9 @@ public final class AppState: NSObject, ObservableObject {
     @Published private(set) var hotkeyConfig: HotkeyConfig = .fn
     @Published public var micGranted: Bool = false
     @Published public var accessibilityGranted: Bool = false
+    /// Input Monitoring — required for the keyboard event tap on modern macOS, distinct
+    /// from Accessibility. Without it the tap can't enable and the hotkey degrades.
+    @Published public var inputMonitoringGranted: Bool = false
     /// Set true the moment the configured key is received during the wizard "test" step.
     @Published public var hotkeyTestPassed: Bool = false
 
@@ -62,8 +87,9 @@ public final class AppState: NSObject, ObservableObject {
     private let onboardingWindow = OnboardingWindow()
     private var permissionTimer: Timer?
 
-    /// The two permissions Just Talk genuinely needs to function.
-    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted }
+    /// The permissions Just Talk genuinely needs to function: mic to hear you, plus
+    /// Accessibility (to paste) and Input Monitoring (to read the activation key).
+    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted && inputMonitoringGranted }
 
     private var hasCompletedOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
@@ -83,12 +109,20 @@ public final class AppState: NSObject, ObservableObject {
     private let cleanupPack: CleanupPack
     private let clipboardPaster = ClipboardPaster()
     private let recordingHUD = RecordingHUD()
+    // Persists the last few raw recordings so a bad/garbled transcription can be re-run
+    // without re-speaking (see RecordingStore — a cross-platform contract).
+    private let recordingStore: RecordingStore? = try? FileRecordingStore.macOS(maxRecordings: 5)
     private var telemetryStore: TelemetryStore?
     private var hotkeyManager: HotkeyManager?
 
-    // Audio buffer accumulation
-    private var audioBuffers: [AVAudioPCMBuffer] = []
+    // Audio buffer accumulation — order-preserving + thread-safe (see BufferAccumulator).
+    // nonisolated so the audio-thread delegate can append without an actor hop.
+    private nonisolated let audio = BufferAccumulator()
     private var recordingStartDate: Date?
+    // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
+    // warning. If even the peak stays below this after a couple seconds, the mic is too low.
+    private var recordingPeakLevel: Float = 0
+    private static let lowInputPeakThreshold: Float = 0.04
     // Frontmost app at the moment recording started — the dictation target. Captured up
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
@@ -161,7 +195,7 @@ public final class AppState: NSObject, ObservableObject {
         // 2. Build the hotkey listener; only install the event tap once Accessibility is
         //    granted (refreshPermissions starts it on the grant transition).
         hotkeyManager = HotkeyManager(delegate: self, config: hotkeyConfig)
-        if accessibilityGranted { hotkeyManager?.start() }
+        if accessibilityGranted && inputMonitoringGranted { hotkeyManager?.start() }
 
         // 3. Poll permissions so the wizard's ticks update live as the user grants them in
         //    System Settings, and so a later revoke is noticed. Also re-check on activation.
@@ -222,13 +256,15 @@ public final class AppState: NSObject, ObservableObject {
         permissionTimer = timer
     }
 
-    /// Non-prompting status read. Installs the hotkey tap the moment Accessibility flips on.
+    /// Non-prompting status read. Installs the hotkey tap the moment BOTH tap permissions
+    /// (Accessibility + Input Monitoring) are present — installing before then creates a tap
+    /// that can't enable and drives a rebuild/prompt loop.
     func refreshPermissions() {
         micGranted = permissions.micStatus == .granted
-        let ax = permissions.accessibilityGranted
-        let wasGranted = accessibilityGranted
-        accessibilityGranted = ax
-        if ax && !wasGranted {
+        let couldInstall = accessibilityGranted && inputMonitoringGranted
+        accessibilityGranted = permissions.accessibilityGranted
+        inputMonitoringGranted = permissions.inputMonitoringGranted
+        if accessibilityGranted && inputMonitoringGranted && !couldInstall {
             hotkeyManager?.start()
         }
     }
@@ -240,10 +276,15 @@ public final class AppState: NSObject, ObservableObject {
         onboardingWindow.show(appState: self)
     }
 
-    /// Trigger the system mic prompt (only on a wizard button tap).
+    /// Trigger the system mic prompt (only on a wizard button tap). Guarded so rapid taps
+    /// can't stack multiple system prompts while one is already pending.
+    private var micRequestInFlight = false
     func requestMicrophone() {
+        guard !micRequestInFlight else { return }
+        micRequestInFlight = true
         Task {
             _ = await permissions.requestMic()
+            micRequestInFlight = false
             refreshPermissions()
         }
     }
@@ -253,13 +294,19 @@ public final class AppState: NSObject, ObservableObject {
         permissions.promptAccessibility()
     }
 
+    /// Trigger the Input Monitoring prompt / open the pane (only on a wizard button tap).
+    func requestInputMonitoring() {
+        _ = permissions.requestInputMonitoring()
+        refreshPermissions()
+    }
+
     /// Begin the wizard "press your key to test" step: route presses to a confirmation
     /// signal only (no recording) so we can prove the key reaches us — the definitive
     /// conflict check, since macOS won't tell us who else holds the key.
     func beginHotkeyTest() {
         hotkeyTestPassed = false
         hotkeyManager?.isTesting = true
-        if accessibilityGranted { hotkeyManager?.start() }
+        if accessibilityGranted && inputMonitoringGranted { hotkeyManager?.start() }
     }
 
     func endHotkeyTest() {
@@ -288,7 +335,18 @@ public final class AppState: NSObject, ObservableObject {
 
     func startRecording() {
         guard dictationState == .idle, engineLoaded else { return }
-        audioBuffers = []
+        // Never start the audio engine without mic permission — doing so re-triggers the
+        // system mic prompt on EVERY activation-key press (the "mic window 4 times" bug).
+        // Surface onboarding so the user grants it once; the engine is the only thing that
+        // touches the mic, so gating here is the single chokepoint.
+        guard permissions.micStatus == .granted else {
+            micGranted = false
+            statusMessage = "Microphone access needed — grant it to dictate"
+            showOnboardingWindow()
+            return
+        }
+        audio.reset()
+        recordingPeakLevel = 0
         recordingStartDate = Date()
         let frontApp = NSWorkspace.shared.frontmostApplication
         recordingFrontmostApp = frontApp?.bundleIdentifier
@@ -313,9 +371,45 @@ public final class AppState: NSObject, ObservableObject {
         dictationState = .transcribing
         statusMessage = "Transcribing…"
         recordingHUD.setPhase(.processing, label: "Transcribing…")
-        let buffers = audioBuffers
+        let buffers = audio.snapshot()
         let startDate = recordingStartDate ?? Date()
+        persistRecording(buffers: buffers, recordedAt: startDate)
         Task { await performTranscription(buffers: buffers, audioStartDate: startDate) }
+    }
+
+    /// Persist the raw audio (last 5 kept) so a junk/failed transcription is recoverable via
+    /// "Re-transcribe last recording" — the user never has to re-speak. File I/O runs off the
+    /// main actor; the store is Sendable.
+    private func persistRecording(buffers: [AVAudioPCMBuffer], recordedAt: Date) {
+        guard let store = recordingStore else { return }
+        let samples = AudioSampleBridge.flatten(buffers)
+        guard !samples.isEmpty else { return }
+        let sampleRate = RecordingEngine.targetSampleRate
+        Task.detached { try? store.save(samples: samples, sampleRate: sampleRate, recordedAt: recordedAt) }
+    }
+
+    /// Re-run transcription on the most recent saved recording (menu action). Recovers a
+    /// dictation that produced junk — now through the fixed long-audio (VAD-chunked) path.
+    func reTranscribeLastRecording() {
+        guard dictationState == .idle, engineLoaded else { return }
+        guard let store = recordingStore, let last = store.recent().first else {
+            statusMessage = "No recent recording to re-transcribe"
+            return
+        }
+        dictationState = .transcribing
+        statusMessage = "Re-transcribing last recording…"
+        recordingHUD.show(phase: .processing, label: "Re-transcribing…")
+        Task {
+            let loaded = await Task.detached { try? store.loadSamples(id: last.id) }.value
+            guard let loaded,
+                  let buffer = AudioSampleBridge.makeBuffer(samples: loaded.samples,
+                                                            sampleRate: loaded.sampleRate) else {
+                statusMessage = "Couldn't load the last recording"
+                finishIdle()
+                return
+            }
+            await performTranscription(buffers: [buffer], audioStartDate: last.recordedAt)
+        }
     }
 
     /// Toggle-mode entry: tap to start, tap to stop.
@@ -351,7 +445,7 @@ public final class AppState: NSObject, ObservableObject {
     private func runPreview() async {
         guard dictationState == .recording,
               let preview = previewTranscriber, preview.isLoaded else { return }
-        let buffers = audioBuffers
+        let buffers = audio.snapshot()
         // Need ~0.6s of audio before a preview is meaningful.
         let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
         guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
@@ -450,18 +544,30 @@ public final class AppState: NSObject, ObservableObject {
         finishIdle()
     }
 
+    /// Per-attempt cap on the STT engine. On-device transcription is normally faster than
+    /// realtime; if it hangs past this, treat the attempt as failed so the dictation surfaces
+    /// the retry-from-box affordance instead of leaving the HUD stuck on "Transcribing…".
+    private static let transcribeTimeout: Double = 60
+
     /// Transcribe with automatic retries on transient failure. Genuine empty / no-audio is
-    /// rethrown immediately (no point retrying silence).
+    /// rethrown immediately (no point retrying silence); a timeout (likely a real hang) fails
+    /// fast without burning the remaining retries.
     private func transcribeWithRetry(buffers: [AVAudioPCMBuffer], audioStartDate: Date,
                                      attempts: Int = 3) async throws -> TranscriptionResult {
+        let transcriber = self.transcriber
         var lastError: Error?
         for attempt in 1...attempts {
             do {
-                return try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
+                return try await withTimeout(seconds: Self.transcribeTimeout) {
+                    try await transcriber.transcribe(buffers: buffers, audioStartDate: audioStartDate)
+                }
             } catch TranscriptionError.emptyResult {
                 throw TranscriptionError.emptyResult
             } catch TranscriptionError.noAudioData {
                 throw TranscriptionError.noAudioData
+            } catch is TimeoutError {
+                lastError = TimeoutError()
+                break
             } catch {
                 lastError = error
                 if attempt < attempts { try? await Task.sleep(for: .milliseconds(300)) }
@@ -693,9 +799,9 @@ public final class AppState: NSObject, ObservableObject {
 extension AppState: RecordingEngineDelegate {
     /// Called on an arbitrary audio queue — bridge back to MainActor.
     public nonisolated func recordingEngine(_ engine: RecordingEngine, didReceiveBuffer buffer: AVAudioPCMBuffer) {
-        Task { @MainActor in
-            self.audioBuffers.append(buffer)
-        }
+        // Append synchronously, in arrival order, on the (serial) audio thread. No per-buffer
+        // hop to the main actor — that reordered buffers and scrambled long recordings.
+        audio.append(buffer)
     }
 
     /// VAD silence is intentionally NOT used to auto-stop. Recording is controlled by the
@@ -709,7 +815,18 @@ extension AppState: RecordingEngineDelegate {
     public nonisolated func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {
         Task { @MainActor in
             self.recordingHUD.update(level: level)
+            self.evaluateInputLevel(level)
         }
+    }
+
+    /// Watch the live mic level and warn on the HUD if it stays too low to transcribe well.
+    /// Uses the running peak so brief pauses don't trip it; gives ~2s before judging; clears
+    /// (and stays cleared) as soon as the user is loud enough once.
+    private func evaluateInputLevel(_ level: Float) {
+        guard dictationState == .recording, let start = recordingStartDate else { return }
+        recordingPeakLevel = max(recordingPeakLevel, level)
+        guard Date().timeIntervalSince(start) > 2 else { return }
+        recordingHUD.setLowInput(recordingPeakLevel < Self.lowInputPeakThreshold)
     }
 }
 

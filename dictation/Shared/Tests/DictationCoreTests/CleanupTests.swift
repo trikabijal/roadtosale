@@ -127,6 +127,120 @@ final class CleanupPackTests: XCTestCase {
         XCTAssertEqual(Set(pack.fillers), Set(fb.fillers))
         XCTAssertEqual(Set(pack.junkPhrases), Set(fb.junkPhrases))
         XCTAssertEqual(pack.prompts, fb.prompts)
+        XCTAssertEqual(pack.lexicon, fb.lexicon)   // dictation pack carries no lexicon
+    }
+
+    // road-to-sale (#8): the dealership lexicon loads…
+    func testRoadToSalePackLexiconLoads() {
+        let pack = CleanupPackLoader.load(profile: "road-to-sale")
+        XCTAssertEqual(pack.profile, "road-to-sale")
+        XCTAssertFalse(pack.lexicon.terms.isEmpty)
+        XCTAssertEqual(pack.lexicon.expansions["f and i"], "F&I")
+    }
+
+    // …and actually applies in cleanup (expands spoken acronyms + hyphenates terms).
+    @MainActor
+    func testRoadToSaleLexiconAppliesInCleanup() async {
+        let pack = CleanupPackLoader.load(profile: "road-to-sale")
+        let engine = RuleBasedCleanup(pack: pack)
+        let r = await engine.clean(CleanupRequest(
+            rawText: "we agreed on the f and i and the a p r and the trade in",
+            level: .full))
+        XCTAssertTrue(r.cleanedText.contains("F&I"), r.cleanedText)
+        XCTAssertTrue(r.cleanedText.contains("APR"), r.cleanedText)
+        XCTAssertTrue(r.cleanedText.contains("trade-in"), r.cleanedText)
+    }
+
+    // catalog-derived vocab (#7): a tenant's make terms merge into the glossary and apply.
+    @MainActor
+    func testCatalogTermsMergeIntoLexicon() async {
+        let base = CleanupPackLoader.load(profile: "road-to-sale")
+        // Terms as the derive_vocab.py step would produce for a Honda dealer.
+        let pack = base.mergingLexiconTerms(["EX-L", "CR-V Hybrid AWD", "TrailSport"])
+        XCTAssertTrue(pack.lexicon.terms.contains("EX-L"))
+        let engine = RuleBasedCleanup(pack: pack)
+        let r = await engine.clean(CleanupRequest(
+            rawText: "they want the ex-l trim and we have a trailsport in stock", level: .full))
+        XCTAssertTrue(r.cleanedText.contains("EX-L"), r.cleanedText)
+        XCTAssertTrue(r.cleanedText.contains("TrailSport"), r.cleanedText)
+    }
+}
+
+// F10: the on-device cleanup model echoed parts of its own prompt (the "Known names and
+// terms …" block, or a verbatim copy of the dictated text) into its output, which landed on
+// the clipboard. These exercise the pure guards extracted into CleanupOutputSanitizer — no
+// FoundationModels framework needed, so they run in CI.
+final class CleanupOutputSanitizerTests: XCTestCase {
+
+    // MARK: sanitizeOutput
+
+    func testStripsEchoedKnownNamesAndTermsBlock() {
+        let raw = "Let's sync tomorrow with Bijal and Teena.\n\n"
+            + "Known names and terms — if you hear something close to one of these, "
+            + "use this exact spelling: Bijal, Teena."
+        XCTAssertEqual(CleanupOutputSanitizer.sanitizeOutput(raw),
+                       "Let's sync tomorrow with Bijal and Teena.")
+    }
+
+    func testStripsEchoedTermsBlockCaseInsensitively() {
+        let raw = "The car is fast. known NAMES and terms: Honda, EX-L."
+        XCTAssertEqual(CleanupOutputSanitizer.sanitizeOutput(raw), "The car is fast.")
+    }
+
+    // Regression: legacy <transcript> tags + leading label stripping still work.
+    func testStripsLegacyTranscriptTags() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitizeOutput("<transcript>Ship it Monday.</transcript>"),
+            "Ship it Monday.")
+    }
+
+    func testStripsLeadingDictatedTextLabel() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitizeOutput("Dictated text: Ship it Monday."),
+            "Ship it Monday.")
+    }
+
+    func testLeavesCleanOutputUntouched() {
+        XCTAssertEqual(
+            CleanupOutputSanitizer.sanitizeOutput("I think the setup is working fine."),
+            "I think the setup is working fine.")
+    }
+
+    // MARK: isDegenerate
+
+    func testDegenerateWhenOutputIsInputRepeatedTwice() {
+        let input = "let's ship the dictation feature on monday"
+        let output = input + " " + input
+        XCTAssertTrue(CleanupOutputSanitizer.isDegenerate(output: output, input: input))
+    }
+
+    func testDegenerateWhenOutputContainsInputPlusLargeAppendedBlock() {
+        let input = "let's ship the dictation feature on monday"
+        let output = "Let's ship the dictation feature on Monday. "
+            + "Here is some extra commentary the model invented and kept on adding well past "
+            + "the original transcript length to pad the response considerably."
+        XCTAssertTrue(CleanupOutputSanitizer.isDegenerate(output: output, input: input))
+    }
+
+    func testNotDegenerateForNormalSameLengthCleanup() {
+        let input = "um so i think we should uh ship it monday"
+        let output = "I think we should ship it Monday."
+        XCTAssertFalse(CleanupOutputSanitizer.isDegenerate(output: output, input: input))
+    }
+
+    func testNotDegenerateForLegitimatelyShorterCleanup() {
+        // Shorter output that does NOT contain the raw input verbatim — a real summary-ish
+        // tidy, not an echo. Must not be flagged.
+        let input = "um so like you know i was thinking that maybe we could possibly ship it"
+        let output = "I was thinking we could ship it."
+        XCTAssertFalse(CleanupOutputSanitizer.isDegenerate(output: output, input: input))
+    }
+
+    func testNotDegenerateForTrivialShortInput() {
+        // Guard against flagging trivial inputs (< 3 words) even on a near-echo.
+        let input = "hello there"
+        let output = "hello there"
+        XCTAssertFalse(CleanupOutputSanitizer.isDegenerate(output: output, input: input))
     }
 }
 

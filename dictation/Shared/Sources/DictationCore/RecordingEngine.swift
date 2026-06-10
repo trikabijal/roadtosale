@@ -93,7 +93,19 @@ public final class RecordingEngine: NSObject {
         #endif
 
         let inputNode = audioEngine.inputNode
+        // Defensive: clear any tap left over from a previous (possibly aborted) session.
+        // Installing a second tap on the same bus raises an UNCATCHABLE ObjC exception that
+        // aborts the whole process — so we must never let it happen.
+        inputNode.removeTap(onBus: 0)
+
         let inputFormat = inputNode.outputFormat(forBus: 0)
+        // Guard an invalid hardware format (no/unready input device, or a mid-session device
+        // change — e.g. headphones plugged in). `installTap` aborts the process on a
+        // 0-rate / 0-channel format, so turn that into a recoverable error instead of a crash.
+        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
+            audioEngine.reset()  // drop the bad state so the next attempt can re-read a good format
+            throw RecordingError.audioFormatUnavailable
+        }
 
         let targetFormat = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
@@ -107,8 +119,9 @@ public final class RecordingEngine: NSObject {
         }
         self.converter = conv
 
-        // Tap at the native hardware format, convert on the fly to 16kHz
-        let hardwareBufferSize = AVAudioFrameCount(inputFormat.sampleRate * 0.1) // 100ms chunks
+        // Tap at the native hardware format, convert on the fly to 16kHz. Clamp the buffer
+        // size so a momentarily-zero sample rate can't produce an invalid (0) buffer size.
+        let hardwareBufferSize = max(AVAudioFrameCount(inputFormat.sampleRate * 0.1), 1024)
         inputNode.installTap(onBus: 0, bufferSize: hardwareBufferSize, format: inputFormat) { [weak self] buffer, _ in
             self?.handleBuffer(buffer, converter: conv, targetFormat: targetFormat)
         }
@@ -117,6 +130,7 @@ public final class RecordingEngine: NSObject {
         do {
             try audioEngine.start()
         } catch {
+            inputNode.removeTap(onBus: 0)   // don't leave a tap behind on a failed start
             throw RecordingError.engineFailedToStart(error)
         }
 

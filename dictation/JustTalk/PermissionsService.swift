@@ -1,6 +1,7 @@
 import AppKit
 import AVFoundation
 import ApplicationServices
+import CoreGraphics
 
 enum PermissionStatus {
     case granted, denied, notDetermined
@@ -39,6 +40,27 @@ final class PermissionsService {
 
     func openMicSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+
+    // MARK: - Input Monitoring
+
+    /// A keyboard `CGEventTap` requires Input Monitoring on modern macOS — a permission
+    /// distinct from Accessibility. Non-prompting check — safe to poll.
+    var inputMonitoringGranted: Bool { CGPreflightListenEventAccess() }
+
+    /// Trigger the system Input Monitoring prompt (only meaningful when not yet determined).
+    /// Returns the current grant. If already denied, route the user to System Settings.
+    @discardableResult
+    func requestInputMonitoring() -> Bool {
+        let granted = CGRequestListenEventAccess()
+        if !granted { openInputMonitoringSettings() }
+        return granted
+    }
+
+    func openInputMonitoringSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
             NSWorkspace.shared.open(url)
         }
     }
