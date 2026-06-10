@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Build the macOS Dictation app.
+# Build the macOS Just Talk app.
 #
 #   ./build.sh            Build a Release .app into ./build
 #   ./build.sh install    Build and copy the app into /Applications
@@ -14,7 +14,8 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
-SCHEME="DictationApp"
+SCHEME="JustTalk"
+PROJECT="JustTalk.xcodeproj"
 CONFIG="Release"
 DERIVED="build"
 
@@ -28,12 +29,12 @@ xcodegen generate >/dev/null
 
 echo "▶ Building $SCHEME ($CONFIG)…"
 if [[ -n "${DEVELOPMENT_TEAM:-}" ]]; then
-  xcodebuild -project DictationApp.xcodeproj -scheme "$SCHEME" -configuration "$CONFIG" \
+  xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" \
     -derivedDataPath "$DERIVED" \
     DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Automatic \
     -allowProvisioningUpdates build
 else
-  xcodebuild -project DictationApp.xcodeproj -scheme "$SCHEME" -configuration "$CONFIG" \
+  xcodebuild -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" \
     -derivedDataPath "$DERIVED" \
     CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO build
 fi

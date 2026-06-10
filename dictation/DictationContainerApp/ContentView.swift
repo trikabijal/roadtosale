@@ -36,7 +36,7 @@ struct SetupTab: View {
                 }
 
                 Section("Using the keyboard") {
-                    Text("Tap the **mic button** to start recording. Tap again (or wait for silence) to transcribe. The text inserts directly into any text field.")
+                    Text("Tap the **mic button** to start recording, talk as long as you like (pauses are fine), then tap again to transcribe. The text is cleaned up on-device and inserted directly into any text field.")
                         .font(.callout)
 
                     Text("Tap the **✗** next to the last transcript to mark it as incorrect. This data feeds into WhisperKit calibration for Road to Sale.")

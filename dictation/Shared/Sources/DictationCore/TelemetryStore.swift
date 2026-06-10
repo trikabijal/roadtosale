@@ -70,11 +70,23 @@ public struct WeeklyStats: Sendable {
     public let avgConfidence: Double
     public let avgLatencyMs: Double
     public let avgAudioDurationMs: Double
+    public let totalAudioMs: Double        // sum of audio this week
 
     public static let empty = WeeklyStats(
         totalCount: 0, correctionRate: 0,
-        avgConfidence: 0, avgLatencyMs: 0, avgAudioDurationMs: 0
+        avgConfidence: 0, avgLatencyMs: 0, avgAudioDurationMs: 0, totalAudioMs: 0
     )
+}
+
+/// All-time usage totals — the basis for per-minute cost projection (e.g. what a cloud STT
+/// model billed by the hour would cost at this usage; informs Road to Sale pricing).
+public struct UsageTotals: Sendable {
+    public let totalCount: Int
+    public let totalAudioMs: Int
+    public var totalMinutes: Double { Double(totalAudioMs) / 60_000.0 }
+    public var totalHours: Double { totalMinutes / 60.0 }
+
+    public static let empty = UsageTotals(totalCount: 0, totalAudioMs: 0)
 }
 
 // MARK: - Store
@@ -142,7 +154,8 @@ public actor TelemetryStore {
                         AVG(CASE WHEN was_corrected = 1 THEN 1.0 ELSE 0.0 END) as correction_rate,
                         AVG(whisperkit_confidence) as avg_confidence,
                         AVG(latency_ms) as avg_latency,
-                        AVG(audio_duration_ms) as avg_audio_duration
+                        AVG(audio_duration_ms) as avg_audio_duration,
+                        COALESCE(SUM(audio_duration_ms), 0) as total_audio
                     FROM transcript_records
                     WHERE recorded_at >= ?
                     """,
@@ -154,8 +167,20 @@ public actor TelemetryStore {
                 correctionRate: row["correction_rate"] ?? 0,
                 avgConfidence: row["avg_confidence"] ?? 0,
                 avgLatencyMs: row["avg_latency"] ?? 0,
-                avgAudioDurationMs: row["avg_audio_duration"] ?? 0
+                avgAudioDurationMs: row["avg_audio_duration"] ?? 0,
+                totalAudioMs: row["total_audio"] ?? 0
             )
+        }
+    }
+
+    /// All-time usage totals (count + summed audio duration) — for cost projection.
+    public func fetchUsageTotals() throws -> UsageTotals {
+        try dbQueue.read { db in
+            guard let row = try Row.fetchOne(
+                db,
+                sql: "SELECT COUNT(*) as total, COALESCE(SUM(audio_duration_ms), 0) as total_audio FROM transcript_records"
+            ) else { return .empty }
+            return UsageTotals(totalCount: row["total"] ?? 0, totalAudioMs: row["total_audio"] ?? 0)
         }
     }
 

@@ -6,6 +6,7 @@ import DictationCore
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -41,7 +42,8 @@ struct MenuBarView: View {
             // Bottom action buttons
             HStack {
                 Button("Settings") {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    openSettings()
+                    NSApp.activate(ignoringOtherApps: true)
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
@@ -52,6 +54,15 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
+
+                Button("Setup") { appState.showOnboardingWindow() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+
+                Button("Re-transcribe last") { appState.reTranscribeLastRecording() }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .help("Re-run transcription on your most recent recording — recovers a garbled result without re-speaking.")
 
                 Spacer()
 
@@ -123,6 +134,7 @@ struct MenuBarView: View {
 
 struct TranscriptRow: View {
     let record: TranscriptRecord
+    @State private var copied = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
@@ -151,16 +163,22 @@ struct TranscriptRow: View {
 
             Spacer()
 
-            // Per-row copy button
+            // Per-row copy button — flips to a green checkmark on copy, then reverts so the
+            // click clearly registered.
             Button {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(record.transcriptText, forType: .string)
+                withAnimation(.easeInOut(duration: 0.15)) { copied = true }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    withAnimation(.easeInOut(duration: 0.15)) { copied = false }
+                }
             } label: {
-                Image(systemName: "doc.on.doc")
+                Image(systemName: copied ? "checkmark" : "doc.on.doc")
                     .font(.caption)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(copied ? Color.green : Color.secondary)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)

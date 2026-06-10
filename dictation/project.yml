@@ -1,4 +1,4 @@
-name: DictationApp
+name: JustTalk
 options:
   bundleIdPrefix: com.trika
   deploymentTarget:
@@ -14,39 +14,67 @@ packages:
 
 targets:
 
-  DictationApp:
+  JustTalk:
     type: application
     platform: macOS
     deploymentTarget: "14.0"
     sources:
-      - path: DictationApp
+      - path: JustTalk
     resources:
-      - path: DictationApp/Assets.xcassets
+      - path: JustTalk/Assets.xcassets
     dependencies:
       - package: DictationCore
     entitlements:
-      path: DictationApp/DictationApp.entitlements
+      path: JustTalk/JustTalk.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.mac
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
-        CODE_SIGN_STYLE: Automatic
-        INFOPLIST_FILE: DictationApp/Info.plist
-        CODE_SIGN_ENTITLEMENTS: DictationApp/DictationApp.entitlements
+        # Stable signing so macOS TCC persists Mic / Accessibility / Input Monitoring grants
+        # across rebuilds. Ad-hoc signing changes identity every build, which made macOS
+        # forget permissions and re-prompt on every launch. Manual + the local Apple
+        # Development cert keeps the designated requirement (team + bundle id) stable.
+        CODE_SIGN_STYLE: Manual
+        # SHA-1 of the local "Apple Development: bijalsanghavi@hotmail.com (2TZPM5QG3Z)" cert.
+        # The generic "Apple Development" alias does not resolve here (xcodebuild defaults to
+        # "Mac Development"), so the hash is pinned. If the cert is renewed/replaced, update
+        # this to the new SHA-1 from: security find-identity -v -p codesigning
+        CODE_SIGN_IDENTITY: FE397482F391750DFEB077FCBFEDA8841C50ED0C
+        DEVELOPMENT_TEAM: 2TZPM5QG3Z
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        INFOPLIST_FILE: JustTalk/Info.plist
+        CODE_SIGN_ENTITLEMENTS: JustTalk/JustTalk.entitlements
         # No dock icon — menu bar app
         LSUIElement: YES
       configs:
         Debug:
           SWIFT_OPTIMIZATION_LEVEL: "-Onone"
     info:
-      path: DictationApp/Info.plist
+      path: JustTalk/Info.plist
       properties:
-        CFBundleName: Dictation
-        CFBundleDisplayName: Dictation
-        NSMicrophoneUsageDescription: "Dictation uses the microphone to record your voice for transcription."
-        NSAppleEventsUsageDescription: "Dictation needs to send keyboard events to paste transcribed text."
+        CFBundleName: Just Talk
+        CFBundleDisplayName: Just Talk
+        NSMicrophoneUsageDescription: "Just Talk uses the microphone to record your voice for transcription. Audio never leaves your Mac."
+        NSAppleEventsUsageDescription: "Just Talk sends keyboard events to paste transcribed text into the app you're using."
         LSUIElement: true
+    scheme:
+      testTargets:
+        - JustTalkTests
+
+  JustTalkTests:
+    type: bundle.unit-test
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: JustTalkTests
+    dependencies:
+      - target: JustTalk
+    settings:
+      base:
+        SWIFT_VERSION: "5.9"
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac.tests
 
   DictationKeyboard:
     type: app-extension
@@ -54,18 +82,17 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: DictationKeyboard
-    dependencies:
-      - package: DictationCore
     entitlements:
       path: DictationKeyboard/DictationKeyboard.entitlements
     settings:
       base:
         # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
         # app-extension's bundle id has to be a child of its host app's.
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.ios.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios.keyboard
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationKeyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationKeyboard/DictationKeyboard.entitlements
     info:
@@ -79,7 +106,8 @@ targets:
             RequestsOpenAccess: true
           NSExtensionPointIdentifier: com.apple.keyboard-input-mode
           NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).KeyboardViewController
-        NSMicrophoneUsageDescription: "This keyboard uses the microphone to transcribe your speech."
+        CFBundleDisplayName: Just Talk
+        NSMicrophoneUsageDescription: "Just Talk uses the microphone to transcribe your speech on-device."
 
   DictationContainerApp:
     type: application
@@ -97,17 +125,20 @@ targets:
       path: DictationContainerApp/DictationContainerApp.entitlements
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.dictation.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationContainerApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationContainerApp/DictationContainerApp.entitlements
     info:
       path: DictationContainerApp/Info.plist
       properties:
-        CFBundleName: Dictation
-        CFBundleDisplayName: Dictation
-        NSMicrophoneUsageDescription: "Dictation uses the microphone to transcribe your speech."
+        CFBundleName: Just Talk
+        CFBundleDisplayName: Just Talk
+        NSMicrophoneUsageDescription: "Just Talk uses the microphone to transcribe your speech on-device."
         UILaunchScreen:
           UIColorName: ""
+    scheme:
+      testTargets: []

@@ -21,7 +21,7 @@ final class ClipboardPaster {
     ///
     /// When `autoPaste` is false the transcript is intentionally left on the clipboard
     /// for the user to paste manually, so there is nothing to restore.
-    func writeAndPaste(text: String, autoPaste: Bool) {
+    func writeAndPaste(text: String, autoPaste: Bool, targetApp: NSRunningApplication? = nil) {
         let pasteboard = NSPasteboard.general
 
         guard autoPaste else {
@@ -46,19 +46,50 @@ final class ClipboardPaster {
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+        // The pasteboard state right after we wrote the transcript. ⌘V only *reads*, so a
+        // clean paste leaves this unchanged; if it moves, the user copied something new and
+        // we must not clobber it on restore (F5).
+        let writtenChangeCount = pasteboard.changeCount
 
-        // 50 ms: let the frontmost window regain focus after the menu-bar interaction,
-        // then paste.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            self?.sendCmdV()
+        // Re-focus the app that was frontmost when recording started, then paste once it's
+        // actually frontmost — so the paste lands where the user intended even if the
+        // menu-bar panel stole focus, and never fires into a window that isn't ready yet.
+        targetApp?.activate()
+        pasteWhenFocused(targetApp: targetApp, attempt: 0, myGeneration: myGeneration) { [weak self] in
+            guard let self else { return }
+            self.sendCmdV()
 
-            // 200 ms after the paste: the target app has read the pasteboard. Only the
-            // most recent paste restores; superseded ones do nothing.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                guard let self, myGeneration == self.generation else { return }
-                self.restore(self.burstSnapshot ?? [], to: pasteboard)
+            // Restore the user's clipboard only AFTER the target app has read the pasteboard.
+            // 700 ms is generous on purpose — slow apps (Terminal especially) read ⌘V late.
+            // Guarded so only the most recent paste restores, and only if our transcript is
+            // still the top item (changeCount unchanged) — otherwise a newer user copy would
+            // be destroyed (F5).
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) {
+                guard myGeneration == self.generation else { return }
+                if pasteboard.changeCount == writtenChangeCount {
+                    self.restore(self.burstSnapshot ?? [], to: pasteboard)
+                }
                 self.burstSnapshot = nil
                 self.restorePending = false
+            }
+        }
+    }
+
+    /// Fire `paste` once the target app is frontmost, polling at 0.1 s up to ~0.6 s. Replaces
+    /// a blind fixed delay so the synthetic ⌘V lands in the right, focused window. Aborts if a
+    /// newer dictation burst supersedes this one.
+    private func pasteWhenFocused(targetApp: NSRunningApplication?, attempt: Int,
+                                  myGeneration: Int, _ paste: @escaping () -> Void) {
+        guard myGeneration == generation else { return }
+        let maxAttempts = 6
+        let focused = targetApp == nil
+            || NSWorkspace.shared.frontmostApplication?.processIdentifier == targetApp?.processIdentifier
+        if focused || attempt >= maxAttempts {
+            paste()
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+                self?.pasteWhenFocused(targetApp: targetApp, attempt: attempt + 1,
+                                       myGeneration: myGeneration, paste)
             }
         }
     }
@@ -94,6 +125,8 @@ final class ClipboardPaster {
         let vKeyCode: CGKeyCode = 0x09  // kVK_ANSI_V
 
         let source = CGEventSource(stateID: .hidSystemState)
+        // Tag our synthetic events so the hotkey tap ignores them and can't self-trigger (F7).
+        source?.userData = justTalkSyntheticEventUserData
 
         let keyDown = CGEvent(keyboardEventSource: source, virtualKey: vKeyCode, keyDown: true)
         keyDown?.flags = .maskCommand

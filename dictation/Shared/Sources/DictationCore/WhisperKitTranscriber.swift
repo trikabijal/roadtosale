@@ -96,7 +96,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         let transcribeStart = Date()
 
         // Merge all Float32 samples into one array
-        let samples = buffers.flatMap { buffer -> [Float] in
+        var samples = buffers.flatMap { buffer -> [Float] in
             guard let channelData = buffer.floatChannelData?[0] else { return [] }
             let count = Int(buffer.frameLength)
             return Array(UnsafeBufferPointer(start: channelData, count: count))
@@ -117,7 +117,19 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
             throw TranscriptionError.noAudioData
         }
 
-        // Apply custom-vocabulary biasing as a decoder prompt when set.
+        // Gain-normalize quiet recordings. Low mic levels (real example: peak ≈ 0.10, ~10% of
+        // full scale) degrade accuracy and provoke trailing hallucinations ("thank you for
+        // watching"). Boost so the peak ≈ 0.95 — only amplify, never attenuate, and cap the
+        // gain so a near-silent clip's noise floor isn't blown up.
+        if peak < 0.7 {
+            let gain = Swift.min(0.95 / peak, 12)
+            for i in samples.indices { samples[i] *= gain }
+        }
+
+        // Apply custom-vocabulary biasing as a decoder prompt when set. (WhisperKit windows
+        // >30s audio internally — verified 60s → full transcript with and without an explicit
+        // chunking strategy — so no chunking option is needed here; the long-audio failure was
+        // a capture-side buffer-ordering bug, not transcription.)
         var decodeOptions: DecodingOptions?
         if let biasPrompt, let promptTokens = wk.tokenizer?.encode(text: " " + biasPrompt) {
             decodeOptions = DecodingOptions(promptTokens: promptTokens)
@@ -144,6 +156,14 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
         // Reject low-confidence single phantom phrases on short clips.
         if Self.isLikelyHallucination(text: text, confidence: confidence, durationMs: audioDurationMs) {
+            throw TranscriptionError.emptyResult
+        }
+
+        // A long clip that yields almost no words is a transcription failure, not real speech
+        // (the old long-audio junk). Surface it as empty so the dictation is PRESERVED for
+        // retry rather than pasting garbage and discarding the audio.
+        let wordCount = text.split(whereSeparator: { $0.isWhitespace }).count
+        if audioDurationMs > 10_000, wordCount < 3 {
             throw TranscriptionError.emptyResult
         }
 

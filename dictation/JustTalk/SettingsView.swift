@@ -11,14 +11,19 @@ struct SettingsView: View {
 
             // MARK: Recording section
             Section("Recording") {
-                HStack {
-                    Text("Hotkey")
-                    Spacer()
-                    Text("Fn (Globe)")
-                        .foregroundStyle(.secondary)
+                Picker("Activation key", selection: Binding(
+                    get: { appState.hotkeyConfig },
+                    set: { appState.setHotkey($0) }
+                )) {
+                    ForEach(HotkeyConfig.allCases) { key in
+                        Text(key.displayName).tag(key)
+                    }
                 }
 
-                Picker("Activation", selection: Binding(
+                Button("Re-run setup…") { appState.showOnboardingWindow() }
+                    .buttonStyle(.link)
+
+                Picker("Activation mode", selection: Binding(
                     get: { appState.hotkeyMode },
                     set: { appState.setHotkeyMode($0) }
                 )) {
@@ -149,6 +154,8 @@ struct SettingsView: View {
             Section("This Week") {
                 let s = appState.weeklyStats
                 LabeledContent("Transcripts", value: "\(s.totalCount)")
+                LabeledContent("Audio dictated",
+                               value: String(format: "%.1f min", s.totalAudioMs / 60_000.0))
                 LabeledContent("Avg confidence", value: "\(Int(s.avgConfidence * 100))%")
                 LabeledContent("Correction rate",
                                value: "\(String(format: "%.1f", s.correctionRate * 100))%")
@@ -156,11 +163,23 @@ struct SettingsView: View {
                 LabeledContent("Avg audio length",
                                value: "\(String(format: "%.1f", s.avgAudioDurationMs / 1000.0)) s")
             }
+
+            // MARK: Usage & cost projection
+            Section("Usage & Cost (all-time)") {
+                let t = appState.usageTotals
+                LabeledContent("Total dictations", value: "\(t.totalCount)")
+                LabeledContent("Total audio",
+                               value: String(format: "%.1f min · %.2f hrs", t.totalMinutes, t.totalHours))
+                LabeledContent("Est. cloud STT cost",
+                               value: String(format: "≈ ₹%.0f", t.totalHours * 45))
+                Text("On-device STT + cleanup is free. The estimate shows what a cloud model billed ~₹45/hr would cost at this usage — a reference for Road to Sale pricing.")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .frame(width: 420, height: 560)
         .padding()
-        .navigationTitle("Dictation Settings")
+        .navigationTitle("Just Talk Settings")
         .onAppear { Task { await appState.refreshStats() } }
         // ⌘⇧Z correction shortcut — active while the Settings window is key
         .background(
