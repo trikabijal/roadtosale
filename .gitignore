@@ -70,8 +70,11 @@ dist/
 
 # Build outputs
 build/
+build-ios/
+build-ios-device/
 .gradle/
 
 # Editor
 .vscode/
 .idea/
+.aider*
