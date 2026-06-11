@@ -41,6 +41,11 @@ public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
         prewarmSession = session
     }
 
+    /// Drop the held prewarm session (e.g. after a timeout) so nothing lingers.
+    public func reset() {
+        prewarmSession = nil
+    }
+
     public func clean(_ req: CleanupRequest) async -> CleanupResult {
         if req.level == .off {
             return CleanupResult(cleanedText: req.rawText, opsApplied: [], usedFallback: false,
@@ -101,6 +106,9 @@ public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
                 provider: .foundationModels
             )
         } catch {
+            // On timeout/failure, release the (possibly stuck) session before falling back so
+            // orphaned model work doesn't keep holding it.
+            reset()
             return await fallbackResult(req)
         }
     }

@@ -53,6 +53,15 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
     /// Custom-vocabulary biasing: the terms become a decoder conditioning prompt so
     /// names/jargon transcribe correctly.
+    /// Drop the loaded model (e.g. after a timeout) so a stuck/orphaned transcribe can't keep
+    /// holding it; the next transcribe reloads fresh.
+    public func reset() {
+        loadTask?.cancel()
+        loadTask = nil
+        whisperKit = nil
+        isLoaded = false
+    }
+
     public func setVocabularyBias(_ terms: [String]) {
         let cleaned = terms.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

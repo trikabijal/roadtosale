@@ -13,10 +13,13 @@ public protocol TextCleanup: Sendable {
     /// Warm the underlying model ahead of a `clean` call (e.g. when recording starts) so the
     /// cleanup at stop is fast. Default: no-op (only the on-device LLM benefits).
     func prewarm()
+    /// Release any held model/session (e.g. after a timeout). Default: no-op.
+    func reset()
 }
 
 public extension TextCleanup {
     func prewarm() {}
+    func reset() {}
 }
 
 // MARK: - Levels + provider
