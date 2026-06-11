@@ -655,15 +655,20 @@ public final class AppState: NSObject, ObservableObject {
         defaults.set(config.model, forKey: "sttModel")
 
         engineLoaded = false
-        transcriber = SpeechTranscriberFactory.make(config)
-        transcriber.setVocabularyBias(vocabulary)
+        // Capture THIS switch's transcriber instance locally — the Task below must load/read
+        // exactly this object. Using the mutable `self.transcriber` let a stale task from an
+        // earlier switch call load() on (and cancel the load of) whatever the current
+        // transcriber happened to be. The generation token still guards UI state writes.
+        let newTranscriber = SpeechTranscriberFactory.make(config)
+        newTranscriber.setVocabularyBias(vocabulary)
+        transcriber = newTranscriber
         sttLoadGeneration += 1
         let token = sttLoadGeneration
         let modelName = config.modelDisplayName
         statusMessage = "Preparing \(modelName)…"
         Task {
             do {
-                try await transcriber.load { [weak self] fraction in
+                try await newTranscriber.load { [weak self] fraction in
                     // Ignore progress from a superseded switch.
                     guard let self, self.sttLoadGeneration == token else { return }
                     if fraction < 1.0 {
@@ -676,7 +681,7 @@ public final class AppState: NSObject, ObservableObject {
                 // stomp its state. Keyed on the load token, not the config value, so
                 // rapid same-value switches (A→B→A→B) are disambiguated.
                 guard sttLoadGeneration == token else { return }
-                engineLoaded = transcriber.isLoaded
+                engineLoaded = newTranscriber.isLoaded
                 statusMessage = engineLoaded
                     ? readyMessage
                     : "\(config.provider.displayName) unavailable"
