@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum RecordingHUDPhase {
-    case recording, processing, failed
+    case recording, processing, failed, done
 }
 
 /// Observable backing for the floating HUD.
@@ -16,6 +16,8 @@ final class RecordingHUDModel: ObservableObject {
     // Failure actions, set when `phase == .failed`.
     var onRetry: (() -> Void)?
     var onDismiss: (() -> Void)?
+    // Correction action, set when `phase == .done` (post-insert "mark wrong").
+    var onMarkWrong: (() -> Void)?
 }
 
 /// A small always-on-top floating panel shown near the bottom of the screen while
@@ -60,6 +62,21 @@ final class RecordingHUD {
 
     func hide() {
         panel?.orderOut(nil)
+    }
+
+    /// After a successful insert, show a brief confirmation with a "mark wrong" button — the
+    /// correction affordance lives here in the HUD (reachable no matter which app is focused),
+    /// replacing the global ⌘⇧Z shortcut that collided with the foreground app's redo.
+    func showCorrectionPrompt(onMarkWrong: @escaping () -> Void) {
+        model.phase = .done
+        model.label = "Inserted"
+        model.level = 0
+        model.previewText = ""
+        model.lowInput = false
+        model.onMarkWrong = onMarkWrong
+        let panel = ensurePanel()
+        position(panel)
+        panel.orderFrontRegardless()
     }
 
     /// Show a persistent failure state with Retry / dismiss actions. Does NOT auto-hide —
@@ -172,10 +189,10 @@ private struct HUDContentView: View {
 
     var body: some View {
         Group {
-            if model.phase == .failed {
-                failedContent
-            } else {
-                activeContent
+            switch model.phase {
+            case .failed: failedContent
+            case .done:   doneContent
+            default:      activeContent
             }
         }
         .padding(.horizontal, 16)
@@ -202,6 +219,25 @@ private struct HUDContentView: View {
                 .lineLimit(1)
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var doneContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.green)
+
+            Text("Inserted")
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button { model.onMarkWrong?() } label: {
+                Label("Mark wrong", systemImage: "xmark")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
     }
 
