@@ -4,22 +4,31 @@ import WhisperKit
 // MARK: - WhisperKit model tiers
 
 public enum ModelTier: String, CaseIterable, Sendable {
-    /// ~40 MB — fits in iOS keyboard extension memory limit
+    // English-only (.en) tiers — fast, but mangle non-English. Good for English-only use (coding).
+    /// ~40 MB — fits in iOS keyboard extension memory limit.
     case tinyEn = "openai_whisper-tiny.en"
-    /// ~75 MB — iOS app, good balance
+    /// ~75 MB.
     case baseEn = "openai_whisper-base.en"
-    /// ~150 MB — iOS app or Mac where latency matters
+    /// ~150 MB — fast + accurate for English-only contexts.
     case smallEn = "openai_whisper-small.en"
-    /// ~800 MB — macOS only, best accuracy
-    /// Model name must match WhisperKit 0.18.0 HuggingFace repo exactly
+
+    // Multilingual tiers — handle Hindi/Gujarati (Hinglish). Smaller = faster but weaker on
+    // low-resource languages (esp. Gujarati), which need a large model.
+    /// Multilingual small — much faster than the large tiers; decent Hindi, weak Gujarati.
+    case small = "openai_whisper-small"
+    /// Multilingual, speed-optimized large (pruned decoder). Default — Hinglish at reasonable speed.
     case largeV3Turbo = "openai_whisper-large-v3_turbo_954MB"
+    /// Multilingual, full large-v3 — best accuracy incl. Gujarati; slowest/largest (~3 GB download).
+    case largeV3 = "openai_whisper-large-v3"
 
     public var displayName: String {
         switch self {
-        case .tinyEn: return "Tiny (fastest)"
-        case .baseEn: return "Base (balanced)"
-        case .smallEn: return "Small (accurate)"
-        case .largeV3Turbo: return "Large Turbo (best)"
+        case .tinyEn:       return "Tiny (English, fastest)"
+        case .baseEn:       return "Base (English)"
+        case .smallEn:      return "Small (English, fast)"
+        case .small:        return "Small (multilingual)"
+        case .largeV3Turbo: return "Large Turbo (multilingual, balanced)"
+        case .largeV3:      return "Large v3 (multilingual, best)"
         }
     }
 }
