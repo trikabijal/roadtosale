@@ -150,13 +150,14 @@ public final class AppState: NSObject, ObservableObject {
     public override init() {
         let defaults = UserDefaults.standard
         let provider = STTProvider(rawValue: defaults.string(forKey: "sttProvider") ?? "") ?? .whisperKit
-        // Default to small.en: measured ~4.5× faster than large-v3-turbo (0.9s vs 4s on a 10s
-        // clip) AND more accurate on English vocab (6/6 vs 5/6 — it got "Wispr Flow" right where
-        // the multilingual large model produced "Wisp of Flow"). Users who need non-English can
-        // still pick a multilingual tier in Settings.
+        // Default to large-v3-turbo: it is the only MULTILINGUAL tier (the *.en models are
+        // English-only and mangle Hindi/Gujarati). The user dictates Hinglish (English + Hindi +
+        // Gujarati mixed) in real life, so a multilingual model is required despite being slower
+        // than small.en (~4s vs ~0.9s on a 10s clip). English-heavy contexts (e.g. coding) can
+        // select small.en in Settings for the speed; a per-app model override is the ideal fix.
         let model = defaults.string(forKey: "sttModel")
             ?? defaults.string(forKey: "modelTier")          // legacy key from PRD 0003
-            ?? ModelTier.smallEn.rawValue
+            ?? ModelTier.largeV3Turbo.rawValue
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
         self.transcriber = SpeechTranscriberFactory.make(config)
