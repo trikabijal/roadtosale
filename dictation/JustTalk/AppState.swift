@@ -352,6 +352,9 @@ public final class AppState: NSObject, ObservableObject {
         audio.reset()
         recordingPeakLevel = 0
         recordingStartDate = Date()
+        // Warm the cleanup model now, while the user talks, so the cleanup at stop is fast
+        // (~355ms warm vs ~1.3s cold). No-op for non-LLM cleanup providers.
+        cleanup.prewarm()
         let frontApp = NSWorkspace.shared.frontmostApplication
         recordingFrontmostApp = frontApp?.bundleIdentifier
         recordingTargetApp = frontApp
