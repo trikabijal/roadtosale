@@ -139,11 +139,12 @@ final class RecordingHUD {
         return NSPointFromString(s)
     }
 
-    /// True if the saved origin still lands the panel on a connected display, so a position
-    /// saved on a since-disconnected monitor falls back to the default.
+    /// True only if the saved origin lands the panel's CENTER within a screen's visible area —
+    /// so a position saved on a since-disconnected/rearranged monitor, or dragged mostly
+    /// off-screen, falls back to the default bottom-centre instead of hiding the HUD.
     nonisolated private static func isOnScreen(_ origin: NSPoint, size: NSSize) -> Bool {
-        let rect = NSRect(origin: origin, size: size)
-        return NSScreen.screens.contains { $0.frame.intersects(rect) }
+        let center = NSPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+        return NSScreen.screens.contains { $0.visibleFrame.contains(center) }
     }
 }
 
