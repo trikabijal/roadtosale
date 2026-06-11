@@ -249,6 +249,14 @@ private struct HotkeyCard: View {
                     text: "\(competitors.compactMap { $0.localizedName }.joined(separator: ", ")) is running and uses Fn by default — macOS can't share one key between two apps. Quit it, or pick a non-Fn key above.",
                     actionLabel: "Quit it"
                 ) {
+                    // Confirm before terminating someone else's app — it can lose their work.
+                    let names = competitors.compactMap { $0.localizedName }.joined(separator: ", ")
+                    let alert = NSAlert()
+                    alert.messageText = "Quit \(names)?"
+                    alert.informativeText = "Just Talk will close \(names) so it stops claiming the key. Unsaved work in that app may be lost."
+                    alert.addButton(withTitle: "Quit \(names)")
+                    alert.addButton(withTitle: "Cancel")
+                    guard alert.runModal() == .alertFirstButtonReturn else { return }
                     competitors.forEach { _ = $0.terminate() }
                     appState.refreshPermissions()
                 }

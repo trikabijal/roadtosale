@@ -125,6 +125,13 @@ public final class AppState: NSObject, ObservableObject {
     private static let lowInputPeakThreshold: Float = 0.04
     /// Transcript text retention window (privacy) — records older than this are purged on launch.
     private static let transcriptRetentionDays = 30
+    /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
+    /// audio unbounded — recording auto-stops at this length.
+    private static let maxRecordingSeconds: Double = 600
+    /// Live preview only transcribes the most recent audio, so it doesn't re-run on an
+    /// ever-growing buffer (O(n²) CPU) during long recordings. The final transcription still
+    /// uses the full audio.
+    private static let previewWindowSeconds: Double = 30
     // Frontmost app at the moment recording started — the dictation target. Captured up
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
@@ -463,10 +470,26 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
+    /// The most recent `maxSeconds` of captured audio (tail of the ordered buffer), so the live
+    /// preview transcribes a bounded window instead of the whole growing recording.
+    private func recentBuffers(maxSeconds: Double) -> [AVAudioPCMBuffer] {
+        let all = audio.snapshot()
+        let maxFrames = Int(RecordingEngine.targetSampleRate * maxSeconds)
+        var tail: [AVAudioPCMBuffer] = []
+        var frames = 0
+        for buffer in all.reversed() {
+            tail.append(buffer)
+            frames += Int(buffer.frameLength)
+            if frames >= maxFrames { break }
+        }
+        return tail.reversed()
+    }
+
     private func runPreview() async {
         guard dictationState == .recording,
               let preview = previewTranscriber, preview.isLoaded else { return }
-        let buffers = audio.snapshot()
+        // Only the most recent audio — bounds preview cost on long recordings.
+        let buffers = recentBuffers(maxSeconds: Self.previewWindowSeconds)
         // Need ~0.6s of audio before a preview is meaningful.
         let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
         guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
@@ -528,7 +551,11 @@ public final class AppState: NSObject, ObservableObject {
 
         // Write to clipboard and optionally paste
         let ap = autoPaste
-        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp)
+        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp) { [weak self] in
+            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
+            // the text is waiting on the clipboard.
+            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
+        }
         playSound("Pop")
 
         // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
@@ -660,10 +687,16 @@ public final class AppState: NSObject, ObservableObject {
         // Only honour within the 5-second correction window
         guard correctionWindowOpen else { return }
         guard let record = recentTranscripts.first else { return }
+        let id = record.id   // capture the ID — index 0 may differ by the time the write returns
         Task {
-            try? await telemetryStore?.markCorrected(id: record.id, note: nil)
-            if !recentTranscripts.isEmpty {
-                recentTranscripts[0].wasCorrected = true
+            do {
+                try await telemetryStore?.markCorrected(id: id, note: nil)
+            } catch {
+                statusMessage = "Couldn't save correction"
+            }
+            // Update the matching record by ID, not a stale index.
+            if let idx = recentTranscripts.firstIndex(where: { $0.id == id }) {
+                recentTranscripts[idx].wasCorrected = true
             }
         }
     }
@@ -732,6 +765,13 @@ public final class AppState: NSObject, ObservableObject {
     /// Switch cleanup provider and/or level. Persists and rebuilds the cleanup engine.
     func setCleanupConfig(_ config: CleanupConfig) {
         guard config != cleanupConfig else { return }
+        // Mirror the STT guard: don't switch to a cleanup provider this build/OS can't run.
+        // (Runtime fallback — e.g. Apple Intelligence off — is still possible and surfaced via
+        // the result's usedFallback flag; this just blocks selecting an outright-unavailable one.)
+        guard config.provider.isAvailable else {
+            statusMessage = "\(config.provider.displayName) isn't available on this Mac"
+            return
+        }
         cleanupConfig = config
         let defaults = UserDefaults.standard
         defaults.set(config.provider.rawValue, forKey: "cleanupProvider")
@@ -869,6 +909,12 @@ extension AppState: RecordingEngineDelegate {
     /// (and stays cleared) as soon as the user is loud enough once.
     private func evaluateInputLevel(_ level: Float) {
         guard dictationState == .recording, let start = recordingStartDate else { return }
+        // Hard safety stop so a stuck/forgotten recording can't balloon RAM/CPU.
+        if Date().timeIntervalSince(start) > Self.maxRecordingSeconds {
+            statusMessage = "Reached the \(Int(Self.maxRecordingSeconds / 60))-minute limit — stopping"
+            stopRecordingAndTranscribe()
+            return
+        }
         recordingPeakLevel = max(recordingPeakLevel, level)
         guard Date().timeIntervalSince(start) > 2 else { return }
         recordingHUD.setLowInput(recordingPeakLevel < Self.lowInputPeakThreshold)
