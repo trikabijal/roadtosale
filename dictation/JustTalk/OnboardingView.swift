@@ -42,6 +42,12 @@ struct OnboardingView: View {
     @State private var tick = 0
     private let ticker = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
+    private var doneLabel: String {
+        if !appState.requiredPermissionsGranted { return "Grant the steps above" }
+        if !appState.hotkeyTestPassed { return "Test your activation key above" }
+        return "Done — start talking"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -56,12 +62,15 @@ struct OnboardingView: View {
                 Button {
                     appState.completeOnboarding()
                 } label: {
-                    Text(appState.requiredPermissionsGranted ? "Done — start talking" : "Grant the steps above")
+                    Text(doneLabel)
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
-                .disabled(!appState.requiredPermissionsGranted)
+                // Require the activation key to be PROVEN (not just permissions) — otherwise a
+                // user can finish setup with the key still claimed by macOS/another app, and the
+                // app reports "Ready" but can't be activated.
+                .disabled(!(appState.requiredPermissionsGranted && appState.hotkeyTestPassed))
                 .padding(.top, 4)
             }
             .padding(20)

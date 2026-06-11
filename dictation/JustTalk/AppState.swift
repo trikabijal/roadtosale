@@ -142,6 +142,9 @@ public final class AppState: NSObject, ObservableObject {
     // Correction window: after a transcript lands, ⌘⇧Z marks it corrected for 5s
     private var correctionWindowTask: Task<Void, Never>?
     private var correctionWindowOpen = false
+    // Global ⌘⇧Z monitor (fires while dictating into OTHER apps; local monitors cover the
+    // case where Just Talk itself is key).
+    private var globalCorrectionMonitor: Any?
     // Monotonic token so a superseded STT load can't apply state for an old switch.
     private var sttLoadGeneration = 0
 
@@ -208,6 +211,11 @@ public final class AppState: NSObject, ObservableObject {
         NotificationCenter.default.addObserver(
             self, selector: #selector(appDidBecomeActive),
             name: NSApplication.didBecomeActiveNotification, object: nil)
+
+        // 3b. Global correction shortcut: ⌘⇧Z marks the last dictation as a miss even while the
+        //     user is in ANOTHER app (the normal dictation case). The in-window guard in
+        //     markLastTranscriptCorrected means it only acts during the 5s correction window.
+        installGlobalCorrectionShortcut()
 
         // 4. Show onboarding if it's never been completed or a required permission is missing.
         if !hasCompletedOnboarding || !requiredPermissionsGranted {
@@ -631,6 +639,18 @@ public final class AppState: NSObject, ObservableObject {
 
     // MARK: - Correction
 
+    /// Observe ⌘⇧Z globally (events destined for other apps). Requires Accessibility/Input
+    /// Monitoring, which the app already needs. Observe-only — it can't consume the key, so the
+    /// foreground app still sees ⌘⇧Z; that's acceptable for a correction marker.
+    private func installGlobalCorrectionShortcut() {
+        guard globalCorrectionMonitor == nil else { return }
+        globalCorrectionMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mods == [.command, .shift], event.keyCode == 6 else { return }   // ⌘⇧Z (Z = 6)
+            Task { @MainActor in self?.markLastTranscriptCorrected() }
+        }
+    }
+
     func markLastTranscriptCorrected() {
         // Only honour within the 5-second correction window
         guard correctionWindowOpen else { return }
@@ -649,6 +669,13 @@ public final class AppState: NSObject, ObservableObject {
     /// via the factory, and reloads with progress.
     func setSTTConfig(_ config: STTConfig) {
         guard config != sttConfig else { return }
+        // Never switch to a provider that isn't implemented yet — its transcriber's load()
+        // throws, engineLoaded stays false, and dictation is blocked until the user switches
+        // back (a self-brick from Settings). The picker binding snaps back to the current value.
+        guard config.provider.isAvailable else {
+            statusMessage = "\(config.provider.displayName) isn't available yet"
+            return
+        }
         sttConfig = config
         let defaults = UserDefaults.standard
         defaults.set(config.provider.rawValue, forKey: "sttProvider")
