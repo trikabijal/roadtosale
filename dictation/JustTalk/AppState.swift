@@ -196,6 +196,12 @@ public final class AppState: NSObject, ObservableObject {
         recordingEngine.delegate = self
         transcriber.setVocabularyBias(vocabulary)
 
+        // HUD open/close audio cues (Wispr Flow-style): a soft chime when the pill appears and
+        // another when it disappears. Centralised on real visibility transitions, so phase changes
+        // (recording→processing→done) while the pill stays up don't re-fire. Gated by soundEnabled.
+        recordingHUD.onAppear = { [weak self] in self?.playSound("Tink") }
+        recordingHUD.onDisappear = { [weak self] in self?.playSound("Pop") }
+
         Task { await setup() }
     }
 
@@ -375,8 +381,7 @@ public final class AppState: NSObject, ObservableObject {
             try recordingEngine.start()
             dictationState = .recording
             statusMessage = "Recording…"
-            recordingHUD.show(phase: .recording, label: "Listening…")
-            playSound("Tink")
+            recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
             startPreviewLoop()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
@@ -569,7 +574,7 @@ public final class AppState: NSObject, ObservableObject {
             // the text is waiting on the clipboard.
             self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
         }
-        playSound("Pop")
+        // (Close cue is fired by HUD.onDisappear when the pill goes away — no per-paste sound here.)
 
         // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
         // STT output for the cross-platform learnings dataset.

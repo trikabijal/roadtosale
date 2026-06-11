@@ -27,6 +27,13 @@ final class RecordingHUDModel: ObservableObject {
 final class RecordingHUD {
     private let model = RecordingHUDModel()
     private var panel: NSPanel?
+    /// Tracks on-screen state so the open/close cues fire on true visibility transitions only —
+    /// not on phase changes (e.g. recording→processing) while the pill stays up.
+    private var isVisible = false
+    /// Fired when the pill appears (hidden→visible) and disappears (visible→hidden). AppState
+    /// wires these to the open/close sounds, mirroring Wispr Flow's HUD chimes.
+    var onAppear: (() -> Void)?
+    var onDisappear: (() -> Void)?
 
     func show(phase: RecordingHUDPhase, label: String) {
         model.phase = phase
@@ -34,9 +41,18 @@ final class RecordingHUD {
         model.level = 0
         model.previewText = ""
         model.lowInput = false
+        present()
+    }
+
+    /// Bring the panel on screen, positioning it, and fire `onAppear` only on a hidden→visible edge.
+    private func present() {
         let panel = ensurePanel()
         position(panel)
         panel.orderFrontRegardless()
+        if !isVisible {
+            isVisible = true
+            onAppear?()
+        }
     }
 
     func setPhase(_ phase: RecordingHUDPhase, label: String) {
@@ -62,6 +78,10 @@ final class RecordingHUD {
 
     func hide() {
         panel?.orderOut(nil)
+        if isVisible {
+            isVisible = false
+            onDisappear?()
+        }
     }
 
     /// After a successful insert, show a brief confirmation with a "mark wrong" button — the
@@ -74,9 +94,7 @@ final class RecordingHUD {
         model.previewText = ""
         model.lowInput = false
         model.onMarkWrong = onMarkWrong
-        let panel = ensurePanel()
-        position(panel)
-        panel.orderFrontRegardless()
+        present()
     }
 
     /// Show a persistent failure state with Retry / dismiss actions. Does NOT auto-hide —
@@ -88,9 +106,7 @@ final class RecordingHUD {
         model.previewText = ""
         model.onRetry = onRetry
         model.onDismiss = onDismiss
-        let panel = ensurePanel()
-        position(panel)
-        panel.orderFrontRegardless()
+        present()
     }
 
     // MARK: - Panel
