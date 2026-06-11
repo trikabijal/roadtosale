@@ -49,7 +49,7 @@ public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, Persista
         self.recordedAt = recordedAt
         self.audioDurationMs = audioDurationMs
         self.transcriptText = transcriptText
-        self.wordCount = wordCount ?? transcriptText.split(separator: " ").count
+        self.wordCount = wordCount ?? transcriptText.split(whereSeparator: \.isWhitespace).count
         self.whisperkitConfidence = whisperkitConfidence
         self.latencyMs = latencyMs
         self.modelTier = modelTier
@@ -221,6 +221,12 @@ public actor TelemetryStore {
                 t.add(column: "cleanup_level", .text)
                 t.add(column: "cleanup_provider", .text)
             }
+        }
+        // Index recorded_at — every read orders/filters by it (fetchRecent, stats, retention
+        // purge), and the table grows with use.
+        migrator.registerMigration("v3_index_recorded_at") { db in
+            try db.create(index: "idx_transcript_recorded_at",
+                          on: TranscriptRecord.databaseTableName, columns: ["recorded_at"])
         }
         try migrator.migrate(dbQueue)
     }

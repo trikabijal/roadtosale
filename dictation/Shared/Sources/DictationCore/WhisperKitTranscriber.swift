@@ -147,7 +147,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         let results = try await wk.transcribe(audioArray: samples, decodeOptions: decodeOptions)
         let latencyMs = Int(Date().timeIntervalSince(transcribeStart) * 1000)
 
-        guard let first = results.first else {
+        guard !results.isEmpty else {
             throw TranscriptionError.emptyResult
         }
 
@@ -161,7 +161,11 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
             confidence = 0.5
         }
 
-        let text = first.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        // Join ALL result entries, not just the first — for long/windowed audio WhisperKit can
+        // emit more than one, and confidence is already averaged across all of them, so taking
+        // only `first.text` would silently truncate the transcript.
+        let text = results.map(\.text).joined(separator: " ")
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
         // Reject low-confidence single phantom phrases on short clips.
         if Self.isLikelyHallucination(text: text, confidence: confidence, durationMs: audioDurationMs) {
