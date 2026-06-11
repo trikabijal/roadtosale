@@ -70,6 +70,20 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
     // MARK: - Load
 
+    /// Where model files are downloaded/cached. WhisperKit's default `downloadBase` is the user's
+    /// **Documents** folder — on a non-sandboxed Mac app every access there triggers a macOS
+    /// "allow access to Documents" TCC prompt, so a multi-tier app fires a burst of them. We instead
+    /// keep models under Application Support, alongside the telemetry DB and recordings, which needs
+    /// no TCC grant. Named `huggingface` so the on-disk layout (`<base>/models/<repo>/<variant>`)
+    /// matches WhisperKit's default `Documents/huggingface`, making the existing cache portable here.
+    public static func modelDownloadBase() throws -> URL {
+        let base = try FileManager.default.url(for: .applicationSupportDirectory,
+                                               in: .userDomainMask, appropriateFor: nil, create: true)
+        let dir = base.appendingPathComponent("com.trika.dictation/huggingface", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     /// Downloads (first run only) and loads the model. `onProgress` reports download
     /// completion fraction (0.0–1.0) on the main actor — the large models are
     /// ~150 MB–1 GB, so the first launch needs visible progress.
@@ -77,9 +91,12 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         isLoaded = false
         loadTask?.cancel()
         let tier = modelTier
+        let downloadBase = try Self.modelDownloadBase()
         loadTask = Task {
-            // 1. Fetch model files (returns immediately from cache on later runs).
-            let modelFolder = try await WhisperKit.download(variant: tier.rawValue) { progress in
+            // 1. Fetch model files (returns immediately from cache on later runs). downloadBase keeps
+            //    them out of ~/Documents so macOS doesn't prompt for Documents-folder access.
+            let modelFolder = try await WhisperKit.download(variant: tier.rawValue,
+                                                            downloadBase: downloadBase) { progress in
                 Task { @MainActor in onProgress?(progress.fractionCompleted) }
             }
             if Task.isCancelled { return }
