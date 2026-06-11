@@ -110,6 +110,17 @@ public actor TelemetryStore {
         }
     }
 
+    /// Privacy retention: delete transcript records older than `days`. Dictated text can hold
+    /// secrets/PII, so it is not kept indefinitely. Audio recordings are bounded separately
+    /// (RecordingStore keeps only the last few). Returns the number of records removed.
+    @discardableResult
+    public func purge(olderThanDays days: Int) throws -> Int {
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
+        return try dbQueue.write { db in
+            try TranscriptRecord.filter(Column("recorded_at") < cutoff).deleteAll(db)
+        }
+    }
+
     public func markCorrected(id: String, note: String?) throws {
         try dbQueue.write { db in
             try db.execute(

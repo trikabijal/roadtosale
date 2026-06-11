@@ -123,6 +123,8 @@ public final class AppState: NSObject, ObservableObject {
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
     private var recordingPeakLevel: Float = 0
     private static let lowInputPeakThreshold: Float = 0.04
+    /// Transcript text retention window (privacy) — records older than this are purged on launch.
+    private static let transcriptRetentionDays = 30
     // Frontmost app at the moment recording started — the dictation target. Captured up
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
@@ -245,6 +247,9 @@ public final class AppState: NSObject, ObservableObject {
         do {
             let url = try TelemetryStore.macOSDatabaseURL()
             telemetryStore = try TelemetryStore(databaseURL: url)
+            // Privacy retention: drop transcripts older than 30 days on launch (audio is bounded
+            // to the last 5 by RecordingStore). Dictated text isn't hoarded indefinitely.
+            try? await telemetryStore?.purge(olderThanDays: Self.transcriptRetentionDays)
             await refreshTranscripts()
         } catch {
             // Non-fatal — app still works without telemetry
