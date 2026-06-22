@@ -14,6 +14,8 @@ family (see [Voice bridge](#5-voice-layer--native-stt-bridge)).
 > New here? Read this file top-to-bottom, then [`flows.md`](./flows.md) for the
 > end-to-end walkthroughs and [`api.md`](./api.md) for the two API surfaces
 > (SmartComply HTTP + the native voice module JS API).
+>
+> To build, test, and run it locally, see [`build.md`](./build.md).
 
 ---
 

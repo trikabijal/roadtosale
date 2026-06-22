@@ -117,6 +117,8 @@ vehicle-feature-catalog/
 
 One YAML file per entity. One matrix file per make. Files are reviewed in PRs whether hand-authored or scraper-emitted.
 
+To build, test, run the CLIs, and deploy this module locally, see [`build.md`](./build.md).
+
 ### Example: feature file
 
 ```yaml
