@@ -17,6 +17,9 @@ demo/auditpro-rn-showcase/web-build/
 demo/auditpro-rn-showcase/.expo/
 demo/auditpro-rn-showcase/node_modules/
 
+# Voice engine — generated cleanup-pack vocab (derived from the catalog by derive_vocab.py; regenerate, don't commit)
+voice-engine/cleanup-packs/derived/
+
 # Voice engine — lab reports + generated audio fixtures
 voice-engine/lab/reports/
 voice-engine/lab/fixtures/generated/
