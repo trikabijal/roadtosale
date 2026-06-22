@@ -26,6 +26,13 @@ info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()    { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
 err()   { printf '\033[1;31m  ✗\033[0m %s\n' "$*" >&2; }
 
+# --- prerequisite checks ----------------------------------------------------
+# shellcheck source=scripts/prereqs.sh disable=SC1091
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_python_version 3 11
+require_node_version 20
+require_npm_version 10
+
 if [ ! -d .venv ]; then
   err ".venv not found. Run ./build.sh first."
   exit 1

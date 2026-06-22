@@ -28,28 +28,15 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# ---- Prerequisite checks (shared, fail loudly before any real work) --------
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_build_prereqs
+
 # ---- Configuration ---------------------------------------------------------
 PROJECT="JustTalk.xcodeproj"
 DERIVED="build"
 CONFIG="${CONFIG:-Release}"
 TARGET="${1:-macos}"
-
-# ---- Prerequisite checks ---------------------------------------------------
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "✗ This app builds only on macOS (uname is '$(uname -s)')." >&2
-  exit 1
-fi
-
-if ! command -v xcodebuild >/dev/null 2>&1; then
-  echo "✗ xcodebuild not found. Install Xcode from the App Store, then run:" >&2
-  echo "    sudo xcode-select -s /Applications/Xcode.app/Contents/Developer" >&2
-  exit 1
-fi
-
-if ! command -v xcodegen >/dev/null 2>&1; then
-  echo "✗ xcodegen not found. Install it with: brew install xcodegen" >&2
-  exit 1
-fi
 
 # ---- Generate the Xcode project --------------------------------------------
 echo "▶ Generating $PROJECT from project.yml…"

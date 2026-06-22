@@ -58,10 +58,15 @@ echo "    node $(node --version), npm $(npm --version) — OK"
 
 CATALOG_DATA_DIR="$SCRIPT_DIR/../vehicle-feature-catalog/data"
 if [ ! -d "$CATALOG_DATA_DIR" ]; then
-  echo "    WARNING: vehicle-feature-catalog/data not found at:"
+  echo "    ERROR: vehicle-feature-catalog/data is required but not found at:"
   echo "             $CATALOG_DATA_DIR"
-  echo "             The catalog compile step (4/4) will fail. Clone the full monorepo."
+  echo "           This app is part of a monorepo and the catalog compile step"
+  echo "           reads YAML from the sibling module ../vehicle-feature-catalog."
+  echo "           Run from the full monorepo checkout (clone the whole repo, not"
+  echo "           just road-to-sale-app/)."
+  exit 1
 fi
+echo "    vehicle-feature-catalog/data — OK"
 
 # ── Step 1: install dependencies ────────────────────────────────────────────
 echo ""

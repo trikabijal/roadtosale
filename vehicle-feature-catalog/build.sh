@@ -27,42 +27,19 @@ info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 ok()    { printf '\033[1;32m  ✓\033[0m %s\n' "$*"; }
 err()   { printf '\033[1;31m  ✗\033[0m %s\n' "$*" >&2; }
 
-MIN_PY_MAJOR=3
-MIN_PY_MINOR=11
-
 # --- prerequisite checks ----------------------------------------------------
+# Shared, DRY guards. Each fails loudly (ERROR: ... Install: ...) and exits 1
+# before any real work, so nothing dies deep inside pip/npm.
+# shellcheck source=scripts/prereqs.sh disable=SC1091
+source "$(dirname "$0")/scripts/prereqs.sh"
+
 info "Checking prerequisites"
-
-if ! command -v python3 >/dev/null 2>&1; then
-  err "python3 not found."
-  err "  macOS:  brew install python@3.11   (or install from python.org)"
-  err "  Linux:  sudo apt-get install python3 python3-venv python3-pip"
-  exit 1
-fi
-
-PY_VER="$(python3 -c 'import sys; print("%d.%d.%d" % sys.version_info[:3])')"
-PY_OK="$(python3 -c "import sys; print(1 if sys.version_info[:2] >= (${MIN_PY_MAJOR}, ${MIN_PY_MINOR}) else 0)")"
-if [ "$PY_OK" != "1" ]; then
-  err "python3 is ${PY_VER}; this module needs >= ${MIN_PY_MAJOR}.${MIN_PY_MINOR}."
-  err "  macOS:  brew install python@3.11"
-  err "  Linux:  sudo apt-get install python3.11 python3.11-venv"
-  exit 1
-fi
-ok "python3 ${PY_VER}"
-
-if ! command -v node >/dev/null 2>&1; then
-  err "node not found."
-  err "  macOS:  brew install node   (or use nvm: https://github.com/nvm-sh/nvm)"
-  err "  Linux:  see https://nodejs.org/en/download/package-manager"
-  exit 1
-fi
-ok "node $(node --version)"
-
-if ! command -v npm >/dev/null 2>&1; then
-  err "npm not found (it ships with Node — reinstall Node)."
-  exit 1
-fi
-ok "npm $(npm --version)"
+require_python_version 3 11
+ok "python3 ${_VFC_PYTHON_VERSION}"
+require_node_version 20
+ok "node ${_VFC_NODE_VERSION}"
+require_npm_version 10
+ok "npm ${_VFC_NPM_VERSION}"
 
 # --- Python: venv + editable install ---------------------------------------
 info "Setting up Python virtualenv (./.venv)"

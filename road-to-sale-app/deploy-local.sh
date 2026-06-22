@@ -50,33 +50,21 @@ if [ -z "$PLATFORM" ]; then
 fi
 shift || true  # remaining args pass through to expo run:*
 
-# ── Prerequisite checks ─────────────────────────────────────────────────────
-if ! command -v node >/dev/null 2>&1; then
-  echo "ERROR: node not found. Install Node.js >= 20 (https://nodejs.org)."
-  exit 1
-fi
-if [ ! -d "node_modules" ]; then
-  echo "ERROR: node_modules/ not found. Run ./build.sh first."
-  exit 1
-fi
+# Shared, DRY prerequisite checks (require_node, require_node_modules, and the
+# per-platform native toolchain checks).
+# shellcheck source=scripts/native-prereqs.sh
+. "$SCRIPT_DIR/scripts/native-prereqs.sh"
+
+# ── Prerequisite checks (fail loudly, before any real work) ─────────────────
+require_node
+require_node_modules
 
 case "$PLATFORM" in
   ios)
-    if [ "$(uname)" != "Darwin" ]; then
-      echo "ERROR: iOS builds require macOS with Xcode."
-      exit 1
-    fi
-    if ! command -v xcodebuild >/dev/null 2>&1; then
-      echo "ERROR: xcodebuild not found. Install Xcode from the App Store and run:"
-      echo "       sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
-      exit 1
-    fi
+    require_ios_toolchain
     ;;
   android)
-    if [ -z "${ANDROID_HOME:-}" ] && [ -z "${ANDROID_SDK_ROOT:-}" ]; then
-      echo "WARNING: ANDROID_HOME / ANDROID_SDK_ROOT not set."
-      echo "         Install Android Studio + SDK and export ANDROID_HOME."
-    fi
+    require_android_toolchain
     ;;
   *)
     echo "ERROR: Unknown platform '${PLATFORM}'. Valid values: ios, android"

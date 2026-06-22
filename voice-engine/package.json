@@ -4,6 +4,10 @@
   "private": true,
   "description": "Voice engine — strategy-based STT + cue matching (TS library skeleton).",
   "type": "module",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {

@@ -1,51 +1,89 @@
 # Just Talk
 
-A Wispr Flow replacement built on WhisperKit. Press your activation key, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Runs entirely on-device: neither audio nor text ever leaves the machine.
-
-Two model layers, both swappable behind a contract (`{provider, model}`):
-- **Speech-to-text** — `SpeechTranscriber` (WhisperKit today; Apple SpeechTranscriber next).
-- **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
-
-Two shipping targets: a macOS menu bar app (JustTalk) and an iOS custom keyboard extension (DictationKeyboard + DictationContainerApp — iOS rename deferred until the paid Apple Developer account is set up). All targets share the DictationCore Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is now wired into **both** the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix for free). The iOS keyboard compiles for the Simulator but can only be fully validated on a physical device with a paid Apple Developer account (custom keyboards don't run in the Simulator).
+**Just Talk** is an on-device macOS dictation app (a Wispr Flow replacement built on WhisperKit): press your activation key, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Neither audio nor text ever leaves the machine. An iOS custom keyboard (DictationKeyboard + DictationContainerApp) shares the same engine but is **paused pending a paid Apple Developer account** (custom keyboards can't run in the Simulator).
 
 ---
 
 ## Prerequisites
 
-- Xcode 16 or later
-- macOS 14 Sonoma or later (required to build; also the runtime for the Mac app)
-- iOS 17 device (required to run the keyboard extension; Simulator does not support custom keyboards)
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
+| Requirement | Why / how |
+|-------------|-----------|
+| **macOS 14+** (Apple Silicon recommended) | Build host and runtime for the Mac app. The scripts fail loudly on anything else. |
+| **Xcode 16+** | Provides `xcodebuild` and `swift`. After installing from the App Store, point the toolchain at it: `sudo xcode-select -s /Applications/Xcode.app` |
+| **Homebrew** | Used to install XcodeGen. See https://brew.sh |
+| **XcodeGen** | `brew install xcodegen` — generates `JustTalk.xcodeproj` from `project.yml`. |
+| **Network (first build only)** | SwiftPM resolves **GRDB** and **WhisperKit** from GitHub on the first build (defined in `Shared/Package.swift`). Subsequent builds are offline. |
+
+There is no `package.json` / `requirements.txt` here — this is a Swift project. The dependency manifests are **`Shared/Package.swift`** (GRDB + WhisperKit) and **`project.yml`** (the XcodeGen project spec). All four scripts (`build.sh`, `test.sh`, `run.sh`, `deploy-local.sh`) check the required tools up front and exit with an `ERROR: … Install: …` hint if anything is missing — see `scripts/prereqs.sh`.
 
 ---
 
-## Setup
+## Quickstart
 
 ```bash
-brew install xcodegen       # one-time
 cd dictation
-xcodegen generate           # creates JustTalk.xcodeproj
-open JustTalk.xcodeproj
+
+./build.sh          # Release build → ./build, ends with: ** BUILD SUCCEEDED **
+                    #   and prints the path to the built JustTalk.app
+./test.sh           # Runs both suites: DictationCore 40 tests + JustTalkTests 9 tests pass
+./run.sh            # Build + launch (lives in the menu bar — no Dock icon)
+./deploy-local.sh   # Build + install "Just Talk.app" into /Applications as your daily driver
 ```
 
-XcodeGen resolves `Shared/` as a local Swift Package. Xcode then fetches GRDB and WhisperKit from GitHub on first open — allow the package resolution to complete before building.
+Expected results:
 
-### Signing & Capabilities
+- **`./build.sh`** → `** BUILD SUCCEEDED **`, then `✓ Built: …/JustTalk.app`.
+- **`./test.sh`** → DictationCore (40 tests) + JustTalkTests (9 tests) both pass, ending in `** TEST SUCCEEDED **`.
+- **`./deploy-local.sh`** → installs into `/Applications`. Because a local build is **unsigned / development-signed** (not notarized), the first launch may trip Gatekeeper: **right-click the app → Open** once to bypass it. (Use `./deploy-local.sh --user` to install into `~/Applications` without admin rights.)
 
-In Xcode, for **each of the three targets**:
+First launch opens a **setup wizard** — grant **Microphone** and **Accessibility**, pick your activation key, and press it once to confirm it reaches the app. First dictation downloads the selected WhisperKit model (~40 MB–1 GB depending on tier); progress shows in the menu bar item.
 
-1. Signing & Capabilities → Team → select your Apple Developer team.
-2. For **DictationKeyboard** and **DictationContainerApp** only: add the App Groups capability and enter `group.com.trika.dictation`. This is the shared SQLite container for telemetry.
+More detail: **[docs/build.md](docs/build.md)** (build/run/deploy, environments, troubleshooting) and **[docs/architecture.md](docs/architecture.md)** (components, contracts, isolation).
+
+---
+
+## Build / test scripts
+
+```bash
+./build.sh                 # Release build into ./build (default = macos)
+./build.sh install         # build + copy to /Applications
+./build.sh ios             # build the (paused) iOS container app for the Simulator
+./test.sh                  # all: DictationCore + JustTalkTests
+./test.sh core             # DictationCore SwiftPM tests only (fast, no Xcode project)
+./test.sh app              # JustTalkTests xcodebuild scheme only
+./run.sh                   # build + launch
+./deploy-local.sh          # install into /Applications
+./deploy-local.sh --user   # install into ~/Applications (no admin rights)
+```
+
+Environment knobs for `build.sh`:
+
+- `CONFIG=Debug|Release` — build configuration for the macOS app (default `Release`).
+- `DEVELOPMENT_TEAM=XXXXXXXXXX` — sign with a stable team identity so macOS keeps Mic / Accessibility / Input-Monitoring grants across rebuilds. Set to `""` to force ad-hoc signing; unset uses the identity pinned in `project.yml`.
+
+```bash
+# Permissions that persist across rebuilds:
+DEVELOPMENT_TEAM=XXXXXXXXXX ./deploy-local.sh
+```
+
+---
+
+## Architecture (at a glance)
+
+Two model layers, both swappable behind a contract (`{provider, model}`):
+
+- **Speech-to-text** — `SpeechTranscriber` (WhisperKit today; Apple SpeechTranscriber next).
+- **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
+
+All targets share the **DictationCore** Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is wired into both the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix for free).
 
 ---
 
 ## macOS Usage (JustTalk)
 
-1. Select the **JustTalk** scheme, build, and run.
-2. A **setup wizard** opens on first launch with live-ticking cards — grant **Microphone** and **Accessibility**, pick your activation key, and press it once to confirm it reaches the app. Permissions are only requested when you tap a button (nothing pops up out of the blue), and the wizard auto-advances as you grant each one. Reopen it anytime from the menu bar → **Setup**.
-3. The app lives in the menu bar (no Dock icon by design).
-4. Hold your **activation key** (default **Fn / Globe**) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
-5. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. The wizard's "press your key to test" step confirms the key actually reaches Just Talk. For Fn, also set System Settings → Keyboard → "Press 🌐 key to" → **Do Nothing**.
+1. The app lives in the menu bar (no Dock icon by design).
+2. Hold your **activation key** (default **Fn / Globe**) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
+3. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. For Fn, also set System Settings → Keyboard → "Press 🌐 key to" → **Do Nothing**.
 
 Settings (menu bar → Settings):
 - **Recording** — activation key (Fn, right ⌘/⌥/⌃, F5/F6/F13), activation mode (hold-to-talk or tap-to-toggle), auto-paste, start/stop sounds. "Re-run setup…" reopens the wizard.
@@ -54,30 +92,17 @@ Settings (menu bar → Settings):
 - **AI Cleanup** — level (Off / Light / **Full**, default) + engine (Foundation Models / rule-based).
 - **Custom Vocabulary** — names/jargon that bias transcription and force spelling after cleanup.
 
-Your clipboard is preserved: auto-paste restores whatever you had copied. First launch downloads the selected WhisperKit model (~40 MB–1 GB depending on tier); progress is shown in the menu bar item. Cleanup uses Apple Foundation Models (requires Apple Intelligence enabled); it falls back to deterministic rule-based cleanup if the model isn't ready.
-
-### Build & install (scripts)
-
-```bash
-cd dictation
-./build.sh                 # Release build into ./build
-./build.sh install         # build + copy to /Applications
-./run.sh                   # build + launch
-# Optional, for permissions that persist across rebuilds:
-DEVELOPMENT_TEAM=XXXXXXXXXX ./build.sh install
-```
+Your clipboard is preserved: auto-paste restores whatever you had copied. Cleanup uses Apple Foundation Models (requires Apple Intelligence enabled); it falls back to deterministic rule-based cleanup if the model isn't ready.
 
 ---
 
-## iOS Usage (DictationContainerApp + DictationKeyboard)
+## iOS Usage (DictationContainerApp + DictationKeyboard) — PAUSED
 
-1. Connect your iOS 17 device and select the **DictationContainerApp** scheme.
-2. Build and install (Xcode signs automatically if you set your team above).
-3. On the device: **Settings → General → Keyboard → Keyboards → Add New Keyboard → Dictation**.
-4. Tap **Dictation** in the keyboard list → enable **Allow Full Access** (required for microphone).
-5. Switch to the Dictation keyboard in any app (globe key), tap the mic button, speak, tap again to transcribe and insert.
+The iOS keyboard is code-complete and compiles for the Simulator, but full device validation is **deferred until a paid Apple Developer Program account is set up** (custom keyboards don't run in the Simulator, and `Allow Full Access` for the microphone needs signing). Once available:
 
-First launch: WhisperKit model downloads in the background. The keyboard shows a progress indicator until the model is ready.
+1. Connect your iOS 17 device, select the **DictationContainerApp** scheme, set your Team for each target, and add the App Groups capability `group.com.trika.dictation` to **DictationKeyboard** and **DictationContainerApp** (shared SQLite telemetry container).
+2. Build and install. On the device: **Settings → General → Keyboard → Keyboards → Add New Keyboard → Dictation**, then enable **Allow Full Access**.
+3. Switch to the Dictation keyboard in any app (globe key), tap the mic, speak, tap again to insert.
 
 ---
 
@@ -97,6 +122,7 @@ First launch: WhisperKit model downloads in the background. The keyboard shows a
 ```
 dictation/
 ├── Shared/                     DictationCore Swift Package (shared by all targets)
+│   ├── Package.swift           Dependency manifest: GRDB + WhisperKit
 │   └── Sources/DictationCore/
 │       ├── RecordingEngine.swift          AVAudioEngine tap + format conversion + VAD + level
 │       ├── SpeechTranscriber.swift        STT contract + provider/config/factory + mock
@@ -118,13 +144,17 @@ dictation/
 │   ├── RecordingHUD.swift      Floating live-level HUD
 │   └── LoginItem.swift         Launch-at-login (SMAppService)
 ├── JustTalkTests/              macOS app unit tests (HotkeyConfig, HotkeyConflict)
-├── DictationKeyboard/          iOS custom keyboard extension (Phase 3)
-├── DictationContainerApp/      iOS container app (Phase 3)
+├── DictationKeyboard/          iOS custom keyboard extension (PAUSED)
+├── DictationContainerApp/      iOS container app (PAUSED)
 ├── docs/
+│   ├── build.md                Build / run / deploy guide
 │   ├── architecture.md
+│   ├── api.md, flows.md, e2e-tests.md
 │   └── whisperkit-failure-findings.md
-├── build.sh / run.sh           One-command build / run
-├── project.yml                 XcodeGen project spec
+├── scripts/
+│   └── prereqs.sh              Shared prerequisite checks (sourced by all scripts)
+├── build.sh / test.sh / run.sh / deploy-local.sh   One-command build / test / run / install
+├── project.yml                 XcodeGen project spec (dependency manifest)
 └── README.md
 ```
 
@@ -140,6 +170,6 @@ dictation/
 | B0 — Pluggable contracts | Done | `SpeechTranscriber` + `TextCleanup` contracts, `{provider, model}` config |
 | B — AI cleanup | Done | On-device Foundation Models cleanup (default Full) + rule-based fallback |
 | C — Daily-driver ergonomics | Done | Launch at login, recording HUD, custom vocabulary, toggle mode, sounds |
-| D — Permanent install | Done | `build.sh` / `run.sh`, docs |
-| 3 — iOS keyboard | Code-complete, compiles for Simulator; device validation pending paid Apple Developer Program | KeyboardViewController, in-keyboard mic UI, **on-device AI cleanup (Foundation Models + fallback)**, App Group SQLite telemetry |
+| D — Permanent install | Done | `build.sh` / `run.sh` / `deploy-local.sh`, docs |
+| 3 — iOS keyboard | PAUSED — code-complete, compiles for Simulator; device validation pending paid Apple Developer Program | KeyboardViewController, in-keyboard mic UI, on-device AI cleanup, App Group SQLite telemetry |
 | E — Optional | Future | Streaming partials, per-app profiles, history search |
