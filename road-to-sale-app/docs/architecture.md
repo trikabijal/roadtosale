@@ -42,12 +42,13 @@ road-to-sale-app/
 └── android/.../voice/       Kotlin native module (sherpa-onnx Whisper + Silero VAD + foreground service)
 ```
 
-Everything outside `screens/` is **headless** — the screens are thin and
-reactive; all state and side effects live in the engine / repo / client layers,
-each reached through a **lazy singleton** (`getSessionEngine()`,
+Everything outside `screens/` is **headless** — no UI. Screens stay thin: they
+render and react to state. All state and side effects live in the engine, repo,
+and client layers, each reached through a **lazy singleton** (`getSessionEngine()`,
 `getSessionRepository()`, `getSmartComplyClient()`, `getVoiceEngine()`). The
-singletons are the only construction points and each exposes a `set…()` override
-for test injection. Screens never `new` these classes directly.
+singletons are the only place these classes are constructed, and each exposes a
+`set…()` override so tests can inject a fake. Screens never `new` these classes
+directly.
 
 ---
 
@@ -138,7 +139,7 @@ restored). `SessionSummaryScreen` also offers a manual "Sync to SmartComply".
 ## 5. Voice layer — native STT bridge
 
 This is the most platform-specific part of the app. The voice engine runs
-**entirely on-device** (no audio leaves the phone) and is reached from JS through
+**entirely on-device** — no audio leaves the phone — and JS reaches it through
 one facade.
 
 ### JS side (`src/voice/`)
@@ -152,9 +153,9 @@ one facade.
   `NativeEventEmitter`, translating the three native events
   (`onTranscriptEvent`, `onVoiceStateChange`, `onVoiceError`) into JS listeners.
   Exposed via the `getVoiceEngine()` singleton.
-- **Graceful mock fallback** — if `RtsVoiceModule` isn't linked (Expo Go, web,
-  simulator without prebuild), `isMocked` is true and `start()` just flips state
-  to `listening` with no audio. The app stays runnable everywhere.
+- **Mock fallback** — if `RtsVoiceModule` isn't linked (Expo Go, web,
+  simulator without prebuild), `isMocked` is true and `start()` flips state
+  to `listening` with no audio. The app still runs everywhere.
 - [`types.ts`](../src/voice/types.ts) — `TranscriptEvent` / `CueDetection`. This
   file is a **deliberate mirror** of `voice-engine/src/types/index.ts`; the
   header comment says "must stay in sync."
@@ -172,11 +173,11 @@ is the `RCT_EXTERN_MODULE` bridge declaration.
 ### Android native (`android/.../voice/`)
 
 [`RtsVoiceModule.kt`](../android/app/src/main/kotlin/com/trika/roadtosale/voice/RtsVoiceModule.kt)
-— a `ReactContextBaseJavaModule` running **sherpa-onnx**: `AudioRecord` feeds 16
-kHz PCM into a **Silero VAD**, and each detected speech segment is transcribed by
-an **offline Whisper `small.en`** recognizer (int8). A coroutine on
-`Dispatchers.IO` owns the recording loop. Emits the same three events
-(`engine: "sherpa_onnx_vad"`). A **foreground service**
+— a `ReactContextBaseJavaModule` running **sherpa-onnx**. `AudioRecord` feeds 16
+kHz PCM into a **Silero VAD** (voice-activity detector), and each detected speech
+segment is transcribed by an **offline Whisper `small.en`** recognizer (int8). A
+coroutine on `Dispatchers.IO` owns the recording loop. It emits the same three
+events (`engine: "sherpa_onnx_vad"`). A **foreground service**
 ([`RtsVoiceForegroundService.kt`](../android/app/src/main/kotlin/com/trika/roadtosale/voice/RtsVoiceForegroundService.kt),
 `foregroundServiceType="microphone"`) keeps the mic alive while the screen is
 backgrounded. Registered through
@@ -185,8 +186,8 @@ backgrounded. Registered through
 ### The Expo config plugin
 
 [`plugins/withVoiceModule.ts`](../plugins/withVoiceModule.ts) (referenced in
-`app.json` → `plugins`) wires the native code in at `expo prebuild` so the bridge
-is not a hand-edited native project:
+`app.json` → `plugins`) wires the native code in at `expo prebuild`, so nobody
+hand-edits the native project:
 
 - **iOS:** adds the three `VoiceModule/*` files to the app target and sets the
   Swift Objective-C bridging header.
@@ -207,8 +208,8 @@ Android `RECORD_AUDIO`, `FOREGROUND_SERVICE`).
 
 ## 6. Session engine & checklist (`src/session/`)
 
-Pure, in-memory business logic — no React, no native, no I/O except the one
-SmartComply call to flip status.
+In-memory business logic — no React, no native code, no I/O except the one
+SmartComply call to change session status.
 
 - **`SessionEngine`** ([`SessionEngine.ts`](../src/session/SessionEngine.ts)) —
   `startSession()` calls `client.startOrResumeSession()` (→ `IN_PROGRESS`),

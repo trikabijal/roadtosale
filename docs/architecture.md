@@ -1,10 +1,10 @@
 # System Architecture — Road to Sale (monorepo)
 
-This is the **whole-system** architecture for the `roadtosale` monorepo. It describes
-every module in the repo, what each is, how they relate, and where the boundaries lie —
-including the one major dependency that no longer lives in this repo (the SmartComply
-backend). For deep dives into any single module, follow the cross-links; this document
-is the map, not the territory.
+This is the whole-system architecture for the `roadtosale` monorepo. It describes every
+module in the repo: what each is, how they relate, and where the boundaries lie — including
+the one major dependency that no longer lives in this repo (the SmartComply backend). For a
+deep dive into any single module, follow the cross-links; this document is the map, not the
+territory.
 
 > New here? Read this file top to bottom, then jump to the module doc for whatever you're
 > working on. Every module also has its own `docs/{api,architecture,flows}.md`.
@@ -14,15 +14,16 @@ is the map, not the territory.
 ## 1. What this repo is
 
 Road to Sale by AuditPro is a NADA-aligned dealership sales-floor coaching and audit
-product. A sales rep walks a customer through a vehicle; a voice engine listens, detects
-workflow steps and feature demonstrations in real time, and builds an audit trail that is
-written into the parent **AuditPro / SmartComply** compliance platform.
+product. (NADA is the National Automobile Dealers Association, whose "Road to the Sale"
+workflow the product follows.) A sales rep walks a customer through a vehicle; a voice engine
+listens, detects workflow steps and feature demonstrations in real time, and builds an audit
+trail that is written into the parent **AuditPro / SmartComply** compliance platform.
 
 The repo also hosts a second, independent product — **JustTalk**, a macOS dictation app —
 which shares no runtime code with Road to Sale but **shares the voice cleanup contract and
-data**. JustTalk is the daily-driver dogfood that produces the labelled data and learnings
-that tune cleanup for the Road to Sale mobile apps. That shared spine is the reason both
-products live in one repo.
+data**. The team uses JustTalk daily (dogfooding), and that use produces the labelled data
+and learnings that tune cleanup for the Road to Sale mobile apps. That shared spine is the
+reason both products live in one repo.
 
 The product/PRD vision and the original layered split are captured in the deeper-dive
 references kept in this folder:
@@ -58,8 +59,7 @@ runtime/transient (gitignored).
 
 ## 3. The key insight: voice-engine is a contract core, not a linked library
 
-This is the single most important thing to understand about the repo, and the easiest to
-get wrong.
+This is the most important thing to understand about the repo, and the easiest to get wrong.
 
 `voice-engine/` is **not** a library that the apps depend on at runtime. Nothing in this
 repo `import`s the TypeScript package in `voice-engine/src/`. Instead, `voice-engine` is
@@ -91,10 +91,10 @@ Each cell is a different implementation of the **same** contract. Because the da
 telemetry schema are shared, the macOS dogfood's cleanup learnings tune all three platforms.
 
 The TS `voice-engine/src/` exists only as a **reference skeleton** (only the `mock` strategy
-actually runs) — it documents the shape the native code mirrors. Former empty `voice-engine/ios/`
-and `voice-engine/android/` placeholder modules, a throwing TS strategy, and `WhisperKitLiveSTT`
-were **removed** precisely because they implied a linkage that does not exist. See the banner at
-the top of [`voice-engine/README.md`](../voice-engine/README.md).
+actually runs) — it documents the shape the native code mirrors. The former empty
+`voice-engine/ios/` and `voice-engine/android/` placeholder modules, a throwing TS strategy,
+and `WhisperKitLiveSTT` were **removed** because they implied a linkage that does not exist.
+See the banner at the top of [`voice-engine/README.md`](../voice-engine/README.md).
 
 `scripts/check_imports.py` enforces in CI that `voice-engine` and `vehicle-feature-catalog`
 never import each other.
@@ -171,8 +171,8 @@ This repo owns only the **client** side of that contract.
 
 ## 5. How dictation (JustTalk) relates
 
-`dictation/` is a **separate product** with no runtime dependency on Road to Sale. It is in
-this monorepo because it shares the **voice cleanup contract and data**:
+`dictation/` is a separate product with no runtime dependency on Road to Sale. It is in this
+monorepo because it shares the **voice cleanup contract and data**:
 
 ```mermaid
 flowchart LR
@@ -198,7 +198,7 @@ flowchart LR
   `voice-engine/cleanup-packs/`.
 - It emits telemetry on the shared schema, producing the labelled corpus that tunes the
   shared data pack — so every cleanup fix landed on macOS flows to iOS/Android Road to Sale
-  "for free."
+  without extra work.
 
 JustTalk (macOS) ships today; the iOS keyboard is code-complete but **paused** pending a paid
 Apple Developer account. See [`dictation/docs/architecture.md`](../dictation/docs/architecture.md)

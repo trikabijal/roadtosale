@@ -2,8 +2,9 @@
 
 > **Module docs:** [architecture.md](architecture.md) · [api.md](api.md) · [flows.md](flows.md) · [e2e-tests.md](e2e-tests.md)
 
-This is the no-tribal-knowledge guide. Clone the repo on a Mac, install the prerequisites,
-and the four scripts in `dictation/` build, test, run, and locally install the app.
+This guide assumes no prior knowledge of the project. Clone the repo on a Mac, install the
+prerequisites, and the four scripts in `dictation/` build, test, run, and locally install the
+app.
 
 ---
 

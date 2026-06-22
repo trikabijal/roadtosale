@@ -158,8 +158,8 @@ drainPendingWrites():
       └─ fail → incrementWriteRetry
 ```
 
-The session data lives in SQLite regardless of network state, so nothing is lost
-if every retry fails.
+The session data lives in SQLite whether or not the network is up, so nothing is
+lost even if every retry fails.
 
 ### Crash recovery
 

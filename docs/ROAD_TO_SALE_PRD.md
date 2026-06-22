@@ -16,7 +16,7 @@ Related docs:
 
 `Road to Sale by AuditPro` is a mobile-first dealership sales-floor coaching and audit product for the U.S. market.
 
-It guides the salesperson through a NADA-aligned Road to the Sale workflow while capturing structured audit evidence, misses, coaching opportunities, and BI signals.
+It guides the salesperson through a NADA-aligned Road to the Sale workflow while capturing structured audit evidence, misses, coaching opportunities, and BI (business intelligence) signals. NADA is the National Automobile Dealers Association.
 
 It should build on top of the existing `AuditPro / SmartComply` backend model, not bypass it.
 
@@ -158,7 +158,7 @@ flowchart TD
 | Rep session summary | Audit/session summary |
 | Manager intervention | Follow-up workflow / coaching action |
 
-This mapping is important. It keeps Road to Sale aligned with the parent platform rather than creating a parallel data model that later becomes painful.
+This mapping matters. It keeps Road to Sale aligned with the parent platform rather than creating a parallel data model that becomes painful later.
 
 ## Success Metrics
 

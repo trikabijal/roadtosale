@@ -2,8 +2,8 @@
 
 This module is a **library** (no server). It ships two parallel implementations of
 the same contract — a Python package (`vehicle_feature_catalog`) and a TypeScript
-package — plus two operator CLIs and a one-shot scraper pipeline. This doc gets a
-fresh clone from zero to "built, tested, and importable" with no tribal knowledge.
+package — plus two operator CLIs and a one-shot scraper pipeline. This doc takes a
+fresh clone from zero to "built, tested, and importable" with no prior knowledge needed.
 
 Everything is driven by four shell scripts at the module root:
 
@@ -42,8 +42,8 @@ sudo apt-get install python3.11 python3.11-venv python3-pip
 # Node: https://nodejs.org/en/download/package-manager  (or use nvm)
 ```
 
-`build.sh` checks all three up front and prints these hints if anything is
-missing or too old, then exits non-zero — it never silently half-builds.
+`build.sh` checks all three up front. If anything is missing or too old, it
+prints these hints and exits non-zero — it never half-builds without telling you.
 
 ---
 

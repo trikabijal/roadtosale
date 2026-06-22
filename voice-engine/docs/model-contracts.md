@@ -1,9 +1,9 @@
 # Voice Engine — Configurable Model Contracts
 
-The voice engine has **two swappable model layers**, each behind a stable contract so
-any consumer can call whichever model it wants, selected by `{ provider, model }` config
-at runtime. This is the canonical, language-neutral source of truth; native platforms
-(Swift, Kotlin) implement the *same* contracts.
+The voice engine has **two swappable model layers**. Each sits behind a stable
+contract, so a consumer can pick whichever model it wants by setting
+`{ provider, model }` config at runtime. This is the canonical, language-neutral
+source of truth; native platforms (Swift, Kotlin) implement the *same* contracts.
 
 > **Reuse principle:** code does not port — contracts, data, and learnings do.
 

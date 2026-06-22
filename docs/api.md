@@ -1,9 +1,8 @@
 # System API & Integration Boundaries — Road to Sale (monorepo)
 
-This is the **system-level index** of which module exposes what, and to whom. It is an
-overview that links to the authoritative per-module API docs — it does not copy them. If
-you need exact method signatures, request/response shapes, or error classes, follow the
-links to the module doc; that is the source of truth.
+This is the system-level index of which module exposes what, and to whom. It links to the
+per-module API docs rather than copying them. For exact method signatures, request/response
+shapes, or error classes, follow the link to the module doc — that is the source of truth.
 
 See also [`architecture.md`](architecture.md) for the module map and
 [`flows.md`](flows.md) for end-to-end traces.
@@ -24,17 +23,17 @@ See also [`architecture.md`](architecture.md) for the module map and
 
 ## 2. The voice model contract (voice-engine)
 
-`voice-engine` exposes a **contract and data**, not a runtime API surface the apps call.
-There are two swappable model layers, each behind a stable `{ provider, model }` contract:
+`voice-engine` exposes a contract and data, not a runtime API the apps call. There are two
+swappable model layers, each behind a stable `{ provider, model }` contract:
 
-1. **STT — `TranscriptionStrategy`** (the voice-understanding model). Streaming for the live
-   lane (`start(context) → Session` emitting `TranscriptEvent`s); a batch variant for
-   dictation. Providers: `whisperkit`, `apple_speech_transcriber`, `argmax`, `sherpa_onnx`,
-   `mock`.
-2. **Cleanup — `CleanupStrategy`** (the cleanup LLM). `clean(CleanupRequest) → CleanupResult`,
-   with levels `off | light | full`. Providers: `foundation-models` (Apple),
-   `gemini-nano` / `mediapipe` (Android), and the always-available deterministic
-   `rule-based` fallback that every platform must match when no LLM is available.
+1. **STT — `TranscriptionStrategy`** (speech-to-text). Streaming for the live lane
+   (`start(context) → Session` emitting `TranscriptEvent`s); a batch variant for dictation.
+   Providers: `whisperkit`, `apple_speech_transcriber`, `argmax`, `sherpa_onnx`, `mock`.
+2. **Cleanup — `CleanupStrategy`** (the cleanup LLM, a large language model that tidies the
+   raw transcript). `clean(CleanupRequest) → CleanupResult`, with levels `off | light | full`.
+   Providers: `foundation-models` (Apple), `gemini-nano` / `mediapipe` (Android), and the
+   always-available deterministic `rule-based` fallback that every platform must match when no
+   LLM is available.
 
 The data pack (prompts, filler list, command grammar, vocab, junk phrases) and a shared
 **telemetry schema** travel with the contract:
@@ -52,7 +51,7 @@ For the lab facade (`VoiceEngineLab`) and the TS skeleton facade (`VoiceEngine`)
 
 ## 3. The vehicle catalog API (vehicle-feature-catalog)
 
-Twin Python + TypeScript facades with 1:1 field shapes, both fronted by
+Twin Python and TypeScript facades with matching field shapes, both fronted by
 `VehicleFeatureCatalog`:
 
 ```python
@@ -74,10 +73,10 @@ classes: [`vehicle-feature-catalog/docs/api.md`](../vehicle-feature-catalog/docs
 
 ## 4. The SmartComply HTTP API (consumed, not provided here)
 
-The SmartComply (AuditPro) backend is an **external dependency in a separate repository.**
-This repo owns only the **client** side — `road-to-sale-app/src/api/SmartComplyClient.ts`
-(interface `ISmartComplyClient`). Road to Sale runs as a SmartComply tenant under a standing
-Honda walk-in campaign.
+The SmartComply (AuditPro) backend is an external dependency in a separate repository. This
+repo owns only the client side — `road-to-sale-app/src/api/SmartComplyClient.ts` (interface
+`ISmartComplyClient`). Road to Sale runs as a SmartComply tenant under a standing Honda
+walk-in campaign.
 
 | Concern | Summary |
 |---|---|
@@ -90,13 +89,13 @@ Honda walk-in campaign.
 | Trade photos | `POST /api/rts/tradePhoto/upload` (multipart), `GET /api/rts/tradePhoto` |
 | Errors | `AuthError` (401 after refresh), `SmartComplyApiError(status, msg)`; offline write queue with exponential backoff and a 5-failure circuit breaker |
 
-The **full, canonical** endpoint reference (request/response DTOs, the Road to Sale ↔
-SmartComply entity mapping, error handling, and the offline retry policy) lives in
+The full endpoint reference (request/response DTOs, the Road to Sale ↔ SmartComply entity
+mapping, error handling, and the offline retry policy) lives in
 [`road-to-sale-app/docs/smartcomply-contract.md`](../road-to-sale-app/docs/smartcomply-contract.md).
 
 > Because the backend is now a separate repo, treat that contract doc as a **boundary
-> agreement**: changes to it must be coordinated with the SmartComply team. Do not assume
-> you can change both sides in one commit — they are different repos.
+> agreement**: changes to it must be coordinated with the SmartComply team. You cannot change
+> both sides in one commit — they are different repos.
 
 ---
 
