@@ -18,6 +18,8 @@ Last updated: `2026-06-22`
 For the whole-system map see [`../../docs/architecture.md`](../../docs/architecture.md)
 and the audio design in [`../../docs/ROAD_TO_SALE_AUDIO_ARCHITECTURE.md`](../../docs/ROAD_TO_SALE_AUDIO_ARCHITECTURE.md).
 
+To build, test, run, and locally deploy this module, see [`build.md`](build.md).
+
 ---
 
 ## 1. The five pieces of this module

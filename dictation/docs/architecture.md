@@ -1,6 +1,6 @@
 # Just Talk — Architecture
 
-> **Module docs:** [architecture.md](architecture.md) (this file) · [api.md](api.md) · [flows.md](flows.md)
+> **Module docs:** [architecture.md](architecture.md) (this file) · [api.md](api.md) · [flows.md](flows.md) · [build.md](build.md) (build / run / test / local install)
 > **Deep dives:** [e2e-tests.md](e2e-tests.md) (cross-platform test plan) · [macos-input-paste-audit.md](macos-input-paste-audit.md) (hotkey/paste subsystem audit)
 > **System context:** [../../docs/architecture.md](../../docs/architecture.md) (whole-monorepo) · [../../voice-engine/docs/model-contracts.md](../../voice-engine/docs/model-contracts.md) (the STT/cleanup contract this module mirrors)
 
