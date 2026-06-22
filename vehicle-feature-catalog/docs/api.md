@@ -4,7 +4,7 @@ Last updated: `2026-06-22`
 
 The catalog is the single source of truth for vehicle Make / Model / Trim / Feature data and the sparse `Trim ↔ Feature` availability matrix.
 
-This document is the binding facade contract plus the module's tooling entry points. Everything under "Facade" is public; everything not listed is internal and may NOT be imported by external code. See [`architecture.md`](./architecture.md) for how the pieces fit together and the [top-level system docs](../../docs/architecture.md) for where this module sits in the monorepo.
+This document is the binding facade contract plus the module's tooling entry points. Everything under "Facade" is public; everything not listed is internal and must NOT be imported by external code. See [`architecture.md`](./architecture.md) for how the pieces fit together and the [top-level system docs](../../docs/architecture.md) for where this module sits in the monorepo.
 
 ---
 
@@ -17,7 +17,7 @@ This document is the binding facade contract plus the module's tooling entry poi
 
 Consumers MUST import only from the package entry point (`src/python/vehicle_feature_catalog/__init__.py` / `src/ts/index.ts`). Reaching into `loader.py`, `indexes.py`, `src/ts/internal`, etc. is forbidden and enforced by `scripts/check_imports.py`.
 
-The Python and TypeScript facades expose the **same method set with the same names** (snake_case in both, on purpose). The only call-shape differences: TS `load()` is `async` (returns a `Promise`), and the TS `list_features` filters are passed as a single options object.
+The Python and TypeScript facades expose the **same method set with the same names** (snake_case in both, on purpose). Only two call shapes differ: TS `load()` is `async` (returns a `Promise`), and the TS `list_features` filters are passed as a single options object.
 
 ### Lifecycle — `load(data_dir)`
 
@@ -190,7 +190,7 @@ Loads the catalog and runs `validate()`. Exits `0` if valid (prints warnings, if
 python3 scripts/derive_vocab.py [make_id ...]   # defaults to every make in data/makes/
 ```
 
-Reads catalog YAML and writes one per-make term list to `voice-engine/cleanup-packs/derived/<make>.vocab.json` (model names + trim names + universal-feature display names and short synonyms, deduped). Consumed by the voice pipeline's road-to-sale lexicon. The output is **generated — regenerate, don't hand-edit**. See [voice-engine model contracts](../../voice-engine/docs/model-contracts.md) for how the vocab feeds the cleanup stage.
+Reads catalog YAML and writes one per-make term list to `voice-engine/cleanup-packs/derived/<make>.vocab.json` (model names, trim names, and universal-feature display names and short synonyms, deduped). The voice pipeline's road-to-sale lexicon consumes it. The output is **generated — regenerate, don't hand-edit**. See [voice-engine model contracts](../../voice-engine/docs/model-contracts.md) for how the vocab feeds the cleanup stage.
 
 ### `scrapers/honda_us/cli.py` — Honda US seeding pipeline
 
@@ -200,4 +200,4 @@ python -m scrapers.honda_us.cli --verbose          # default: all 8 models, broc
 python -m scrapers.honda_us.cli --source hondanews-html --verbose
 ```
 
-Discovers/ingests Honda brochure PDFs or saved press-release HTML and emits catalog YAML under `data/`. Full flag reference and operator workflow: [`scrapers/honda_us/README.md`](../scrapers/honda_us/README.md). End-to-end trace: [`flows.md`](./flows.md), Flow 2.
+Reads Honda brochure PDFs or saved press-release HTML and emits catalog YAML under `data/`. Full flag reference and operator workflow: [`scrapers/honda_us/README.md`](../scrapers/honda_us/README.md). End-to-end trace: [`flows.md`](./flows.md), Flow 2.

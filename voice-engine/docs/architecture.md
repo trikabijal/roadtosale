@@ -52,7 +52,7 @@ voice-engine/
 
 The lab is a full implementation. It runs a **(script × strategy)** comparison
 matrix over audio fixtures, caches transcripts, matches cue phrases, classifies
-pass/partial/fail, and writes markdown + CSV reports. It is the evidence engine
+pass/partial/fail, and writes markdown + CSV reports. It produces the evidence
 behind every "which STT engine do we ship?" decision.
 
 The lab has its own deep docs — link to them, do not duplicate:
@@ -97,8 +97,8 @@ registers **five** strategies. The facade reads them via
 
 All non-`mock` strategies are thin Python wrappers that **spawn a native binary
 and stream JSONL stdout**, one JSON object per line, into `TranscriptEvent`s.
-There is no in-process FFI. This keeps the heavy Swift/Kotlin/CoreML stacks out
-of the Python process and lets each engine be built and run independently.
+There is no in-process FFI. This keeps the Swift/Kotlin/CoreML stacks out of the
+Python process and lets each engine be built and run independently.
 
 ```mermaid
 flowchart LR

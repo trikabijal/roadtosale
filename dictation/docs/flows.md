@@ -3,7 +3,7 @@
 > **Module docs:** [architecture.md](architecture.md) · [api.md](api.md) · [flows.md](flows.md) (this file)
 > **Related deep-dive:** [macos-input-paste-audit.md](macos-input-paste-audit.md) (the hotkey/paste subsystem)
 
-These are the real code paths, with the files and methods that participate. The macOS flow is
+These are the real code paths, with the files and methods involved. The macOS flow is
 the shipping product; the iOS flow is code-complete but paused (see
 [architecture.md](architecture.md)).
 
@@ -11,7 +11,7 @@ the shipping product; the iOS flow is code-complete but paused (see
 
 ## Flow 1 — macOS dictation: hotkey → record → transcribe → clean → paste
 
-The headline flow. All orchestration lives in `JustTalk/AppState.swift` unless noted.
+The main flow. All orchestration lives in `JustTalk/AppState.swift` unless noted.
 
 ### Sequence
 
@@ -49,7 +49,7 @@ The headline flow. All orchestration lives in `JustTalk/AppState.swift` unless n
      (no point retrying silence); a `TimeoutError` fails fast.
    - `WhisperKitTranscriber` flattens buffers, rejects silence/quiet/hallucinated output, and
      returns a `TranscriptionResult`.
-7. **Cleanup** (the Wispr brain):
+7. **Cleanup:**
    - The effective `CleanupLevel` is resolved against the record-start app
      (`effectiveLevel(forBundleId:)` — per-app overrides, e.g. Off in a terminal).
    - If level ≠ `.off` and word count ≥ `pack.minWordsForCleanup`, `cleanup.clean(CleanupRequest)`

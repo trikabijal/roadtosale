@@ -82,7 +82,7 @@ Notes:
 ## 2. Native voice module JS API
 
 The on-device speech bridge. JS calls Swift / Kotlin through one facade; the
-native side streams transcripts back as events. No audio ever leaves the device.
+native side sends transcripts back as events. No audio ever leaves the device.
 
 ### Facade
 

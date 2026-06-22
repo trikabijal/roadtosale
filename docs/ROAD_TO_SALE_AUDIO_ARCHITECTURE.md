@@ -10,7 +10,7 @@ It is intentionally short and decision-oriented. The detailed external research 
 At the system level, this document should be treated as the `voice engine` architecture, not the full Road to Sale system architecture. The broader system split lives in:
 - `docs/ROAD_TO_SALE_TECHNICAL_ARCHITECTURE.md`
 
-That learnings document should be read alongside this one during development. It exists to show that the architecture here was not chosen in a vacuum and that we explicitly reviewed parallel products, engineering writeups, and implementation references before choosing this shape.
+Read that learnings document alongside this one during development. It shows that the architecture here was not chosen in a vacuum: we reviewed competing products, engineering writeups, and implementation references before choosing this shape.
 
 This document answers one question:
 
@@ -41,12 +41,12 @@ That means:
 - one slower evidence lane for audit-grade transcript and event storage
 - one pluggable strategy layer for speech engines and related processing
 
-This lets us keep the product behavior consistent while allowing different implementations underneath for:
+This keeps product behavior consistent while allowing different implementations underneath for:
 - iOS vs Android
 - native vs vendor STT
 - future provider changes
 
-It also keeps the voice stack reusable beyond Road to Sale if later needed by other AuditPro workflows.
+It also keeps the voice stack reusable beyond Road to Sale, in case other AuditPro workflows need it later.
 
 ## High-Level Blocks
 
@@ -74,7 +74,7 @@ It should:
 - activate the current cue pack
 - keep UI updates, evidence storage, and telemetry aligned
 
-This is the layer that gives the product one consistent behavior even if the underlying strategy changes.
+This layer gives the product consistent behavior even when the underlying strategy changes.
 
 ## 2. AudioCaptureStrategy
 
@@ -95,14 +95,14 @@ Audio capture should be separate from speech recognition.
 
 Why:
 - it gives us control over buffering
-- it keeps us from over-coupling the app to one SDK
+- it avoids tying the app to one SDK
 - it allows multiple downstream consumers
 
 ## 3. TranscriptionStrategy
 
 This is the key strategy layer.
 
-It allows different speech engines to sit behind the same interface.
+It lets different speech engines sit behind the same interface.
 
 Examples:
 - Apple native transcription on modern iOS
@@ -118,7 +118,7 @@ This strategy should return a normalized shape, regardless of provider:
 - `engine_metadata`
 - `latency_ms`
 
-This is important because we are likely to test multiple engines across:
+This matters because we are likely to test multiple engines across:
 - iOS
 - Android
 - native and vendor options
@@ -134,7 +134,7 @@ V1 should be:
 - step-specific
 - phrase and synonym driven
 
-Each step should activate a small cue pack, not a giant classifier.
+Each step should activate a small cue pack, not a large classifier.
 
 Examples:
 
@@ -193,7 +193,7 @@ This lane should use:
 Design rules:
 - optimize for speed
 - accept that output may be unstable
-- do not wait for full stable transcript
+- do not wait for a full, stable transcript
 - do not try to understand the whole conversation
 
 ## 7. Evidence Lane
@@ -216,7 +216,7 @@ It should optimize for:
 
 ## 8. Decision Layer
 
-This layer converts detected cues into workflow actions.
+This layer turns detected cues into workflow actions.
 
 Its job is to decide whether to:
 - auto-mark a step green
@@ -229,7 +229,7 @@ Suggested policy:
 - `medium confidence`: soft nudge or confirm
 - `low confidence`: do nothing or leave manual
 
-This is where product trust is protected.
+This is where the product protects rep trust.
 
 ## 9. Telemetry Layer
 
@@ -264,7 +264,7 @@ Minimum telemetry should include:
 - `manual_override_used`
 - `manual_override_direction`
 
-This is what will let us run real comparisons across strategies instead of arguing from intuition.
+This is what lets us compare strategies with real data instead of arguing from intuition.
 
 ## 10. Audit and Analytics Layer
 
@@ -294,7 +294,7 @@ This architecture builds directly on the strongest external learnings:
 The detailed reasoning and source references are in:
 - `dev/docs/ROAD_TO_SALE_AUDIO_LEARNINGS.md`
 
-If this document is being reviewed by a new engineer, PM, or AI agent, they should read the learnings document as well before proposing major changes to the speech architecture.
+If a new engineer, PM, or AI agent reviews this document, they should read the learnings document too before proposing major changes to the speech architecture.
 
 ## What We Are Explicitly Not Doing In V1
 
@@ -304,7 +304,7 @@ We are not building:
 - an all-LLM live understanding layer from day one
 - a summary-first architecture
 
-Those all seem intuitive, but they are the wrong abstractions for this product.
+Each one seems intuitive, but they are the wrong abstractions for this product.
 
 ## Likely V1 Direction
 
@@ -381,7 +381,7 @@ This recommendation is time-sensitive. Speech infrastructure is evolving quickly
 
 ## Lab-to-iOS Production Gap (2026-05-24)
 
-The lab runs on macOS. iOS production is in-process Swift inside the app. This section documents what is portable and what needs to be built.
+The lab runs on macOS. iOS production runs as in-process Swift inside the app. This section documents what is portable and what still needs to be built.
 
 ### STT Layer — portable, ~90% identical
 
@@ -393,11 +393,11 @@ The lab runs on macOS. iOS production is in-process Swift inside the app. This s
 
 **Audio source** is the only real difference. Lab CLIs feed audio from a file path. iOS production feeds audio from `AVAudioSession` → live microphone tap. WhisperKit's `AudioStreamTranscriber` supports this live-mic pattern directly, and the same Swift code compiles and runs on iOS unchanged.
 
-The key thing the lab CLIs cannot test is **real microphone conditions**: background noise, competing voices, Bluetooth audio, interruptions (phone calls, Siri). Those require testing on a real device.
+The one thing the lab CLIs cannot test is **real microphone conditions**: background noise, competing voices, Bluetooth audio, interruptions (phone calls, Siri). Those require testing on a real device.
 
 ### Matching Layer — NOT portable, needs Swift port
 
-The Python cue matcher does not run on iOS. This is the production gap.
+The Python cue matcher does not run on iOS. This is the production gap to close.
 
 | Component | Lab | iOS Production (TO BE BUILT) | Effort |
 |---|---|---|---|

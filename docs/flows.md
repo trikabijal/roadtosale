@@ -1,8 +1,8 @@
 # System Flows — Road to Sale (monorepo)
 
-End-to-end flows that **span modules**. Each step names the real module/directory that owns
-it so a newcomer can navigate. For flows that stay inside one module, follow the link to that
-module's own `flows.md`.
+End-to-end flows that span more than one module. Each step names the module or directory that
+owns it, so a newcomer can navigate. For flows that stay inside one module, follow the link to
+that module's own `flows.md`.
 
 See [`architecture.md`](architecture.md) for the module map and [`api.md`](api.md) for the
 boundary contracts referenced below.
@@ -66,7 +66,7 @@ Step-by-step:
    (`road-to-sale-app/android/.../voice/`).
 4. **Live detection** — transcript events flow back via `onTranscript`; the cue matcher
    produces detections; the UI turns covered steps/features green and shows the transcript
-   snippet for trust. The matching/cue logic mirrors the lab's
+   snippet so the rep can trust it. The matching/cue logic mirrors the lab's
    [`voice-engine` flows](../voice-engine/docs/flows.md).
 5. **Evidence write** — each detection is written to SQLite first, then forwarded by
    `SmartComplyClient.submitAnswer` to `createOrUpdateUserChksAns` (with `rtsCueId`,
@@ -82,8 +82,8 @@ Trade-in photos (`TradeInScreen`) follow a parallel path: captured locally, uplo
 
 ## Flow B — Choosing the STT/cleanup model that ships (research → product)
 
-This is the cross-module flow that makes "contracts, data, and learnings port — not code"
-concrete. It is offline/dev-time, not a runtime path.
+This is the cross-module flow that shows how "contracts, data, and learnings port — not code"
+works in practice. It runs offline at dev time, not at runtime.
 
 ```mermaid
 sequenceDiagram
@@ -109,9 +109,9 @@ sequenceDiagram
    [`dictation/docs/architecture.md`](../dictation/docs/architecture.md).
 3. **Tune** — that telemetry produces the labelled corpus that tunes the shared cleanup pack
    in [`voice-engine/cleanup-packs/`](../voice-engine/cleanup-packs/).
-4. **Inherit** — because the data pack and contract are shared, the tuned cleanup flows to
-   the iOS/Android Road to Sale apps without porting code — they re-implement the same
-   contract natively against the same data.
+4. **Inherit** — because the data pack and contract are shared, the tuned cleanup reaches the
+   iOS/Android Road to Sale apps without porting code — they re-implement the same contract
+   natively against the same data.
 
 ---
 

@@ -1,10 +1,10 @@
 # Road to Sale App — Build, Test & Run (Local)
 
-Everything you need to go from a fresh clone to a running app on your machine.
-This is **local-only** — no CI, no cloud, no app-store/TestFlight steps.
+How to go from a fresh clone to a running app on your machine. This is
+**local-only** — no CI, no cloud, no app-store/TestFlight steps.
 
 The app is an **Expo / React Native (TypeScript)** project on **Expo SDK 56**
-(RN 0.85, React 19) with a **custom native voice module** wired via an Expo
+(RN 0.85, React 19) with a **custom native voice module** wired in by an Expo
 config plugin (`plugins/withVoiceModule.ts`).
 
 > Expo SDK 56 caveat: Expo CLI commands change between major versions. This doc
@@ -76,8 +76,8 @@ Exits non-zero on any failure.
 ### `./run.sh [ios|android|web]` — Expo dev server (default `ios`)
 
 Starts Metro / the Expo dev server and opens the app on a simulator/emulator.
-This serves the JS bundle to an **already-installed** dev build — it does not
-compile native code. Use it for day-to-day JS/TS iteration.
+This serves the JS bundle to a dev build you've **already installed** — it does
+not compile native code. Use it for day-to-day JS/TS iteration.
 
 ```bash
 ./run.sh ios

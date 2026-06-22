@@ -15,7 +15,7 @@ Everything below is `public`. Types are grouped by the file that defines them.
 
 ## 1. Speech-to-text — `SpeechTranscriber.swift`
 
-The voice-understanding model, behind a provider-agnostic contract.
+The speech-to-text model, behind a provider-agnostic contract.
 
 ### Protocol
 
@@ -124,8 +124,9 @@ pasting garbage).
 
 ## 3. Cleanup — `TextCleanup.swift`
 
-The cleanup "LLM brain", behind a provider-agnostic contract. **`clean` never throws** —
-cleanup must never block paste; implementations fall back internally.
+The cleanup model (the on-device LLM that polishes the text), behind a provider-agnostic
+contract. **`clean` never throws** — cleanup must never block paste; implementations fall back
+internally.
 
 ### Protocol
 

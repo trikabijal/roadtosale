@@ -47,7 +47,7 @@ sequenceDiagram
 4. `indexes.py::CatalogIndexes.build(...)` constructs the in-memory lookups: `makes_by_id`, `models_by_id`, `trims_by_id`, `features_by_id`, plus the matrix indexes `features_by_trim` and `trims_by_feature`, and the parent indexes `models_by_make` / `trims_by_model`. Raises `DuplicateIdError` on any ID collision (including cross-entity-type collisions).
 5. Facade returns the constructed instance.
 
-After load, every query is an in-memory dict lookup — no disk I/O. `list_features_for_trim` (`facade.py`) does `features_by_trim[trim_id]` → filter by `availability` → dereference each `feature_id` via `features_by_id` → return materialized `Feature`s.
+After load, every query is an in-memory dict lookup — no disk I/O. `list_features_for_trim` (`facade.py`) looks up `features_by_trim[trim_id]`, filters by `availability`, dereferences each `feature_id` via `features_by_id`, and returns the materialized `Feature`s.
 
 > Integrity validation (dangling references, empty cue_phrases) is **not** part of `load()` — it's a separate `validate()` call (Flow 3).
 
@@ -55,9 +55,9 @@ After load, every query is an in-memory dict lookup — no disk I/O. `list_featu
 
 ## Flow 2 — The scraper pipeline (discover → download → extract → emit → review)
 
-The one-shot seeding tool at [`scrapers/honda_us/`](../scrapers/honda_us/README.md) that produced the Honda data in `data/`. Operator-run, not a service. Entry point: `python -m scrapers.honda_us.cli`.
+The one-shot seeding tool at [`scrapers/honda_us/`](../scrapers/honda_us/README.md) produced the Honda data in `data/`. Operator-run, not a service. Entry point: `python -m scrapers.honda_us.cli`.
 
-There are **two ingestion sources** feeding a shared emit step, chosen by `--source`:
+There are **two input sources** feeding a shared emit step, chosen by `--source`:
 
 ```mermaid
 flowchart TD
@@ -82,24 +82,24 @@ flowchart TD
 
 **brochure-pdf path** (`cli.py::main`, default):
 
-1. **Discover** — `discover.py::BrochureDiscoverer.discover(slugs)` fetches each Honda model page and ranks `.pdf` anchors via the pure `extract_brochure_url` helper. Returns `{slug → url}` + per-slug errors. (Bypass with `--from-pdf SLUG=PATH` or `--skip-discover`.)
+1. **Discover** — `discover.py::BrochureDiscoverer.discover(slugs)` fetches each Honda model page and ranks `.pdf` anchors using the pure `extract_brochure_url` helper. Returns `{slug → url}` plus per-slug errors. (Bypass with `--from-pdf SLUG=PATH` or `--skip-discover`.)
 2. **Download** — `download.py::BrochureDownloader.download_all(urls)` caches each PDF idempotently at `data-cache/brochures/honda/<year>/<slug>.pdf` (skips non-empty existing files; retries 429/5xx).
 3. **Extract** — `extract.py::BrochureExtractor.extract(pdf_path)` uses `pdfplumber` to recover trims + a `FeatureRow` per feature label with a per-trim availability map → `ExtractedBrochure`. `is_useful()` gates whether emit runs.
 
 **hondanews-html path** (`cli.py::_run_hondanews_html`, `--source hondanews-html`):
 
-1. Operator saves each press release from the browser to `data-cache/hondanews/2026/<slug>.html` (both sites are Akamai-bot-blocked from CI/dev, so no network step here — see the [scraper README](../scrapers/honda_us/README.md)).
-2. `extract_hondanews.py::extract_from_hondanews_html(path)` parses it with BeautifulSoup, trying a comparison table, then per-trim "Standard Equipment" lists, then a free-text fallback. It tags the result `extraction_confidence = high | medium | low` (`ExtractedModel` subclasses `ExtractedBrochure`). Missing `<slug>.html` files are skipped with a clear message; the batch continues.
+1. The operator saves each press release from the browser to `data-cache/hondanews/2026/<slug>.html` (Akamai blocks both sites from CI and dev, so there is no network step here — see the [scraper README](../scrapers/honda_us/README.md)).
+2. `extract_hondanews.py::extract_from_hondanews_html(path)` parses it with BeautifulSoup, trying a comparison table first, then per-trim "Standard Equipment" lists, then a free-text fallback. It tags the result `extraction_confidence = high | medium | low` (`ExtractedModel` subclasses `ExtractedBrochure`). Missing `<slug>.html` files are skipped with a clear message; the batch continues.
 
 **Shared emit** (`emit.py::CatalogEmitter.emit`):
 
-1. **Resolve features** — for each extracted label, match to an existing feature ID via the curated `LABEL_TO_DISPLAY_NAME` alias table + normalized display-name/synonym/cue match (`_resolve_or_create_feature`). Unmatched labels become **new Honda-scoped feature files** with a single seed `cue_phrase` (the display name) — flagged in the file header as needing hand expansion.
+1. **Resolve features** — for each extracted label, match it to an existing feature ID using the curated `LABEL_TO_DISPLAY_NAME` alias table plus a normalized display-name/synonym/cue match (`_resolve_or_create_feature`). Unmatched labels become **new Honda-scoped feature files** with a single seed `cue_phrase` (the display name) — flagged in the file header as needing hand expansion.
 2. **Write model + trim YAML** under `data/models/honda/<slug>.yaml` and `data/trims/honda/<slug>/<year>/<trim>.yaml`.
 3. **Append matrix** — merge new cells into `data/matrix/honda.yaml` **without overwriting** the hand-seeded CR-V Hybrid AWD entries; cells dedupe on `(trim, feature)` with stronger availability winning. Low-confidence entries get `extraction_confidence: low` / `needs_review: true` (the loader ignores these extra keys; `grep -n needs_review data/matrix/honda.yaml` is the operator's review queue).
 
 `cli.py` prints a `RunReport` (discovered, downloaded, emitted, failed). `--dry-run` runs discover+download+extract but writes nothing.
 
-> Manual review is non-optional after every run: expand seed `cue_phrases`, sanity-check trim lists, and **prune spec-sheet rows the extractor mistook for features** (e.g. `curb-weight-*`, `torque-*` files — see the backlog note in [`architecture.md`](./architecture.md)). PDF/HTML extraction is imperfect by design; the YAML is the source of truth only after review and merge.
+> Manual review is required after every run: expand seed `cue_phrases`, check trim lists, and **prune spec-sheet rows the extractor mistook for features** (e.g. `curb-weight-*`, `torque-*` files — see the backlog note in [`architecture.md`](./architecture.md)). PDF and HTML extraction is imperfect by design; the YAML is the source of truth only after review and merge.
 
 ---
 
@@ -142,7 +142,7 @@ flowchart TD
 - `scripts/derive_vocab.py::derive_make(make_id)` reads catalog YAML **directly** (it does not go through the facade — it's a sibling tool, not a consumer): make name, model `name`s, trim `name`s, and universal-feature `display_name`s plus synonyms ≤ 3 words. Sentence-like `cue_phrases` are deliberately excluded (they aren't vocabulary terms).
 - Writes `voice-engine/cleanup-packs/derived/<make>.vocab.json` (one file **per make** to fit WhisperKit's small bias window). The JSON is marked *"derived; do not hand-edit."*
 
-The voice pipeline merges these terms into the same road-to-sale lexicon bucket the hand-authored dealership glossary fills. See [voice-engine model contracts](../../voice-engine/docs/model-contracts.md) and [architecture](../../voice-engine/docs/architecture.md). This is a **file handoff**, not a code import — it respects the catalog ↔ voice-engine isolation boundary (`scripts/check_imports.py`).
+The voice pipeline merges these terms into the same road-to-sale lexicon bucket that the hand-authored dealership glossary fills. See [voice-engine model contracts](../../voice-engine/docs/model-contracts.md) and [architecture](../../voice-engine/docs/architecture.md). This is a **file handoff**, not a code import — it respects the catalog ↔ voice-engine isolation boundary (`scripts/check_imports.py`).
 
 ---
 
@@ -167,7 +167,7 @@ No code changes are required as long as the schema fits. A genuinely new field w
 
 ## Flow 6 — How consumers project Features into voice-engine CueAtoms
 
-The catalog returns `Feature` objects. The consumer (lab orchestrator / future road-to-sale app) projects them into the voice engine's `CueAtom` itself — the catalog stays vehicle-domain pure and never sees `CueAtom`.
+The catalog returns `Feature` objects. The consumer (lab orchestrator or future road-to-sale app) projects them into the voice engine's `CueAtom` itself — the catalog stays vehicle-domain pure and never sees `CueAtom`.
 
 ```python
 features = catalog.list_features_for_trim(trim_id)

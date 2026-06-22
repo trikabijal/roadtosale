@@ -214,7 +214,7 @@ These are the narrower, contract-level cases a failing journey decomposes into �
 | `Shared/Tests/DictationCoreTests/TelemetryRetentionTests.swift` | 1 | Telemetry purge/retention |
 | `JustTalkTests/HotkeyConfigTests.swift` | 9 | Hotkey config + conflict (macOS adapter, config layer only) |
 
-**The headline:** the **DictationCore contract layer is well covered** by fast, deterministic,
+**The bottom line:** the **DictationCore contract layer is well covered** by fast, deterministic,
 model-free unit tests. The **§2.5 end-to-end journey suite — the stated PRIMARY suite — is
 almost entirely unautomated.** What exists are contract/component backstops (§3); the real
 record→transcribe→clean→**paste/insert** journeys, every platform *adapter* (insertion,

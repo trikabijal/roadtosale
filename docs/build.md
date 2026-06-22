@@ -1,6 +1,6 @@
 # Building & Running (local)
 
-Everything in this repo builds and runs **locally** — there is no CI server and no cloud deploy. Each sub-engine has its own scripts; two root scripts run them all.
+Everything in this repo builds and runs **locally** — there is no CI server and no cloud deploy. Each module has its own scripts; two root scripts run them all.
 
 ## One-command, whole repo
 
