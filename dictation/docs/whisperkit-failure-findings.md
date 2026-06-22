@@ -1,20 +1,24 @@
 # WhisperKit Failure Findings
 
-> Populated from daily personal use of the Dictation app. Each finding maps directly to Road to Sale STT calibration.
+> Catalogue of WhisperKit failure patterns observed during sustained daily use of Just Talk.
+> Each finding feeds **Road to Sale STT calibration** (see the telemetry rationale in
+> [architecture.md](architecture.md)).
 
-Last updated: 2026-05-25
+**Status: none yet — the app is not yet in sustained daily use.** Telemetry is being captured
+(`TelemetryStore`, with a `wasCorrected` flag per transcript), but no failure patterns have
+accumulated to catalogue. This file is the home for those findings once they do.
 
-## Format
+## Format (to use when findings arrive)
 
 Each finding:
-- **Condition**: what was happening when it failed
-- **Observed behaviour**: what went wrong (hallucination / silence / wrong word / truncation)
-- **Estimated failure rate**: from telemetry correction rate
-- **Road to Sale implication**: what this means for dealership cue detection
+- **Condition** — what was happening when it failed.
+- **Observed behaviour** — what went wrong (hallucination / dropped speech / wrong word / truncation).
+- **Estimated failure rate** — from the telemetry correction rate.
+- **Road to Sale implication** — what it means for dealership cue detection.
 
 ## Findings
 
-_None yet — app not yet in daily use._
+_None yet._
 
 ## Open questions for lab
 

@@ -1,257 +1,296 @@
 # Voice Engine — API Reference
 
-Last updated: `2026-05-22`
+Last updated: `2026-06-22`
 
-The voice engine owns audio capture, strategy-based STT, and generic cue-phrase matching. It is brand-agnostic and product-agnostic — it does not know Honda or Road to Sale exist.
+> **Scope.** `voice-engine` is the contract/data/research core — **not a linked
+> library.** The only *runnable* facade is the Python lab's `VoiceEngineLab`.
+> The TS `VoiceEngine` + `CleanupStrategy` surface below is the **reference
+> contract** that the production apps re-implement natively (Swift/Kotlin); no
+> code in this repo imports the TS package. See
+> [`architecture.md`](./architecture.md) and
+> [`model-contracts.md`](./model-contracts.md).
 
-This document is the binding facade contract. Everything listed here is public. Everything not listed is internal and may NOT be imported by external code.
+This document is the binding facade contract. Everything listed here is public.
+Anything not listed is internal and must not be imported by external code.
 
-## Two facades
+---
 
-Two facades for two consumer shapes. Same core types, same strategy registry, different transcription entry points (file-in for the lab; live mic for the mobile library).
+## 1. Python — `VoiceEngineLab` (the working facade)
 
-| Facade | Consumer | Entry point |
+Import:
+
+```python
+from voice_lab import VoiceEngineLab
+```
+
+Defined in `lab/src/voice_lab/facade.py`. This is the **only** public entry
+point for the lab.
+
+### Methods
+
+| Method | Signature | Description |
 |---|---|---|
-| `VoiceEngineLab` | Python lab (offline comparison) | `from voice_lab import VoiceEngineLab` |
-| `VoiceEngine` | TypeScript library (live mobile) | `import { VoiceEngine } from 'voice-engine'` |
+| `VoiceEngineLab.load()` | `classmethod -> VoiceEngineLab` | Bootstraps the default strategy registry, returns an instance. |
+| `list_strategies()` | `-> list[str]` | Sorted names of registered strategies. |
+| `get_strategy(name)` | `(str) -> TranscriptionStrategy` | The strategy instance; raises `UnknownStrategyError` if absent. |
+| `transcribe_file(strategy_name, audio_path)` | `(str, Path) -> Iterable[TranscriptEvent]` | Run a strategy over an audio file, lazily yielding events in audio-time order. |
+| `match_cues(events, cue_atoms, *, use_semantic=False, semantic_threshold=0.55)` | `-> Iterable[CueDetection]` | Match transcript events against cue atoms. `use_semantic=False` = exact phrase + synonym only (fast, zero false positives). `use_semantic=True` = exact on all events plus embedding-based semantic matching on final events for misses (requires `fastembed`). |
 
-## `VoiceEngineLab` (Python)
+### Registered strategies
 
-### Lifecycle
+After `VoiceEngineLab.load()`, `list_strategies()` returns exactly:
 
-```python
-engine = VoiceEngineLab.load()
+```
+['apple_sfspeechrecognizer_vocab', 'apple_speech_transcriber', 'mock', 'sherpa_onnx', 'whisperkit']
 ```
 
-`load()` is no-arg. It initializes the strategy registry (discovers strategies that have called `register_strategy(...)`). It does NOT load audio or fixtures — those come per-call.
+| Name | Backing engine | Native CLI |
+|---|---|---|
+| `mock` | replays JSONL events (no dependency) | — |
+| `apple_speech_transcriber` | Apple `SpeechAnalyzer`/`SpeechTranscriber` (macOS 26+), no custom vocab | `native/apple/AppleSTT` |
+| `apple_sfspeechrecognizer_vocab` | Apple legacy `SFSpeechRecognizer`, supports dealership-vocab biasing | `native/apple/AppleSTT` |
+| `whisperkit` | Argmax open-source WhisperKit (MIT, on-device Whisper) | `native/apple/WhisperKitSTT` |
+| `sherpa_onnx` | sherpa-onnx Whisper-tiny ONNX (JVM); same lib as Android production | `native/android/SherpaOnnxSTT` |
 
-### Strategy management
+**Not registered (dormant):** `argmax` (`ArgmaxStrategy`, paid Argmax Pro SDK 2
+via the Local Server WebSocket). It is fully implemented but not bootstrapped —
+construct it and call `register_strategy()` manually after setting
+`ARGMAX_API_KEY` and installing the `[argmax]` extra. See
+`lab/src/voice_lab/strategies/argmax.py`.
 
-| Method | Returns |
-|---|---|
-| `list_strategies()` | `list[str]` — registered strategy names |
-| `get_strategy(name)` | `TranscriptionStrategy` — raises `UnknownStrategyError` if not registered |
+> The non-`mock` strategies spawn a native subprocess. On a host where the
+> binary isn't built they don't fail at registration — they raise
+> `TranscriptionError` (with a build hint) when `transcribe()` is called.
 
-### Transcription
+### The strategy contract — `TranscriptionStrategy`
 
-```python
-def transcribe_file(
-    self,
-    strategy_name: str,
-    audio_path: Path,
-) -> Iterable[TranscriptEvent]: ...
-```
-
-Streams `TranscriptEvent`s for the given audio file through the named strategy. Caller iterates lazily; events arrive in audio-time order.
-
-### Cue matching
-
-```python
-def match_cues(
-    self,
-    events: Iterable[TranscriptEvent],
-    cue_atoms: list[CueAtom],
-) -> Iterable[CueDetection]: ...
-```
-
-Takes a transcript event stream + the active cue-atom set, emits `CueDetection` events as matches are found. Matching is phrase + synonym-aware. Caller supplies the active atoms; engine does not load them.
-
-## `VoiceEngine` (TypeScript)
-
-### Lifecycle
-
-```ts
-const engine = VoiceEngine.load();
-```
-
-### Strategy management
-
-| Method | Returns |
-|---|---|
-| `listStrategies()` | `string[]` |
-| `getStrategy(name)` | `TranscriptionStrategy` |
-
-### Live session
-
-```ts
-startSession(strategyName: string, context: SessionContext): Session;
-
-interface Session {
-  onEvent(handler: (e: TranscriptEvent) => void): Unsubscribe;
-  stop(): Promise<void>;
-}
-```
-
-Starts microphone capture, runs the selected strategy, emits `TranscriptEvent`s through `onEvent`. `stop()` flushes any final events and releases the audio session.
-
-### Cue matching
-
-```ts
-matchCues(
-  events: AsyncIterable<TranscriptEvent>,
-  cueAtoms: CueAtom[],
-): AsyncIterable<CueDetection>;
-```
-
-Same semantics as Python.
-
-## Strategy interface (the contract every engine implements)
-
-Every STT engine implements this. There is no other way for an engine to enter the system.
-
-### Python
+`lab/src/voice_lab/strategies/base.py`:
 
 ```python
 class TranscriptionStrategy(ABC):
-    name: str   # "apple_speech_transcriber", "argmax", "deepgram", ...
+    name: str = ""
 
     @abstractmethod
-    def transcribe(self, audio_path: Path) -> Iterable[TranscriptEvent]: ...
+    def transcribe(self, audio_path: Path) -> Iterable[TranscriptEvent]:
+        """Yield TranscriptEvents in audio-time order. Every strategy MUST
+        emit both 'partial' and 'final' events and carry
+        latency_ms_from_audio_start on each."""
 ```
 
-### TypeScript
+### Data types — `lab/src/voice_lab/types.py`
 
-```ts
-export interface TranscriptionStrategy {
-  name: string;
-  start(context: SessionContext): Session;
-}
-```
-
-### Required behavior (both languages)
-
-1. **Both stability streams.** Every strategy MUST emit BOTH `partial` and `final` `TranscriptEvent`s through one event channel, tagged with `stability`. A strategy that only emits one stream is non-conforming.
-2. **Wall-clock latency.** Every event MUST carry `latency_ms_from_audio_start` measured from audio start to the moment the engine produced the event.
-3. **Engine metadata.** Free-form `engine_metadata: dict` — opaque to the engine layer, used by reporting and debugging.
-4. **No global state.** A strategy instance is reusable across audio inputs / sessions. No hidden singletons.
-
-## Strategy registry
-
-Strategies register themselves via one call. Adding a new strategy is a one-file change outside the strategy itself.
-
-### Python
+Re-exported from `voice_lab` (`__init__.py`). **Field-identical** with the TS
+types in `src/types/index.ts`; a lab drift test enforces parity.
 
 ```python
-# voice-engine/lab/src/voice_lab/strategies/registry.py
-from voice_lab.strategies.apple_speech_transcriber import AppleSpeechTranscriberStrategy
-from voice_lab.strategies.argmax import ArgmaxStrategy
-
-register_strategy(AppleSpeechTranscriberStrategy())
-register_strategy(ArgmaxStrategy())
-```
-
-### TypeScript
-
-```ts
-// voice-engine/src/strategies/registry.ts
-import { AppleSpeechTranscriberStrategy } from './apple-speech-transcriber';
-import { MockTranscriptionStrategy } from './mock';
-
-registerStrategy(new AppleSpeechTranscriberStrategy());
-registerStrategy(new MockTranscriptionStrategy());
-```
-
-## Shared data types
-
-Hand-written in each language. Identical fields. Drift caught by a cross-language fixture test.
-
-### `TranscriptEvent`
-
-```python
-@dataclass
+@dataclass(frozen=True)
 class TranscriptEvent:
     text: str
-    stability: Literal['partial', 'final']
-    timestamp_ms: int                       # audio-relative
-    latency_ms_from_audio_start: int        # wall-clock from audio start
+    stability: Literal["partial", "final"]
+    timestamp_ms: int
+    latency_ms_from_audio_start: int
     confidence: float | None
-    engine_metadata: dict
-```
+    engine_metadata: dict[str, Any]
 
-```ts
-export interface TranscriptEvent {
-  text: string;
-  stability: 'partial' | 'final';
-  timestamp_ms: number;
-  latency_ms_from_audio_start: number;
-  confidence: number | null;
-  engine_metadata: Record<string, unknown>;
-}
-```
-
-### `CueAtom`
-
-```python
-@dataclass
+@dataclass(frozen=True)
 class CueAtom:
-    id: str                                 # "honda.feature.honda_sensing_360plus" or "workflow.hospitality_offer"
+    id: str
     display_name: str
-    source: Literal['feature', 'workflow']
+    source: Literal["feature", "workflow"]
     cue_phrases: list[str]
     synonyms: list[str]
-    metadata: dict                          # opaque, for consumer back-references
-```
+    metadata: dict[str, Any]
 
-```ts
-export interface CueAtom {
-  id: string;
-  display_name: string;
-  source: 'feature' | 'workflow';
-  cue_phrases: string[];
-  synonyms: string[];
-  metadata: Record<string, unknown>;
-}
-```
-
-### `CueDetection`
-
-```python
-@dataclass
+@dataclass(frozen=True)
 class CueDetection:
     cue_id: str
     matched_phrase: str
     timestamp_ms: int
     confidence: float | None
-    triggering_event: TranscriptEvent       # the event the match was found in
+    triggering_event: TranscriptEvent
+    match_method: Literal["exact", "semantic"] = "exact"
+    similarity_score: float | None = None
 ```
+
+### Errors (exported from `voice_lab`)
+
+`UnknownStrategyError`, `TranscriptionError`, `AudioFileError`.
+
+### Minimal usage
+
+```python
+from pathlib import Path
+from voice_lab import VoiceEngineLab, CueAtom
+
+lab = VoiceEngineLab.load()
+events = list(lab.transcribe_file("whisperkit", Path("clip.wav")))
+
+atoms = [CueAtom(
+    id="universal.feature.wireless_apple_carplay",
+    display_name="Wireless Apple CarPlay",
+    source="feature",
+    cue_phrases=["wireless apple carplay", "wireless carplay"],
+    synonyms=["carplay"],
+    metadata={},
+)]
+detections = list(lab.match_cues(events, atoms))
+```
+
+> For full benchmark runs you normally use the `voice-lab` CLI
+> (`lab/src/voice_lab/cli.py`, subcommand `run`) rather than driving the facade
+> by hand. See [`flows.md`](./flows.md) §A and
+> [`../lab/docs/pipeline.md`](../lab/docs/pipeline.md).
+
+---
+
+## 2. TypeScript — `VoiceEngine` (reference contract)
+
+Import (reference only — **no consumer in this repo imports it**):
 
 ```ts
-export interface CueDetection {
-  cue_id: string;
-  matched_phrase: string;
-  timestamp_ms: number;
-  confidence: number | null;
-  triggering_event: TranscriptEvent;
-}
+import { VoiceEngine } from 'voice-engine';
 ```
 
-### `SessionContext`
+Defined in `src/facade.ts`. Only the `mock` strategy is wired; the apps mirror
+this surface natively.
 
-```ts
-export interface SessionContext {
-  session_id: string;
-  language: string;                         // e.g. 'en-US'
-  custom_vocabulary: string[];              // dealership terms to bias the recognizer
-}
-```
+### `VoiceEngine`
 
-(Python equivalent omitted — the lab uses `transcribe_file`, not live sessions, so `SessionContext` is TS-only.)
-
-## What this facade does NOT expose
-
-| Concern | Why not | Lives where |
+| Method | Signature | Description |
 |---|---|---|
-| Cue atom definitions (phrases, synonyms) | Voice engine doesn't define cues — it consumes them | `vehicle-feature-catalog` (feature cues) + consumer-side workflow cue file |
-| Audit-item logic | Voice engine is product-agnostic | `road-to-sale-app` |
-| Scoring rules (pass/partial/fail) | Lab-only concern | `voice-engine/lab/src/voice_lab/scoring/` |
-| Report generation | Lab-only concern | `voice-engine/lab/src/voice_lab/reporting/` |
-| Vendor SDK details (Apple Speech, Argmax) | Behind individual strategies | `voice-engine/lab/src/voice_lab/strategies/*` and `voice-engine/ios/`, `voice-engine/android/` |
+| `VoiceEngine.load()` | `static -> VoiceEngine` | Bootstraps the registry (registers `mock` only). |
+| `listStrategies()` | `-> string[]` | Registered strategy names. |
+| `getStrategy(name)` | `(string) -> TranscriptionStrategy` | Throws `UnknownStrategyError` if absent. |
+| `registerStrategy(strategy)` | `(TranscriptionStrategy) -> void` | Register an extra strategy at runtime (tests / consumers). |
+| `startSession(strategyName, context)` | `(string, SessionContext) -> Session` | Live streaming session (`onEvent`, `stop`). |
+| `matchCues(events, cueAtoms)` | `(AsyncIterable<TranscriptEvent>, CueAtom[]) -> AsyncIterable<CueDetection>` | Async cue matching. |
 
-## Errors
+The live `TranscriptionStrategy` contract (`src/strategies/base.ts`) is
+streaming (`start(context) -> Session`), the live-lane sibling of the lab's
+batch `transcribe(audio_path)`.
 
-| Error | Python | TS | When |
-|---|---|---|---|
-| `UnknownStrategyError` | exception | thrown | `get_strategy` / `getStrategy` called with unregistered name |
-| `TranscriptionError` | exception | thrown | Strategy failed mid-stream (e.g. SDK init failed) |
-| `AudioFileError` | exception | thrown | `transcribe_file` couldn't read or decode the audio |
-| `MicPermissionError` | — | thrown | Live session denied microphone access |
+### Exported symbols (`src/index.ts`)
+
+STT surface:
+
+```ts
+export { VoiceEngine }                                  // facade
+export { CueMatcher, matchCues, matchCuesAsync }        // matcher
+export { MockTranscriptionStrategy }                    // only working strategy
+export type { Session, TranscriptionStrategy }
+export {
+  registerStrategy, getStrategy, listStrategies,
+  unregisterStrategy, getRegisteredStrategies, bootstrapDefaultStrategies,
+}
+export type {
+  CueAtom, CueDetection, CueSource, SessionContext,
+  Stability, TranscriptEvent, Unsubscribe,
+}
+export {
+  UnknownStrategyError, TranscriptionError, AudioFileError,
+  MicPermissionError, NotImplementedError,
+}
+```
+
+> **Removed:** `AppleSpeechTranscriberStrategy` is **no longer exported** — the
+> throwing TS stub at `src/strategies/apple-speech-transcriber.ts` was deleted.
+> Older docs/examples that `import { AppleSpeechTranscriberStrategy }` are stale.
+
+`src/capture/index.ts` is a **sketched** mic-capture interface only; it is not
+implemented and not part of the live contract.
+
+---
+
+## 3. The cleanup contract — `CleanupStrategy`
+
+The voice engine's **second** configurable model layer (the first is STT). The
+language-neutral source of truth; native platforms implement the same shape.
+Full discussion in [`model-contracts.md`](./model-contracts.md).
+
+Cleanup surface (`src/index.ts`):
+
+```ts
+export type { CleanupStrategy }                         // base.ts
+export { RuleBasedCleanupStrategy }                     // rule-based.ts (deterministic fallback)
+export {
+  registerCleanupStrategy, unregisterCleanupStrategy,
+  getCleanupStrategy, listCleanupStrategies,
+  bootstrapDefaultCleanupStrategies,                    // registers 'rule-based'
+}
+export type {
+  CleanupLevel, CleanupRequest, CleanupResult,
+  CommandGrammar, VocabMap,
+}
+export { CleanupError }
+```
+
+### Interface — `src/cleanup/base.ts`
+
+```ts
+interface CleanupStrategy {
+  readonly name: string;                       // provider id: "foundation-models" | "gemini-nano" | "rule-based"
+  clean(request: CleanupRequest): Promise<CleanupResult>;
+}
+```
+
+### Types — `src/cleanup/types.ts`
+
+```ts
+type CleanupLevel = 'off' | 'light' | 'full';
+type CommandGrammar = Record<string, string>;  // "new paragraph" -> "\n\n"
+type VocabMap = Record<string, string>;        // forced spellings, applied AFTER cleanup
+
+interface CleanupRequest {
+  raw_text: string;
+  level: CleanupLevel;
+  vocab: VocabMap;
+  command_grammar: CommandGrammar;
+  profile?: string;                            // "dictation" | "road-to-sale" — selects a cleanup-pack
+}
+
+interface CleanupResult {
+  cleaned_text: string;
+  ops_applied: string[];                       // e.g. ["commands","fillers","punctuation"]
+  used_fallback: boolean;                      // true if it fell back to rule-based
+  latency_ms: number;
+  engine_metadata: Record<string, unknown>;
+}
+
+class CleanupError extends Error {}
+```
+
+`RuleBasedCleanupStrategy` (`src/cleanup/rule-based.ts`, `name = 'rule-based'`)
+is the always-available, dependency-free fallback that every platform falls back
+to. It applies the command grammar, strips fillers, collapses repeats (at
+`full`), normalizes whitespace/caps, then applies forced vocab — and never
+paraphrases.
+
+### Native mirror
+
+The dictation app's `TextCleanup` protocol
+(`../../dictation/Shared/Sources/DictationCore/TextCleanup.swift`) is the Swift
+sibling of `CleanupStrategy`, with `FoundationModelsCleanup` (LLM) and
+`RuleBasedCleanup` (fallback) implementations. It loads
+`{profile}-cleanup-pack.json` from [`../cleanup-packs/`](../cleanup-packs/) at
+runtime; a Swift test asserts the lists stay in sync with the pack.
+
+---
+
+## 4. Cleanup-pack data shape
+
+`cleanup-packs/{dictation,road-to-sale}.json`. The contract the
+`CleanupRequest` fields are populated from:
+
+| Field | Type | Notes |
+|---|---|---|
+| `profile` | string | matches the file name and `CleanupRequest.profile`. |
+| `min_words_for_cleanup` | int | skip cleanup below this word count. |
+| `command_grammar` | object | feeds `CleanupRequest.command_grammar`. |
+| `fillers` | string[] | disfluencies removed at `light`/`full`. |
+| `junk_phrases` | string[] | STT hallucinations to drop (e.g. "thanks for watching"). |
+| `prompts.{light,full}` | string | LLM cleanup system prompts per level. |
+| `lexicon.terms` | string[] | *(road-to-sale only)* dealership glossary. |
+| `lexicon.expansions` | object | *(road-to-sale only)* `"f and i" → "F&I"`, applied as forced `VocabMap`. |
+
+Derived per-make vocab packs (`cleanup-packs/derived/<make>.vocab.json`) are
+generated, not authored — see [`flows.md`](./flows.md) §C.
