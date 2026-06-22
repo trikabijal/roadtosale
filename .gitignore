@@ -10,10 +10,6 @@ road-to-sale-app/android/build/
 road-to-sale-app/android/.gradle/
 road-to-sale-app/src/catalog/bundle.json
 
-# SmartComply — compiled artifacts and local config
-smartcomply/target/
-smartcomply/application-local.properties
-
 # Demo / showcase RN app
 demo/auditpro-rn-showcase/dist-*/
 demo/auditpro-rn-showcase/dist/
