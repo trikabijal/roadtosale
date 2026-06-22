@@ -10,16 +10,15 @@ road-to-sale-app/android/build/
 road-to-sale-app/android/.gradle/
 road-to-sale-app/src/catalog/bundle.json
 
-# SmartComply — compiled artifacts and local config
-smartcomply/target/
-smartcomply/application-local.properties
-
 # Demo / showcase RN app
 demo/auditpro-rn-showcase/dist-*/
 demo/auditpro-rn-showcase/dist/
 demo/auditpro-rn-showcase/web-build/
 demo/auditpro-rn-showcase/.expo/
 demo/auditpro-rn-showcase/node_modules/
+
+# Voice engine — generated cleanup-pack vocab (derived from the catalog by derive_vocab.py; regenerate, don't commit)
+voice-engine/cleanup-packs/derived/
 
 # Voice engine — lab reports + generated audio fixtures
 voice-engine/lab/reports/

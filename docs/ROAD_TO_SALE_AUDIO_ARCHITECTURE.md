@@ -391,7 +391,7 @@ The lab runs on macOS. iOS production is in-process Swift inside the app. This s
 | WhisperKit AudioStreamTranscriber | Same Swift package | Same Swift package | Audio source only |
 | CoreML models | macOS Apple Silicon | iPhone Neural Engine | None — same .mlpackage |
 
-**Audio source** is the only real difference. Lab CLIs feed audio from a file path. iOS production feeds audio from `AVAudioSession` → live microphone tap. The `WhisperKitLiveSTT` binary demonstrates this exact pattern (live mic + `AudioStreamTranscriber`) — that same Swift code compiles and runs on iOS unchanged.
+**Audio source** is the only real difference. Lab CLIs feed audio from a file path. iOS production feeds audio from `AVAudioSession` → live microphone tap. WhisperKit's `AudioStreamTranscriber` supports this live-mic pattern directly, and the same Swift code compiles and runs on iOS unchanged.
 
 The key thing the lab CLIs cannot test is **real microphone conditions**: background noise, competing voices, Bluetooth audio, interruptions (phone calls, Siri). Those require testing on a real device.
 

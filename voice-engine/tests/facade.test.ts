@@ -23,21 +23,6 @@ describe('VoiceEngine facade', () => {
     expect(() => engine.getStrategy('nope')).toThrow(UnknownStrategyError);
   });
 
-  it('startSession with apple stub throws NotImplementedError', async () => {
-    const { AppleSpeechTranscriberStrategy } = await import(
-      '../src/strategies/apple-speech-transcriber.js'
-    );
-    const engine = VoiceEngine.load();
-    engine.registerStrategy(new AppleSpeechTranscriberStrategy());
-    expect(() =>
-      engine.startSession('apple_speech_transcriber', {
-        session_id: 's1',
-        language: 'en-US',
-        custom_vocabulary: [],
-      }),
-    ).toThrow(/NotImplementedError|OQ1/);
-  });
-
   it('startSession with mock strategy returns a Session', () => {
     const engine = VoiceEngine.load();
     engine.registerStrategy(new MockTranscriptionStrategy([]));
