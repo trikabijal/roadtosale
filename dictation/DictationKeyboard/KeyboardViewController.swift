@@ -1,45 +1,35 @@
 import UIKit
-import SwiftUI
 
+// ⚠️ DIAGNOSTIC STUB — temporarily replaces the real keyboard to isolate whether the heavy
+// DictationCore/WhisperKit dependency tree is what stops iOS registering the extension.
+// The real implementation is in git; restore with `git checkout dictation/DictationKeyboard`.
 public final class KeyboardViewController: UIInputViewController {
-
-    private var viewModel = KeyboardViewModel()
-    private var hostingController: UIHostingController<KeyboardView>?
 
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Wire text insertion callbacks back through textDocumentProxy
-        viewModel.insertTextCallback = { [weak self] text in
-            self?.textDocumentProxy.insertText(text)
-        }
-        viewModel.deleteBackCallback = { [weak self] in
-            self?.textDocumentProxy.deleteBackward()
-        }
+        let label = UILabel()
+        label.text = "Just Talk (test build)"
+        label.textAlignment = .center
+        label.translatesAutoresizingMaskIntoConstraints = false
 
-        let keyboardView = KeyboardView(viewModel: viewModel) {
-            self.advanceToNextInputMode()
-        }
+        let next = UIButton(type: .system)
+        next.setTitle("🌐 Next Keyboard", for: .normal)
+        next.translatesAutoresizingMaskIntoConstraints = false
+        next.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
 
-        let host = UIHostingController(rootView: keyboardView)
-        hostingController = host
-
-        addChild(host)
-        view.addSubview(host.view)
-        host.didMove(toParent: self)
-
-        host.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(label)
+        view.addSubview(next)
         NSLayoutConstraint.activate([
-            host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            host.view.topAnchor.constraint(equalTo: view.topAnchor),
-            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
+            next.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            next.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16),
         ])
     }
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Preferred height — standard iOS keyboard is ~260pt portrait
-        view.heightAnchor.constraint(equalToConstant: 260).isActive = true
+        view.heightAnchor.constraint(equalToConstant: 200).isActive = true
     }
 }

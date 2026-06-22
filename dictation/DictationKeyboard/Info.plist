@@ -12,6 +12,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Just Talk</string>
 	<key>CFBundlePackageType</key>
 	<string>XPC!</string>
 	<key>CFBundleShortVersionString</key>
@@ -37,6 +39,6 @@
 		<string>$(PRODUCT_MODULE_NAME).KeyboardViewController</string>
 	</dict>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>This keyboard uses the microphone to transcribe your speech.</string>
+	<string>Just Talk uses the microphone to transcribe your speech on-device.</string>
 </dict>
 </plist>

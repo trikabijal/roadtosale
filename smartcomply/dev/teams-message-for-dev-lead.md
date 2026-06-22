@@ -148,6 +148,6 @@ Bijal
 
 ## Files to attach on Teams:
 
-1. `/Users/bijalsanghavi/Desktop/code/Projects/trika/auditpro/dev/pr-review-guide.md`
-2. `/Users/bijalsanghavi/Desktop/code/Projects/trika/auditpro/docs/build.md`
-3. `/Users/bijalsanghavi/Desktop/code/Projects/trika/auditpro-angular/docs/installation.md`
+1. `/Users/bijalsanghavi/Desktop/code/projects/Trika/auditpro/auditpro/dev/pr-review-guide.md`
+2. `/Users/bijalsanghavi/Desktop/code/projects/Trika/auditpro/auditpro/docs/build.md`
+3. `/Users/bijalsanghavi/Desktop/code/projects/Trika/auditpro/auditpro-angular/docs/installation.md`
