@@ -47,7 +47,9 @@ run_app() {
   fi
   echo "▶ Generating JustTalk.xcodeproj from project.yml…"
   xcodegen generate >/dev/null
-  xcodebuild -project JustTalk.xcodeproj -scheme JustTalkTests \
+  # JustTalkTests is a test target of the JustTalk scheme (see project.yml
+  # `scheme.testTargets`); there is no standalone JustTalkTests scheme.
+  xcodebuild -project JustTalk.xcodeproj -scheme JustTalk \
     -configuration Debug -derivedDataPath build \
     -destination 'platform=macOS' \
     CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO test
