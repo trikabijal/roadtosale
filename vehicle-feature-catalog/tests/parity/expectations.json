@@ -1,0 +1,33 @@
+{
+  "_comment": "Single source of truth for Python<->TS facade parity (C-PAR-1, C-PAR-2). Both suites read this file and assert the SAME results on the SAME fixtures. A divergence in either implementation fails its language's parity test. IDs/values are sorted for stable comparison.",
+  "fixtures": {
+    "list_makes": ["honda", "toyota"],
+    "list_models_all": ["honda.civic", "toyota.corolla"],
+    "list_models_honda": ["honda.civic"],
+    "list_trims_honda_civic": ["honda.civic.2026.sport", "honda.civic.2026.touring"],
+    "list_features_brand_honda": ["honda.feature.honda_sensing_360plus"],
+    "list_features_category_comfort": ["universal.feature.heated_front_seats"],
+    "list_features_for_trim_sport_standard": [
+      "universal.feature.lane_keep_assist",
+      "universal.feature.wireless_apple_carplay"
+    ],
+    "list_features_for_trim_sport_standard_optional": [
+      "universal.feature.heated_front_seats",
+      "universal.feature.lane_keep_assist",
+      "universal.feature.wireless_apple_carplay"
+    ],
+    "list_trims_with_carplay": [
+      "honda.civic.2026.sport",
+      "honda.civic.2026.touring",
+      "toyota.corolla.2026.le"
+    ]
+  },
+  "fixtures_invalid": {
+    "error_codes": [
+      "feature_empty_cue_phrases",
+      "matrix_unknown_feature",
+      "matrix_unknown_trim",
+      "trim_has_no_features"
+    ]
+  }
+}

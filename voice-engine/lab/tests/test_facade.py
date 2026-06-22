@@ -9,6 +9,7 @@ import pytest
 from voice_lab import VoiceEngineLab, UnknownStrategyError
 from voice_lab.strategies import registry as _registry
 from voice_lab.strategies.mock import MockTranscriptionStrategy
+from voice_lab.types import CueAtom
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "sample_events.jsonl"
@@ -22,6 +23,20 @@ def test_load_returns_facade():
 def test_list_strategies_includes_mock():
     engine = VoiceEngineLab.load()
     assert "mock" in engine.list_strategies()
+
+
+def test_list_strategies_is_exact_sorted_set_without_argmax():
+    """P-FAC-2: pin the exact five registered names (sorted) and assert the
+    dormant ``argmax`` strategy is NOT auto-registered."""
+    engine = VoiceEngineLab.load()
+    assert engine.list_strategies() == [
+        "apple_sfspeechrecognizer_vocab",
+        "apple_speech_transcriber",
+        "mock",
+        "sherpa_onnx",
+        "whisperkit",
+    ]
+    assert "argmax" not in engine.list_strategies()
 
 
 def test_get_strategy_unknown_raises():
@@ -62,3 +77,35 @@ def test_argmax_strategy_requires_api_key(monkeypatch):
     strat = ArgmaxStrategy()
     with pytest.raises(TranscriptionError, match="ARGMAX_API_KEY"):
         list(strat.transcribe(Path("/dev/null")))
+
+
+def test_match_cues_through_facade_returns_detections():
+    """P-FAC-6: match_cues() exercised through the facade (not the CueMatcher
+    directly) returns detections for known cues on the exact path."""
+    engine = VoiceEngineLab.load()
+    _registry.register_strategy(MockTranscriptionStrategy(events_file=FIXTURE))
+    events = list(engine.transcribe_file("mock", FIXTURE))
+
+    atoms = [
+        CueAtom(
+            id="honda.feature.honda_sensing_360plus",
+            display_name="Honda Sensing",
+            source="feature",
+            cue_phrases=["Honda Sensing"],
+            synonyms=[],
+            metadata={},
+        ),
+        CueAtom(
+            id="honda.feature.wireless_apple_carplay",
+            display_name="Wireless Apple CarPlay",
+            source="feature",
+            cue_phrases=["wireless carplay"],
+            synonyms=["CarPlay"],
+            metadata={},
+        ),
+    ]
+
+    detections = list(engine.match_cues(events, atoms, use_semantic=False))
+    detected_ids = {d.cue_id for d in detections}
+    assert "honda.feature.honda_sensing_360plus" in detected_ids
+    assert "honda.feature.wireless_apple_carplay" in detected_ids

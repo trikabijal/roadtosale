@@ -1,37 +1,54 @@
 # Test Coverage & Follow-up Backlog
 
-_Created 2026-06-22. This is the consolidated work list of tests still owed and
-related follow-ups, produced from the per-module test plans. **Source of truth
-for the detailed, tier-grouped list = each module's `docs/e2e-tests.md`
-"Pending backlog" section** (linked below). Nothing here has been implemented
-yet — these are work items, deliberately deferred._
+_Created 2026-06-22. Updated 2026-06-22 after implementing the automatable
+backlog. **Source of truth for the detailed, tier-grouped list = each module's
+`docs/e2e-tests.md`** (linked below)._
 
-## Priority 1 — components with ZERO tests
+**Status:** the automatable backlog is now **implemented** — ~127 new tests added
+across the four modules (all suites green via `./test-all.sh`, no product code
+changed). Repo test totals went from ~348 to ~469:
 
-These have real, load-bearing logic and no test coverage at all:
+| Module | Before | After |
+|--------|--------|-------|
+| vehicle-feature-catalog | 79 | **126** (93 py + 33 ts) |
+| voice-engine | 105 | **141** (114 py + 27 ts) |
+| road-to-sale-app | 106 | **142** |
+| dictation | 58 | **60** (51 DictationCore incl. 2 model-gated skips + 9 app) |
 
-| # | Module | Component | Why it matters |
-|---|--------|-----------|----------------|
-| 1 | road-to-sale-app | `src/db/RetryQueueConsumer.ts` | The offline-first drain / `[1s,2s,4s,8s,16s]` backoff / **5-retry circuit breaker** the whole app's reliability rests on. **Highest-value gap.** |
-| 2 | voice-engine | `sherpa_onnx` strategy | The same STT library Android ships. Apple/WhisperKit have full fake-binary suites; this has none. |
-| 3 | vehicle-feature-catalog | `scripts/derive_vocab.py` | The catalog→STT-vocab bridge that feeds voice-engine cleanup packs. No schema/dedupe/scope tests. |
-| 4 | vehicle-feature-catalog | `scripts/validate.py` CLI | The CI boundary gate (exit codes / stderr) is unasserted. |
-| 5 | vehicle-feature-catalog | `scrapers/honda_us/download.py` + `cli.py main()` | Scraper units are tested; the end-to-end CLI and download layer are not. |
+What remains is genuinely **manual / hardware / running-app** work that can't be
+unit-automated (see "Still pending" below).
 
-## Priority 2 — pending test suites (counts from the plans)
+## Priority 1 — zero-test components — ✅ ALL DONE
 
-| Module | Pending | Headline |
-|--------|---------|----------|
-| [road-to-sale-app](../../road-to-sale-app/docs/e2e-tests.md) | ~20 tests | The **entire black-box E2E journey suite (J1–J11)** — `road-to-sale-app/tests/` is an empty reserved dir; all 106 existing tests are single-facade unit tests. |
-| [voice-engine](../../voice-engine/docs/e2e-tests.md) | 13 tests + manual benchmark lane | TS↔Python cue-matcher parity unverified; cleanup-pack JSON loading unguarded. |
-| [vehicle-feature-catalog](../../vehicle-feature-catalog/docs/e2e-tests.md) | 23 tests | Python↔TS parity is convention not assertion; real `data/` never loaded by a test. |
-| [dictation](../../dictation/docs/e2e-tests.md) | 22 tests | Contracts well-covered (49 tests); the end-to-end hotkey→record→transcribe→clean→paste journey + platform adapters are manual. |
+| # | Module | Component | Status |
+|---|--------|-----------|--------|
+| 1 | road-to-sale-app | `src/db/RetryQueueConsumer.ts` | ✅ 14 tests — drain, `[1s,2s,4s,8s,16s]` backoff, **5-retry circuit breaker verified to trip at the 5th failure**. No bug. |
+| 2 | voice-engine | `sherpa_onnx` strategy | ✅ 16-test fake-binary suite (parse, argv, model-env, 5 error paths, lazy-yield) |
+| 3 | vehicle-feature-catalog | `scripts/derive_vocab.py` | ✅ 8 tests (schema, case-insensitive dedupe, ≤3-word synonym filter, per-make scoping) |
+| 4 | vehicle-feature-catalog | `scripts/validate.py` CLI | ✅ 4 tests (exit codes + stderr vs valid/invalid/missing trees) |
+| 5 | vehicle-feature-catalog | scraper `download.py` + `cli.py main()` | ✅ 11 tests (download idempotency/retry; CLI end-to-end, dry-run, exit codes) |
+
+Plus many Priority-2 ledger items closed: TS↔Python cue-matcher **parity harness**
+(voice-engine + vehicle-catalog, both verified to fail on injected drift),
+cleanup-pack JSON loading (incl. RTS lexicon), client edge cases (401-refresh
+dedup, multipart upload, logout, error class), repo retry-mutators, SessionEngine
+cue/override, telemetry aggregation, FoundationModels cleanup-selection logic.
+
+## Still pending — genuinely manual / hardware / running-app
+
+These were deliberately NOT faked with shallow mocks:
+
+- **road-to-sale-app** — the multi-screen black-box **E2E journeys J1–J11** (need a running app / Detox / simulator). `road-to-sale-app/tests/` stays reserved. The engine-level logic they decompose into is now covered at the contract level.
+- **dictation** — hotkey→record→transcribe→clean→paste journeys, `ClipboardPaster` insertion, `CGEventTap` activation, `PermissionsService`, `RecordingHUD`, real `RecordingEngine` capture, real STT (needs WhisperKit weights), and the `AppState` orchestrator (its `init()` downloads models + installs the event tap — not headless-testable without product changes).
+- **dictation iOS keyboard** — blocked: `DictationKeyboard/*.swift` are diagnostic stubs on `development` (real impl in commit `1554186`).
+- **voice-engine** — reporting writers, the combined/semantic matcher (optional `fastembed` dep), and the manual real-audio benchmark lane (needs real models + audio).
+- **vehicle-feature-catalog** — the `check_imports.py` boundary test (that script lives at repo-root `scripts/`, outside the module).
 
 ## Investigations (not test-writing)
 
 - **Possible backend mismatch:** `SessionEngine.startSession` sends `submissionVersion: 0` / `shift: 'First'`, but `road-to-sale-app/docs/smartcomply-contract.md` shows `submissionVersion: 1` / `shift: 'MORNING'`. Confirm against the live SmartComply backend — may be a real bug, not doc drift.
-- **iOS keyboard is stubbed on `development`:** `dictation/DictationKeyboard/*.swift` are currently diagnostic stubs; the real implementation is in git history at commit `1554186` (side effect of the in-flight `perf/dictation-speed` work). iOS-adapter tests are blocked until it's restored.
+- **iOS keyboard is stubbed on `development`** (see above) — restore from commit `1554186` when resuming iOS work.
 
-## Deferred infrastructure (separate workstream)
+## Done since the backlog was created
 
-- **Build/deploy scripts** standardization across all sub-engines + optional CI workflow — tracked separately, not part of this test backlog.
+- ✅ **Build/deploy scripts** standardized across all sub-engines + root orchestrators + per-module READMEs with fail-loud prereq checks (verified by running every build+test).
