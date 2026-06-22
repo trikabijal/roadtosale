@@ -62,4 +62,43 @@ describe('TextCleanup contract — rule-based reference', () => {
     const full = await s.clean(baseReq({ raw_text: 'the the car is is fast' }));
     expect(full.cleaned_text).toBe('The car is fast');
   });
+
+  it('level "light" strips fillers but preserves wording (no repeat-collapse)', async () => {
+    // T-CLN-7: the level *boundary* — light is between off and full. It still
+    // removes fillers (so it differs from off) but must NOT collapse repeated
+    // words (so it differs from full), preserving the speaker's exact wording.
+    const s = new RuleBasedCleanupStrategy();
+    const light = await s.clean(
+      baseReq({ raw_text: 'um the the car is uh fast fast', level: 'light' }),
+    );
+    // Fillers gone → 'light' is not a no-op like 'off'.
+    expect(light.ops_applied).toContain('fillers');
+    expect(light.cleaned_text).not.toContain('um');
+    expect(light.cleaned_text).not.toContain('uh');
+    // Repeats preserved → not collapsed the way 'full' would. (Casing is
+    // normalized at the sentence start, so compare case-insensitively.)
+    expect(light.ops_applied).not.toContain('repeats');
+    expect(light.cleaned_text.toLowerCase()).toContain('the the');
+    expect(light.cleaned_text).toContain('fast fast');
+
+    // Contrast: full collapses the same repeats.
+    const full = await s.clean(
+      baseReq({ raw_text: 'um the the car is uh fast fast', level: 'full' }),
+    );
+    expect(full.cleaned_text).not.toContain('the the');
+    expect(full.cleaned_text).not.toContain('fast fast');
+  });
+
+  it('returns the full CleanupResult contract, not just cleaned_text', async () => {
+    // T-CLN-8: used_fallback / latency_ms / engine_metadata must be present.
+    const s = new RuleBasedCleanupStrategy();
+    const r = await s.clean(baseReq({ raw_text: 'um hello there' }));
+    expect(typeof r.cleaned_text).toBe('string');
+    expect(Array.isArray(r.ops_applied)).toBe(true);
+    // rule-based IS the engine here — it is not a fallback from itself.
+    expect(r.used_fallback).toBe(false);
+    expect(typeof r.latency_ms).toBe('number');
+    expect(r.latency_ms).toBeGreaterThanOrEqual(0);
+    expect(r.engine_metadata).toMatchObject({ strategy: 'rule-based' });
+  });
 });
