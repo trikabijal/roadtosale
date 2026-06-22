@@ -19,6 +19,12 @@ cd "$(dirname "$0")"
 
 err()   { printf '\033[1;31m  ✗\033[0m %s\n' "$*" >&2; }
 
+# --- prerequisite checks ----------------------------------------------------
+# The CLIs run on python3 (the venv's, or system as a fallback below).
+# shellcheck source=scripts/prereqs.sh disable=SC1091
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_python_version 3 11
+
 usage() {
   cat <<'EOF'
 Usage: ./run.sh <command> [args...]

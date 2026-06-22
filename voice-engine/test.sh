@@ -30,6 +30,13 @@ esac
 log()  { printf '\033[1;34m[test]\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31m[test][error]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Shared, DRY prerequisite checks (fail loudly with install hints).
+# shellcheck source=scripts/prereqs.sh
+source "$SCRIPT_DIR/scripts/prereqs.sh"
+
+# Core tools must be present to run either suite.
+require_core_tools
+
 VENV_DIR="$SCRIPT_DIR/lab/.venv"
 [ -d "$VENV_DIR" ] || fail "lab/.venv not found. Run ./build.sh first."
 [ -d "$SCRIPT_DIR/node_modules" ] || fail "node_modules not found. Run ./build.sh first."

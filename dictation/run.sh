@@ -11,6 +11,10 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# ---- Prerequisite checks (shared, fail loudly before any real work) --------
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_build_prereqs
+
 CONFIG="${CONFIG:-Release}"
 
 ./build.sh macos

@@ -18,33 +18,28 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# ---- Prerequisite checks (shared, fail loudly before any real work) --------
+# `all` and `core` need swift; `app` needs xcodebuild + xcodegen. macOS is always
+# required, and `all` needs every tool, so check the full set up front for `all`.
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_macos
+
 WHICH="${1:-all}"
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
-  echo "✗ Tests run only on macOS (uname is '$(uname -s)')." >&2
-  exit 1
-fi
+case "$WHICH" in
+  core) require_swift ;;
+  app)  require_xcodebuild; require_xcodegen ;;
+  all)  require_swift; require_xcodebuild; require_xcodegen ;;
+esac
 
 run_core() {
   echo "▶ Running DictationCore tests (swift test)…"
-  if ! command -v swift >/dev/null 2>&1; then
-    echo "✗ swift not found. Install Xcode / the Command Line Tools." >&2
-    exit 1
-  fi
   ( cd Shared && swift test )
   echo "✓ DictationCore tests passed."
 }
 
 run_app() {
   echo "▶ Running JustTalkTests (xcodebuild test)…"
-  if ! command -v xcodebuild >/dev/null 2>&1; then
-    echo "✗ xcodebuild not found. Install Xcode." >&2
-    exit 1
-  fi
-  if ! command -v xcodegen >/dev/null 2>&1; then
-    echo "✗ xcodegen not found. Install it with: brew install xcodegen" >&2
-    exit 1
-  fi
   echo "▶ Generating JustTalk.xcodeproj from project.yml…"
   xcodegen generate >/dev/null
   # JustTalkTests is a test target of the JustTalk scheme (see project.yml

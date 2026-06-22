@@ -50,20 +50,27 @@ log()  { printf '\033[1;34m[build]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[build][warn]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[build][error]\033[0m %s\n' "$*" >&2; exit 1; }
 
-# ---------------------------------------------------------------------------
-# Prerequisite checks (core: python3, node, npm)
-# ---------------------------------------------------------------------------
-log "Checking core prerequisites…"
+# Shared, DRY prerequisite checks (fail loudly with install hints).
+# shellcheck source=scripts/prereqs.sh
+source "$SCRIPT_DIR/scripts/prereqs.sh"
 
-command -v python3 >/dev/null 2>&1 || fail "python3 not found on PATH. Install Python >= 3.10."
-PY_VER="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
-PY_OK="$(python3 -c 'import sys; print(1 if sys.version_info[:2] >= (3,10) else 0)')"
-[ "$PY_OK" = "1" ] || fail "Python $PY_VER found, but voice_lab requires >= 3.10."
-log "  python3 $PY_VER  ($(command -v python3))"
+# ---------------------------------------------------------------------------
+# Prerequisite checks (fail loudly BEFORE any real work)
+# ---------------------------------------------------------------------------
+log "Checking prerequisites…"
 
-command -v node >/dev/null 2>&1 || fail "node not found on PATH. Install Node.js >= 18."
-command -v npm  >/dev/null 2>&1 || fail "npm not found on PATH. Install Node.js >= 18 (ships with npm)."
-log "  node $(node --version)  npm $(npm --version)"
+# Core: python3 (>=3.10), node (>=20), npm.
+require_core_tools
+
+# Sibling vehicle-feature-catalog: the lab editable-installs it from
+# ../vehicle-feature-catalog. Hard-fail early with a clear message if missing.
+require_sibling_catalog "$SCRIPT_DIR"
+
+# Native path (--with-native): surface Swift/Xcode + JDK install hints up front
+# (advisory; off-macOS this just explains why native is skipped).
+if [ "$WITH_NATIVE" -eq 1 ]; then
+  require_native_tools
+fi
 
 # ---------------------------------------------------------------------------
 # 1. Python lab — venv + editable install
@@ -84,13 +91,10 @@ python -m pip install --upgrade pip --quiet
 
 # The lab depends on the sibling `vehicle-feature-catalog` package. Install it
 # editable first so the lab's dependency resolves locally (it is not on PyPI).
+# Presence was already verified by require_sibling_catalog above.
 CATALOG_DIR="$SCRIPT_DIR/../vehicle-feature-catalog"
-if [ -d "$CATALOG_DIR" ]; then
-  log "  installing vehicle-feature-catalog (editable) from sibling module"
-  python -m pip install -e "$CATALOG_DIR" --quiet
-else
-  warn "vehicle-feature-catalog not found at $CATALOG_DIR — lab install may fail."
-fi
+log "  installing vehicle-feature-catalog (editable) from sibling module"
+python -m pip install -e "$CATALOG_DIR" --quiet
 
 log "  installing voice_lab (editable, with dev extras)"
 python -m pip install -e "$SCRIPT_DIR/lab[dev]" --quiet
@@ -101,7 +105,10 @@ deactivate
 # 2. TS reference skeleton — install + typecheck + build
 # ---------------------------------------------------------------------------
 log "Building TS reference skeleton (src/)…"
-npm install --silent
+# npm ci (not install) for a reproducible install from the committed lockfile —
+# it won't silently mutate package-lock.json. Falls back to install if the
+# lockfile is out of sync.
+npm ci --silent || npm install --silent
 npm run typecheck --silent
 npm run build --silent
 log "  TS compiled to dist/"

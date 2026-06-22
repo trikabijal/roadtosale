@@ -84,6 +84,12 @@ targets:
       - path: DictationKeyboard
     entitlements:
       path: DictationKeyboard/DictationKeyboard.entitlements
+      # Declared here so `xcodegen generate` regenerates the file WITH the App
+      # Group instead of wiping it to an empty <dict/> (shared storage between
+      # the keyboard extension and its container app).
+      properties:
+        com.apple.security.application-groups:
+          - group.com.trika.dictation
     settings:
       base:
         # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
@@ -123,6 +129,11 @@ targets:
         embed: true
     entitlements:
       path: DictationContainerApp/DictationContainerApp.entitlements
+      # Declared here so `xcodegen generate` regenerates the file WITH the App
+      # Group instead of wiping it (shared storage with the keyboard extension).
+      properties:
+        com.apple.security.application-groups:
+          - group.com.trika.dictation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios

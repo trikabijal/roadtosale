@@ -41,6 +41,18 @@ log()  { printf '\033[1;34m[deploy-local]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[deploy-local][warn]\033[0m %s\n' "$*" >&2; }
 fail() { printf '\033[1;31m[deploy-local][error]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Shared, DRY prerequisite checks (fail loudly with install hints).
+# shellcheck source=scripts/prereqs.sh
+source "$SCRIPT_DIR/scripts/prereqs.sh"
+
+# ---------------------------------------------------------------------------
+# Prerequisite checks (fail loudly BEFORE invoking the build)
+# ---------------------------------------------------------------------------
+log "Checking prerequisites…"
+require_core_tools                       # python3 (>=3.10), node (>=20), npm
+require_sibling_catalog "$SCRIPT_DIR"    # ../vehicle-feature-catalog
+require_native_tools                     # Swift/Xcode + JDK 17 (macOS); explains skip off-macOS
+
 VENV_DIR="$SCRIPT_DIR/lab/.venv"
 
 # ---------------------------------------------------------------------------

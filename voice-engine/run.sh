@@ -29,6 +29,14 @@ VENV_DIR="$SCRIPT_DIR/lab/.venv"
 log()  { printf '\033[1;34m[run]\033[0m %s\n' "$*"; }
 fail() { printf '\033[1;31m[run][error]\033[0m %s\n' "$*" >&2; exit 1; }
 
+# Shared, DRY prerequisite checks (fail loudly with install hints).
+# shellcheck source=scripts/prereqs.sh
+source "$SCRIPT_DIR/scripts/prereqs.sh"
+
+# run.sh drives only the Python lab CLI; python3 is the one hard requirement.
+command -v python3 >/dev/null 2>&1 \
+  || prereq_fail "python3 is required but not found. Install: https://www.python.org/downloads/ (or 'brew install python@3.12')"
+
 [ -d "$VENV_DIR" ] || fail "lab/.venv not found. Run ./build.sh first."
 
 # shellcheck disable=SC1091
