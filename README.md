@@ -4,6 +4,14 @@ NADA-aligned dealership sales coaching, built on the AuditPro / SmartComply plat
 
 A sales rep walks a customer through a vehicle. The voice engine listens, detects workflow steps and feature demonstrations in real time, and builds the audit trail automatically.
 
+The repo also hosts a second product, **JustTalk** (`dictation/`) — a macOS dictation app
+that shares no runtime code with Road to Sale but **shares the voice cleanup contract and
+data**, so its daily-driver learnings tune Road to Sale's cleanup for free.
+
+> **Start here:** whole-system docs live in [`docs/`](docs/) —
+> [`architecture.md`](docs/architecture.md), [`api.md`](docs/api.md),
+> [`flows.md`](docs/flows.md). Each module also has its own `docs/`.
+
 ---
 
 ## Repository layout
@@ -11,16 +19,24 @@ A sales rep walks a customer through a vehicle. The voice engine listens, detect
 ```
 roadtosale/
 │
+├── docs/                      Whole-system docs (architecture, api, flows + PRD/audio deep-dives)
+│
 ├── vehicle-feature-catalog/   Brand-extensible vehicle catalog (YAML + Python + TS)
 │                              What features exist, which trims carry them, how to detect them.
 │
-├── voice-engine/              Strategy-based STT + cue-matching engine (Python lab + TS library)
-│   ├── lab/                   Offline comparison lab — runs Apple vs WhisperKit across test fixtures
-│   ├── src/                   TS library skeleton — mobile-ready facade
-│   ├── native/                Swift + JVM CLIs used by lab strategies (identical to iOS/Android production code)
-│   └── ios/ android/          Native module stubs for the mobile app
+├── voice-engine/              Contract + data + research core for STT, cue-matching, and cleanup.
+│   │                          NOT a library the apps link — apps mirror its contract natively.
+│   ├── lab/                   Offline comparison lab — benchmarks STT strategies on fixtures
+│   ├── src/                   TS reference skeleton (only `mock` runs; mirrored by native code)
+│   ├── cleanup-packs/         Canonical cleanup data packs (dictation + road-to-sale)
+│   ├── native/                Swift + JVM CLIs used by lab strategies
+│   └── docs/                  Binding spec + model-contracts.md
 │
-├── road-to-sale-app/          Mobile app — future PRD
+├── road-to-sale-app/          Mobile app — Expo / React Native + native iOS (Swift) & Android (Kotlin)
+│                              voice modules. Talks to the external SmartComply backend over HTTP.
+│
+├── dictation/                 JustTalk — macOS menu-bar dictation app (+ paused iOS keyboard).
+│                              Shared DictationCore Swift package; mirrors the voice cleanup contract.
 │
 ├── demo/                      Outreach / showcase material only (not product code)
 │
@@ -34,15 +50,20 @@ roadtosale/
     └── check_imports.py       CI boundary guard — fails if voice-engine ↔ catalog import each other
 ```
 
+> The **SmartComply / AuditPro backend** (Java / Spring) used to live here but is now a
+> **separate repository**. Road to Sale integrates with it strictly over HTTP at `:8089`
+> via `SmartComplyClient`. The consumer-side contract is documented in
+> [`road-to-sale-app/docs/smartcomply-contract.md`](road-to-sale-app/docs/smartcomply-contract.md).
+
 ### Module boundaries
 
 ```
 vehicle-feature-catalog   ←──── no cross-imports ────→   voice-engine
          ↑                                                      ↑
-         └──────────── consumer (lab CLI, future app) ─────────┘
+         └──────────── consumer (lab CLI, mobile app) ─────────┘
 ```
 
-Neither module imports the other. The consumer (lab orchestrator, future mobile app) is the only place both are composed. `scripts/check_imports.py` enforces this in CI.
+Neither module imports the other. The consumer (lab orchestrator, mobile app) is the only place both are composed. `scripts/check_imports.py` enforces this in CI. The apps never import the `voice-engine` TS package — they re-implement its contract natively (see the banner in [`voice-engine/README.md`](voice-engine/README.md)).
 
 ---
 
@@ -95,19 +116,63 @@ Latest Android results: `voice-engine/lab/runs/results/run-20260524-1342/` (Sile
 
 **Production recommendation:** Apple SpeechTranscriber for iOS (TTFC P95 330 ms, on-device, no external dependency). sherpa-onnx + Silero VAD for Android simulation — VAD mode produces sentence-level events that align with semantic matching granularity (23% lift vs 17% in batch mode).
 
-### `voice-engine/` (TS library)
+### `voice-engine/` (contract + data core)
 
-Mobile-ready facade. Skeleton with mock strategy working; Apple native wiring deferred to the mobile app PRD.
+Canonical STT + cleanup **contract**, the cleanup **data packs**, and the TS **reference
+skeleton** the apps mirror in native code. Nothing in this repo imports it as a library —
+the `mock` strategy is the only one that runs. See the README banner for why the former
+`ios/`/`android/` stubs were removed.
 
 | | |
 |---|---|
-| Language | TypeScript 5+ |
-| API entry | `import { VoiceEngine } from 'voice-engine'` |
-| Docs | `voice-engine/docs/{api,architecture,flows}.md` |
+| Language | TypeScript 5+ (skeleton) |
+| Contract | `voice-engine/docs/model-contracts.md` (STT + cleanup `{provider, model}`) |
+| Data | `voice-engine/cleanup-packs/{dictation,road-to-sale}.json` |
+| Docs | `voice-engine/docs/{api,architecture,flows,model-contracts}.md` |
 
 ```bash
 cd voice-engine
 ./build.sh          # npm install + vitest + tsc
+```
+
+### `road-to-sale-app/`
+
+The Road to Sale mobile app: Expo / React Native (TypeScript) with native iOS (Swift) and
+Android (Kotlin) voice modules that mirror the `voice-engine` contract. Talks to the
+external SmartComply backend over HTTP.
+
+| | |
+|---|---|
+| Languages | TypeScript · Swift · Kotlin |
+| Backend | External SmartComply REST API at `:8089` (separate repo) |
+| Docs | `road-to-sale-app/docs/smartcomply-contract.md` |
+
+```bash
+cd road-to-sale-app
+./build.sh          # install deps
+./run.sh            # launch in Expo
+./test.sh           # run tests
+```
+
+### `dictation/` (JustTalk)
+
+A macOS menu-bar dictation app (Wispr Flow replacement) built on WhisperKit, plus a paused
+iOS keyboard extension. All targets share the `DictationCore` Swift package, which
+implements the same STT/cleanup contract as `voice-engine` and emits telemetry on the shared
+schema — so its daily-driver learnings tune Road to Sale's cleanup.
+
+| | |
+|---|---|
+| Language | Swift (DictationCore package + apps) |
+| Targets | JustTalk (macOS, ships) · DictationKeyboard + container (iOS, paused) |
+| Build | XcodeGen — `cd dictation && xcodegen generate` |
+| Docs | `dictation/docs/architecture.md` · `dictation/README.md` |
+
+```bash
+cd dictation
+xcodegen generate   # one-time; needs `brew install xcodegen`
+./build.sh          # Release build into ./build
+./run.sh            # build + launch (macOS)
 ```
 
 ---
@@ -140,5 +205,3 @@ See `~/.claude/CLAUDE.md` (global standards). Short version:
 - **Never commit to `main`** — always branch
 - Branch names: `feat/`, `fix/`, `refactor/`, `docs/`, `chore/`
 - Conventional commits: `feat:`, `fix:`, `refactor:`, `BREAKING:`
-
-Current implementation branch: `feat/voice-engine-catalog-v1`

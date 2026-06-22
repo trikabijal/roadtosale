@@ -1,171 +1,278 @@
 # Just Talk — Architecture
 
+> **Module docs:** [architecture.md](architecture.md) (this file) · [api.md](api.md) · [flows.md](flows.md)
+> **Deep dives:** [e2e-tests.md](e2e-tests.md) (cross-platform test plan) · [macos-input-paste-audit.md](macos-input-paste-audit.md) (hotkey/paste subsystem audit)
+> **System context:** [../../docs/architecture.md](../../docs/architecture.md) (whole-monorepo) · [../../voice-engine/docs/model-contracts.md](../../voice-engine/docs/model-contracts.md) (the STT/cleanup contract this module mirrors)
+
 ## Overview
 
-Just Talk is a multi-target Apple-platforms app that replaces Wispr Flow with a fully on-device, WhisperKit-powered speech-to-text pipeline. All product logic lives in **DictationCore**, a local Swift Package consumed by every target. No target-specific code leaks into the shared package. (The shared package and the iOS targets keep the `Dictation*` names for now; only the macOS product was renamed to Just Talk.)
+**Just Talk** is a Wispr Flow–style, fully on-device dictation product for Apple platforms.
+Press an activation key, speak, and your words appear — cleaned into polished writing by an
+on-device LLM — in whatever app is focused. Neither audio nor text ever leaves the machine.
+
+There are **two product lines**, both built from the same shared core:
+
+| Product line | Status | What it is |
+|--------------|--------|------------|
+| **macOS menu-bar app** (`JustTalk`) | **Shipping / daily driver** | The menu-bar app, bundle `com.trika.justtalk.mac`. Hotkey → record → transcribe → clean → paste into the frontmost app. |
+| **iOS custom keyboard** (`DictationContainerApp` + `DictationKeyboard`) | **Code-complete, PAUSED** | A custom keyboard extension + its host app. Fully implemented, but **paused pending a paid Apple Developer account** — custom keyboards can't run in the Simulator and need device provisioning. Not abandoned; a current second product line waiting on signing. |
+
+All product logic lives in **DictationCore**, a local Swift package every target consumes.
+No target-specific code leaks into the shared package; macOS-only and iOS-only code stay in
+their own target folders.
+
+> **Naming note:** only the macOS *product* was renamed to "Just Talk". The shared package
+> and the iOS targets keep their `Dictation*` names, and several on-disk paths (model cache,
+> telemetry DB, App Group) still use the `com.trika.dictation` prefix for cache portability.
 
 ---
 
 ## Targets
 
+Defined in [`project.yml`](../project.yml) (XcodeGen generates `JustTalk.xcodeproj`):
+
 | Target | Platform | Type | Bundle ID |
 |--------|----------|------|-----------|
-| JustTalk | macOS 14+ | Application (menu bar, LSUIElement) | com.trika.justtalk.mac |
-| JustTalkTests | macOS 14+ | Unit-test bundle (hosted by JustTalk) | com.trika.justtalk.mac.tests |
-| DictationKeyboard | iOS 17+ | App Extension (custom keyboard) | com.trika.dictation.ios.keyboard |
-| DictationContainerApp | iOS 17+ | Application (host for keyboard ext) | com.trika.dictation.ios |
+| `JustTalk` | macOS 14+ | Application (menu bar, `LSUIElement` — no Dock icon) | `com.trika.justtalk.mac` |
+| `JustTalkTests` | macOS 14+ | Unit-test bundle (hosted by `JustTalk`) | `com.trika.justtalk.mac.tests` |
+| `DictationContainerApp` | iOS 17+ | Application (host for the keyboard extension) | `com.trika.justtalk.ios` |
+| `DictationKeyboard` | iOS 17+ | App Extension (custom keyboard) | `com.trika.justtalk.ios.keyboard` |
 
-DictationKeyboard is embedded in DictationContainerApp. Both iOS targets share the App Group `group.com.trika.dictation` so TelemetryStore's SQLite database is accessible to both processes.
+- `DictationKeyboard` is embedded in `DictationContainerApp` (`embed: true`). An app
+  extension's bundle ID must be a child of its host's, hence the `…ios.keyboard` suffix.
+- The macOS target uses **manual signing** with a pinned local Development certificate so
+  macOS TCC keeps Mic / Accessibility / Input Monitoring grants stable across rebuilds
+  (ad-hoc signing changes identity each build and re-prompts). The iOS targets use automatic
+  signing.
+- Both iOS targets share the App Group `group.com.trika.dictation`, the shared SQLite
+  container for telemetry across the two processes (host app + extension).
+
+> The current `DictationKeyboard/*.swift` files on this branch are **diagnostic stubs** (a
+> minimal `UIInputViewController` used to isolate whether the heavy WhisperKit dependency tree
+> blocked iOS extension registration). The full keyboard implementation
+> (`KeyboardViewController` + `KeyboardViewModel` + `KeyboardView`) lives in git history
+> (`git checkout` from commit `1554186`) and is what this document describes for the iOS line.
 
 ---
 
-## DictationCore — Shared Swift Package
+## DictationCore — the shared Swift package
 
-Located at `dictation/Shared/`. All three targets declare it as a local package dependency in `project.yml`. External dependencies (GRDB, WhisperKit) are declared once in `Package.swift` and resolved transitively.
+Located at [`dictation/Shared/`](../Shared). Declared as a local package in `project.yml`;
+the macOS app and the iOS host both depend on it. It links **GRDB** and **WhisperKit**
+directly via SwiftPM ([`Shared/Package.swift`](../Shared/Package.swift)) — these resolve
+transitively for the targets.
 
-### Components
+> **Relationship to `voice-engine/`:** DictationCore does **not** import `voice-engine/`. It
+> **mirrors** voice-engine's strategy contract in Swift — `SpeechTranscriber` is the batch
+> sibling of voice-engine's streaming `TranscriptionStrategy`, and `TextCleanup` mirrors its
+> `CleanupStrategy`. See the source comments referencing
+> [`../../voice-engine/docs/model-contracts.md`](../../voice-engine/docs/model-contracts.md).
+> The same shape is intended to be re-implemented natively on Android/other platforms.
 
-#### RecordingEngine (`RecordingEngine.swift`)
+DictationCore is the **facade** the app targets program against (see [api.md](api.md)). Its
+components:
 
-Owns the AVAudioEngine session. Responsibilities:
+### Recording — `RecordingEngine.swift`
 
-- Requests microphone permission (platform-appropriate: `AVCaptureDevice` on macOS, `AVAudioApplication` on iOS 17+).
-- Installs a tap at the hardware's native sample rate and format.
-- Converts each buffer to **16 kHz mono Float32** via `AVAudioConverter` — the exact format WhisperKit expects.
-- Runs an energy-threshold **Voice Activity Detector (VAD)**:
-  - Computes per-buffer RMS.
-  - Sets `hasSpeechStarted = true` when RMS ≥ `silenceThreshold` (default 0.01, ~-40 dBFS).
-  - Starts a silence timer when RMS drops below threshold after speech has begun.
-  - Fires `recordingEngineDidDetectSilence` after `silenceDurationMs` (default 800 ms) of continuous silence.
-- Delivers every converted buffer to the delegate on the audio thread.
+Owns the `AVAudioEngine` session.
 
-The VAD is intentionally simple — energy-only, no ML. This makes failure modes transparent and lets the telemetry data guide future improvements.
+- Requests microphone permission (platform-appropriate: `AVCaptureDevice` on macOS,
+  `AVAudioApplication`/`AVAudioSession` on iOS 17+).
+- Installs a tap at the hardware's native format, converting each buffer to **16 kHz mono
+  Float32** (`AVAudioConverter`) — exactly what WhisperKit expects.
+- Hardware-format guards: clears any leftover tap and rejects a 0-rate/0-channel format
+  (mid-session device change), turning an otherwise process-aborting `installTap` into a
+  recoverable `RecordingError`.
+- Energy-threshold **VAD**: per-buffer RMS, fires `recordingEngineDidDetectSilence` after
+  `silenceDurationMs` of continuous silence. **The VAD signal is retained but deliberately
+  NOT used to auto-stop** — auto-stopping on a pause chopped sentences mid-thought. Recording
+  is controlled by the activation key (and a hard 10-minute safety stop).
 
-#### Two pluggable model contracts
+### Two pluggable model contracts
 
-Both model layers sit behind a contract, chosen at runtime by `{provider, model}` config.
-This mirrors the strategy pattern in `voice-engine/` (see `voice-engine/docs/model-contracts.md`),
-so iOS/Android implement the *same* contracts with their native engines.
+Both model layers sit behind a contract, selected at runtime by a `{provider, model}` config.
+This is the strategy pattern mirrored from voice-engine.
 
 **`SpeechTranscriber`** (`SpeechTranscriber.swift`) — the voice-understanding model.
+- `load(onProgress:)`, `transcribe(buffers:audioStartDate:)`, optional `setVocabularyBias`,
+  `reset()`.
+- `STTProvider` (`whisperKit`, `appleSpeech` — contract-ready/not-yet-implemented, `mock`)
+  + `STTConfig {provider, model}` + `SpeechTranscriberFactory`.
+- **`WhisperKitTranscriber`** is the live implementation: downloads/loads by `ModelTier`
+  (split download → load for first-run progress), gain-normalizes quiet audio, filters
+  silence-hallucinations (peak floor + known-junk-phrase + low-confidence checks), and biases
+  custom vocabulary via `DecodingOptions.promptTokens`. Model files are cached under
+  **Application Support** (`com.trika.dictation/huggingface`), not `~/Documents`, to avoid a
+  burst of macOS Documents-folder TCC prompts.
+- `TranscriptionResult` is provider-agnostic (carries `provider` + `model`).
 
-- `load(onProgress:)`, `transcribe(buffers:audioStartDate:)`, optional `setVocabularyBias`.
-- `STTProvider` (`whisperKit`, `appleSpeech`, `mock`) + `STTConfig {provider, model}` + `SpeechTranscriberFactory`.
-- `WhisperKitTranscriber` is the WhisperKit implementation: loads/hot-swaps models by `ModelTier`
-  (split into explicit `WhisperKit.download(progressCallback:)` → load for first-run progress),
-  flattens buffers to `[Float]`, derives confidence from `avgLogprob`, filters silence-hallucinations,
-  and applies custom-vocabulary biasing via `DecodingOptions.promptTokens`.
-- `TranscriptionResult` is provider-agnostic (`provider` + `model`).
+**`TextCleanup`** (`TextCleanup.swift`) — the cleanup "LLM brain". `clean(_:)` **never throws**
+(cleanup must never block paste).
+- `CleanupProvider` (`foundationModels`, `ruleBased`), `CleanupLevel` (`off`/`light`/`full`),
+  `CleanupConfig {provider, level}` + `TextCleanupFactory`.
+- **`FoundationModelsCleanup`** (`FoundationModelsCleanup.swift`) uses Apple's on-device
+  `SystemLanguageModel`/`LanguageModelSession`. Availability-gated (`macOS 26+`/`iOS 26+`),
+  with a length-scaled timeout, a degenerate-output guard, an output sanitizer, and a
+  deterministic command/vocab/lexicon post-pass. Falls back to rule-based on any failure and
+  flags `usedFallback`. Critically, it **never feeds the vocab/term list to the model** (the
+  small model echoed names onto the clipboard); spelling is enforced by STT bias + the
+  deterministic post-pass instead.
+- **`CleanupOutputSanitizer`** (`CleanupOutputSanitizer.swift`) — pure, framework-free guards
+  that scrub the model's output (strip tags/labels/echoed instruction blocks) and detect
+  degenerate output (empty, ballooned, collapsed, echoed input) before it reaches the
+  clipboard. Extracted so it's unit-testable without the FoundationModels framework.
+- **`RuleBasedCleanup`** (`RuleBasedCleanup.swift`) — the deterministic fallback *and* the
+  `ruleBased` provider, mirroring `voice-engine/src/cleanup/rule-based.ts`. The shared
+  `CleanupText` transforms (fillers, repeats, normalization, sentence capitalization, map
+  application) are reused by the Foundation Models post-pass.
 
-**`TextCleanup`** (`TextCleanup.swift`) — the cleanup LLM. `clean(_:)` never throws.
+**Knowledge as data — cleanup packs.** Prompts, fillers, command grammar, junk lists,
+thresholds, and the domain lexicon load from JSON in
+[`Resources/`](../Shared/Sources/DictationCore/Resources) via `CleanupPackLoader`:
+- `dictation-cleanup-pack.json` — profile `"dictation"`, the default plain-dictation pack.
+- `road-to-sale-cleanup-pack.json` — profile `"road-to-sale"`, adds a dealership **lexicon**
+  (F&I, ACV, APR, trade-in, be-back, …) and spoken→canonical expansions. This is the bridge
+  to the Road to Sale product: per-dealer catalog terms can be merged in at runtime via
+  `CleanupPack.mergingLexiconTerms(_:)`.
 
-- `CleanupProvider` (`foundationModels`, `ruleBased`) + `CleanupConfig {provider, level}` + `TextCleanupFactory`.
-- `FoundationModelsCleanup` (`FoundationModelsCleanup.swift`) uses Apple's on-device
-  `SystemLanguageModel` / `LanguageModelSession`. Availability-gated, with a degenerate-output
-  guard and a deterministic command/vocab post-pass; falls back to rule-based on any failure.
-- `RuleBasedCleanup` (`RuleBasedCleanup.swift`) is the deterministic fallback + `ruleBased` provider,
-  mirroring the `voice-engine` reference implementation.
-- **Knowledge as data:** prompts/fillers/command-grammar/junk-list/thresholds load from
-  `Resources/dictation-cleanup-pack.json` (canonical copy in `voice-engine/cleanup-packs/`).
+(Canonical copies of these packs live under `voice-engine/cleanup-packs/`; a test asserts the
+built-in `CleanupPack.fallback` stays in sync with the dictation JSON.)
 
-#### TelemetryStore (`TelemetryStore.swift`)
+### Persistence
 
-A Swift `actor` backed by a GRDB `DatabaseQueue`. Responsibilities:
+**`RecordingStore`** (`RecordingStore.swift`) — a **cross-platform contract** persisting the
+last N raw recordings (mono PCM float samples + sample rate, never a platform audio type) so a
+failed/garbled transcription can be re-run without re-speaking. `FileRecordingStore` is the
+Apple implementation (Float32 mono WAV files, self-describing filenames). `AudioSampleBridge`
+converts between the neutral `[Float]` samples and `AVAudioPCMBuffer`.
 
-- Schema migration (GRDB `DatabaseMigrator`, `v1_create_transcripts`).
-- Writes one `TranscriptRecord` per completed transcription.
-- Exposes `markCorrected(id:note:)` — called when the user edits the pasted text, signalling a WhisperKit failure.
-- Reads: `fetchRecent(limit:)` for the history UI; `fetchWeeklyStats()` for the dashboard.
-- Provides platform-appropriate DB URLs: `~/Library/Application Support/com.trika.dictation/telemetry.sqlite` on macOS; App Group shared container on iOS.
+**`TelemetryStore`** (`TelemetryStore.swift`) — a Swift `actor` over a GRDB `DatabaseQueue`.
+- Writes one `TranscriptRecord` per completed transcription: raw + cleaned text, confidence,
+  latency, audio duration, model tier, frontmost app (macOS), cleanup level/provider, and a
+  `wasCorrected` flag.
+- Migrations `v1` (create) → `v2` (cleanup columns) → `v3` (index `recorded_at`).
+- Reads: `fetchRecent`, `search`, `fetchWeeklyStats`, `fetchUsageTotals` (for cost
+  projection). `markCorrected` flags a row when the user says the transcript was wrong.
+- **Privacy retention:** `purge(olderThanDays:)` drops transcript text after 30 days (run on
+  launch); audio is separately bounded to the last 5 recordings.
+- DB locations: `~/Library/Application Support/com.trika.dictation/telemetry.sqlite` (macOS);
+  the App Group shared container (iOS).
+
+### Utilities
+
+- **`Timeout.swift`** — `withTimeout(seconds:)`, an *unstructured* race: the operation and a
+  timer run as independent tasks and the loser is abandoned (never awaited). Deliberate, so a
+  hung `WhisperKit.transcribe` / `LanguageModelSession.respond` that ignores cooperative
+  cancellation can't block the caller past the deadline.
 
 ---
 
-## macOS Onboarding, Permissions & Hotkey (JustTalk target)
+## macOS subsystem (`JustTalk/` target)
 
-This UI/permission layer is macOS-only and lives entirely in `JustTalk/`.
+This UI/permission/input layer is macOS-only and lives entirely in
+[`JustTalk/`](../JustTalk).
 
-- **PermissionsService** — the single source of truth for the two required permissions
-  (Microphone, Accessibility). All status reads are **non-prompting** (`AVCaptureDevice.authorizationStatus`,
-  `AXIsProcessTrusted()`), so the app can poll them freely. System prompts fire *only* from
-  the explicit `requestMic()` / `promptAccessibility()` methods, which are wired to wizard
-  buttons. This is the fix for prompts appearing "out of the blue": `AppState.setup()` no
-  longer requests anything automatically at launch.
-- **Onboarding wizard** (`OnboardingView` + `OnboardingWindow`) — a card-based setup flow
-  with live status ticks, shown on first launch or whenever a required permission is missing,
-  and reopenable from the menu bar → Setup. A 1.2s poll (`AppState.startPermissionPolling`)
-  plus `didBecomeActive` make the ticks update as the user toggles settings; once granted, the
-  hotkey event tap is installed automatically (`refreshPermissions` on the grant transition).
-- **Configurable hotkey** (`HotkeyConfig` + `HotkeyManager`) — the activation key is chosen
-  from a curated set (Fn, right ⌘/⌥/⌃, F5/F6/F13). `HotkeyManager` installs a `CGEventTap`
-  and matches the active `HotkeyConfig`: Fn/right-modifiers via `.flagsChanged` (right keys
-  disambiguated from their left twins by virtual keyCode), function keys via `.keyDown/.keyUp`.
-  Matched keys are suppressed (return `nil`) so the Globe picker / stray key never reaches the
-  foreground app.
-- **Conflict detection** (`HotkeyConflict`) — macOS exposes no API to enumerate other apps'
-  event taps, so conflict detection is best-effort: it reads the OS Globe setting
-  (`AppleFnUsageType`) and scans `NSWorkspace.runningApplications` for known competitors
-  (Wispr Flow). The **definitive** check is the wizard's "press your key to test" step: in
-  `HotkeyManager.isTesting` mode a press routes to `hotkeyDidReceiveConfiguredKey()` only (no
-  recording), proving the key reaches the app regardless of what might be intercepting it.
+- **`JustTalkApp.swift`** — `@main` SwiftUI `App`. A `MenuBarExtra` (window style) whose glyph
+  changes with dictation state, plus a `Settings` scene and a "History" window.
+- **`AppState.swift`** — the macOS orchestrator (`@MainActor`, `ObservableObject`). Owns the
+  `RecordingEngine`, transcriber, cleanup, stores, HUD, and `HotkeyManager`; drives the whole
+  record → transcribe → clean → paste flow; manages settings, retries, the correction window,
+  and resource release after a timeout. `BufferAccumulator` (a lock-guarded, order-preserving
+  buffer store) is what fixed long recordings scrambling into garbage.
+- **`PermissionsService.swift`** — single source of truth for the three required permissions:
+  **Microphone**, **Accessibility** (to paste), **Input Monitoring** (for the keyboard event
+  tap). All status reads are **non-prompting** (`AVCaptureDevice.authorizationStatus`,
+  `AXIsProcessTrusted()`, `CGPreflightListenEventAccess()`) so the app can poll freely; system
+  prompts fire only from explicit `request*` methods wired to onboarding buttons.
+- **`HotkeyManager.swift` / `HotkeyConfig.swift` / `HotkeyConflict.swift`** — the activation-key
+  subsystem. The user picks from a curated set (Fn, right ⌘/⌥/⌃, F5/F6/F13).
+  `HotkeyManager` installs a `CGEventTap` at `.cghidEventTap`, **pumped on a dedicated
+  background thread** so a busy main thread (transcription/cleanup) can never freeze the
+  keyboard. Suppressing keys (Fn / function keys) use an active tap and return `nil` to swallow
+  the key; real modifiers use a *listen-only* tap and pass through. A watchdog + wake observer
+  revive a tap macOS silently disables. Synthetic paste events are tagged
+  (`justTalkSyntheticEventUserData`) so the tap can't self-trigger. Conflict detection is
+  best-effort (reads `AppleFnUsageType`, scans for competitors like Wispr Flow); the
+  definitive check is the wizard's "press your key to test" step. See
+  [macos-input-paste-audit.md](macos-input-paste-audit.md) for the full deep-dive.
+- **`ClipboardPaster.swift`** — writes the transcript to the clipboard, re-activates the
+  target app, polls until it's frontmost, posts a synthetic ⌘V, then **restores the user's
+  prior clipboard** (guarded so back-to-back dictations and new user copies aren't clobbered).
+  If the target never becomes frontmost it refuses to paste and leaves the text on the
+  clipboard.
+- **`RecordingHUD.swift`** — a floating, non-activating, click-through `NSPanel` near the
+  bottom of the screen showing the live mic level, partial preview, "too quiet" warning,
+  retry/dismiss on failure, and the post-insert "mark wrong" correction button. Floats above
+  full-screen apps; remembers a dragged position. Fires open/close chimes (Wispr-style).
+- **`OnboardingView.swift`** — the card-based setup wizard (live ticks), shown on first launch
+  or whenever a required permission is missing; reopenable from the menu bar.
+- **`LoginItem.swift`** — launch-at-login via `SMAppService`.
+- **`SettingsView.swift` / `MenuBarView.swift` / `HistoryView.swift`** — settings, the menu-bar
+  panel, and the transcript history/search window.
 
 ---
 
-## Data Flow
+## iOS subsystem (`DictationKeyboard/` + `DictationContainerApp/`) — paused
 
+The iOS line is a custom-keyboard product that reuses DictationCore wholesale.
+
+- **`DictationContainerApp/`** — the host app the user installs; carries the embedded keyboard
+  and shows setup/enable instructions.
+- **`DictationKeyboard/`** — the `UIInputViewController` extension. The full implementation:
+  - `KeyboardViewModel` orchestrates record → transcribe → clean → insert, mirroring
+    `AppState` but inserting via `textDocumentProxy` instead of pasting. Uses the **`tinyEn`**
+    WhisperKit tier (~40 MB) to fit the extension's tight (~50 MB) memory budget.
+  - It uses the **same `TextCleanup` contract and cleanup pack** as macOS, so every cleanup
+    fix on macOS is inherited for free. Foundation Models runs as an on-device system service
+    (outside the extension's own memory budget).
+  - `KeyboardView` is the in-keyboard SwiftUI UI (mic button, status, transcript strip, globe
+    switcher).
+  - Telemetry writes to the App Group SQLite DB (`platform: "ios"`), parity with macOS.
+
+The extension requires **Allow Full Access** (for the microphone). It is paused only on
+distribution: it compiles for the Simulator but can't be fully validated there, and on-device
+provisioning needs a paid Apple Developer account.
+
+---
+
+## Isolation guarantees
+
+- DictationCore never imports from any target-specific module, and never imports
+  `voice-engine/` — it mirrors that contract instead.
+- macOS-only code (Accessibility/CGEventTap, `NSWorkspace`, the floating HUD, `SMAppService`,
+  the wizard, `PermissionsService`, hotkey subsystem) lives only in `JustTalk/`.
+- iOS-only code (`UIInputViewController`, `textDocumentProxy`) lives only in
+  `DictationKeyboard/`.
+- The App Group shared container (telemetry DB) is the only cross-process channel on iOS — no
+  XPC, no shared memory.
+
+---
+
+## Telemetry & dogfooding rationale
+
+Every transcription is persisted (raw + cleaned text, confidence, latency, duration, model
+tier, frontmost app on macOS). Corrections flag the row. This feeds **Road to Sale STT
+calibration**: a high correction rate on a tier → pick a more accurate one; systematic
+hallucinations in noisy environments inform dealership cue detection; latency regressions are
+caught before they reach Road to Sale users. Daily personal use at the developer's desk is the
+cheapest possible production STT test harness.
+
+**Telemetry findings to date: none yet** — the app is not yet in sustained daily use, so no
+WhisperKit failure patterns have been catalogued. Findings will be recorded in
+[whisperkit-failure-findings.md](whisperkit-failure-findings.md) (currently a placeholder with
+its format defined) once daily-use telemetry accumulates.
+
+---
+
+## Build
+
+```bash
+cd dictation
+brew install xcodegen        # one-time
+./build.sh                   # Release .app into ./build (ad-hoc signed)
+./build.sh install           # build + copy to /Applications
+DEVELOPMENT_TEAM=XXXXXXXXXX ./build.sh install   # stable signing → permissions persist
 ```
-Microphone
-    │
-    ▼
-RecordingEngine
-    ├── installTap (native hardware format)
-    ├── AVAudioConverter → 16 kHz mono Float32
-    ├── RMS VAD (800 ms silence window)
-    │       │
-    │       └── delegate: didDetectSilence ──────────────────┐
-    │                                                         │
-    └── delegate: didReceiveBuffer ──► buffer accumulator     │
-                                           │                  │
-                                           │ (silence fires)  │
-                                           ▼◄─────────────────┘
-                                  SpeechTranscriber (WhisperKit)
-                                    └── transcribe(audioArray:) → raw text
-                                               │
-                                               ▼
-                                  TextCleanup (Foundation Models)
-                                    └── clean(rawText, level, vocab, grammar)
-                                        └── fallback → RuleBasedCleanup
-                                               │
-                                               ▼
-                                      cleaned text
-                                        ├──► clipboard+paste (clipboard restored after)
-                                        └──► TranscriptRecord {raw, cleaned, level, provider}
-                                                            │
-                                                            ▼
-                                                     GRDB SQLite (v2)
-                                                     (platform DB URL)
-```
 
----
-
-## Telemetry & Dogfooding Rationale
-
-Every transcription is persisted — text, confidence, latency, audio duration, model tier, and (on macOS) the frontmost application. When the user corrects a transcription, `markCorrected` flags the row and captures a note.
-
-This data directly feeds **Road to Sale STT calibration**:
-
-- High correction rate on a model tier → switch to a more accurate tier for dealership cue detection.
-- Systematic hallucinations in specific apps (e.g., noisy car environments) → surface in `whisperkit-failure-findings.md`.
-- Latency regressions across WhisperKit versions → caught before they affect Road to Sale users.
-
-Daily personal use at the developer's desk is the cheapest possible test harness for a production STT pipeline.
-
----
-
-## Isolation Guarantees
-
-- DictationCore never imports from any target-specific module.
-- macOS-only code (Accessibility API, `NSWorkspace`, the floating `RecordingHUD`,
-  `LoginItem`/`SMAppService` launch-at-login, the onboarding wizard, `PermissionsService`,
-  `HotkeyManager`/`HotkeyConfig`/`HotkeyConflict`) lives exclusively in `JustTalk/`.
-- iOS-only code (`UIInputViewController`, `textDocumentProxy`) lives exclusively in `DictationKeyboard/`.
-- The App Group shared container is the only cross-process communication channel (telemetry DB). No XPC, no shared memory.
+`build.sh` regenerates the Xcode project with XcodeGen, then builds the `JustTalk` scheme.
+See [README.md](../README.md) for the full setup, signing, and iOS-on-device steps.

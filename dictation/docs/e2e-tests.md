@@ -189,3 +189,137 @@ These are the narrower, contract-level cases a failing journey decomposes into �
 ## 7. Known gaps to close (tracked separately)
 - iOS keyboard extension is currently a diagnostic stub in the working tree — adapter tests (T-INS iOS, T-TEL-2) can't pass until the real extension is restored.
 - No data-retention/clear-data controls yet (T-TEL-3 will fail) — see the privacy task.
+
+> The §8 coverage ledger and §9 backlog below reconcile these gaps against the **actual** test
+> code in the tree; treat them as the authoritative, file-cited view of what is and isn't
+> automated today.
+
+---
+
+## 8. Coverage ledger (plan vs. implementation)
+
+> Snapshot of this plan against the **real** test files on branch `docs/refresh`. **No test
+> code was written or modified** to produce this section — it only maps the plan to what
+> already exists. Cross-refs: [architecture.md](architecture.md) · [flows.md](flows.md) ·
+> [../../voice-engine/docs/model-contracts.md](../../voice-engine/docs/model-contracts.md).
+
+**The test files (49 test methods total):**
+
+| File | Tests | Layer |
+|---|---|---|
+| `Shared/Tests/DictationCoreTests/CleanupTests.swift` | 30 | Cleanup contract, hallucination filter, cleanup packs, output sanitizer, factory |
+| `Shared/Tests/DictationCoreTests/RecordingStoreTests.swift` | 4 | Recording-store contract + audio bridge |
+| `Shared/Tests/DictationCoreTests/TimeoutTests.swift` | 3 | Timeout race utility |
+| `Shared/Tests/DictationCoreTests/PipelineTests.swift` | 2 | Contract-level dictate→clean (mock STT) |
+| `Shared/Tests/DictationCoreTests/TelemetryRetentionTests.swift` | 1 | Telemetry purge/retention |
+| `JustTalkTests/HotkeyConfigTests.swift` | 9 | Hotkey config + conflict (macOS adapter, config layer only) |
+
+**The headline:** the **DictationCore contract layer is well covered** by fast, deterministic,
+model-free unit tests. The **§2.5 end-to-end journey suite — the stated PRIMARY suite — is
+almost entirely unautomated.** What exists are contract/component backstops (§3); the real
+record→transcribe→clean→**paste/insert** journeys, every platform *adapter* (insertion,
+activation tap, permissions, HUD), and all model-backed STT remain **manual / PENDING**. The
+iOS keyboard is a diagnostic stub on this branch (see [architecture.md](architecture.md);
+real impl in commit `1554186`), so no iOS adapter test can run.
+
+### 8.1 Facade Coverage Ledger (reconciled with §1)
+
+| Facade / boundary | Plan IDs | Status | Cited by |
+|---|---|---|---|
+| `TextCleanup` (rule-based) | T-CLN-1,2,5,6 | ✅ COVERED | `CleanupTests.swift › testRemovesFillersAndCapitalizes`, `…testObeysNewParagraphCommand`, `…testVocabForcesSpellingAfterCleanup`, `…testOffPassesThrough`, `…testLightDoesNotCollapseRepeats`, `…testCollapsesRepeatedWordsAtFull`, `TextCleanupFactoryTests › testRuleBasedProviderCleans` |
+| `TextCleanup` (FoundationModels fallback) | T-CLN-3,4,7 | ⚠️ PARTIAL | sanitizer guards covered (`CleanupOutputSanitizerTests › testStripsEchoedKnownNamesAndTermsBlock`, `…testStripsEchoedTermsBlockCaseInsensitively`, `…isDegenerate*`); but the **live FM path** (timeout→`usedFallback=true`, T-CLN-4; long-transcript scaled timeout, T-CLN-7) is not exercised end-to-end — no `FoundationModelsCleanup` test |
+| Cleanup packs (data-as-knowledge) | (§ architecture) | ✅ COVERED | `CleanupPackTests › testBundledPackResourceIsPresent`, `…testBundledPackLoads`, `…testBundledPackMatchesFallback` (drift guard), `…testRoadToSalePackLexiconLoads`, `…testRoadToSaleLexiconAppliesInCleanup`, `…testCatalogTermsMergeIntoLexicon` |
+| `SpeechTranscriber` — hallucination/junk filter | (part of T-STT-5) | ✅ COVERED | `HallucinationFilterTests › testJunkPhraseDroppedOnShortClip`, `…testJunkPhraseDroppedOnLowConfidence`, `…testRealSpeechKept`, `…testEmptyIsHallucination` |
+| `SpeechTranscriber` — real transcription | T-STT-1,2,3,4,6 | ⛔ PENDING | no test loads/transcribes real audio; `MockTranscriber` only stands in for the pipeline shape (`PipelineTests`). Ordered/complete output, long audio, vocab-bias efficacy, multilingual all unautomated |
+| `RecordingStore` | T-PERSIST-1,2 | ✅ COVERED | `RecordingStoreTests › testSaveThenLoadRoundTripsSamples`, `…testRetainsOnlyNewestFive`, `…testLoadMissingThrows`, `…testBufferBridgeRoundTrip` |
+| Telemetry store | T-TEL-1 (partial) | ⚠️ PARTIAL | retention/purge covered (`TelemetryRetentionTests › testPurgeRemovesRecordsOlderThanWindow`); **save→aggregate weekly stats** (T-TEL-1) and **shared App-Group cross-process** (T-TEL-2) are not tested |
+| Capture (`RecordingEngine`) | T-CAP-1..4 | ⛔ PENDING | no `RecordingEngine` test (needs an audio harness / capture seam); only the neutral `[Float]`⇄buffer bridge is exercised (`RecordingStoreTests › testBufferBridgeRoundTrip`) |
+| Insertion adapter (`ClipboardPaster` / `textDocumentProxy`) | T-INS-1..4 | ⛔ PENDING | no test; clipboard restore, focus targeting, self-trigger guard all manual |
+| Activation adapter (`HotkeyManager` tap) | T-ACT-1..4 | ⚠️ PARTIAL | config/conflict layer covered (`HotkeyConfigTests › testFnMatchesViaFnModifier`, `…testRightModifierKeycodesAreDistinct`, `…testFunctionKeycodes`, `…testPersistenceRoundTrip`, `…testDefaultsToFnWhenUnset`, `…testIsFnOnlyForFn`, `…testDisplayNamesAreUnique`; `HotkeyConflictTests › testAppleFnUsageLabelCoversAllValues`, `…testOsClaimsFnIsFalseForNonFnKeys`). The **live `CGEventTap` behavior** — start/stop signal, no-freeze-under-load, no self-trigger, no duplicate sessions — is NOT tested |
+| Permissions adapter (`PermissionsService`) | T-PERM-1..4 | ⛔ PENDING | no test; non-prompting reads, capture-gating, persistence-across-relaunch all manual |
+| App orchestrator (`AppState` lifecycle) | T-FLOW-1..6 | ⛔ PENDING | no `AppState` test; happy path, never-lose-audio, timeout fallback, model-switch, per-context override, prewarm latency all manual. (`TimeoutTests` covers the **primitive** `withTimeout` race but not `AppState`'s use of it.) |
+| Live feedback / HUD | T-HUD-1..3 | ⛔ PENDING | no `RecordingHUD` test |
+
+### 8.2 End-to-end journey ledger (§2.5 — the PRIMARY suite)
+
+| Journey | Tier | Status | Notes |
+|---|---|---|---|
+| **J1** First run / setup | 1 | ⛔ PENDING | no onboarding/permission-gating UI test |
+| **J2** Dictate into another app | 1 (core) | ⚠️ PARTIAL | the **dictate→clean half** runs at contract level with mock STT (`PipelineTests › testDictateThenCleanProducesPolishedText`); the paste-into-another-app half (HUD lifecycle, clipboard restore) is NOT automated |
+| **J3** Long paragraph | 2 | ⛔ PENDING | needs a long fixture + real/streamed STT |
+| **J4** Hinglish | 3 | ⛔ PENDING | needs multilingual model on device |
+| **J5** Too quiet | 2 | ⛔ PENDING | no HUD/low-input warning test |
+| **J6** Recover a bad dictation | 1 | ⚠️ PARTIAL | the **store** round-trip that recovery relies on is covered (`RecordingStoreTests`) and the junk-rejection that triggers recovery is covered (`HallucinationFilterTests`); the **`AppState` retry/preserve orchestration** itself is not |
+| **J7** Model hang doesn't brick the app | 1 | ⚠️ PARTIAL | the timeout **primitive** is proven to fire even when the op ignores cancellation (`TimeoutTests › testFiresEvenWhenOperationIgnoresCancellation`); the **app-level** "HUD never sticks / typing stays responsive" assertion is not automated |
+| **J8** Change model in Settings | 2 | ⛔ PENDING | no settings/model-switch test |
+| **J9** Mark a miss (correction) | 2 | ⛔ PENDING | `markCorrected` not exercised; correction-window flow manual |
+| **J10** Per-context cleanup | 2 | ⛔ PENDING | `effectiveLevel(forBundleId:)` override not tested |
+| **J11** Reuse a past transcript | 2 | ⛔ PENDING | history/copy flow not tested |
+| **J12** Clear my data | 3 (pending feature) | ⛔ PENDING | retention purge primitive exists (`TelemetryRetentionTests`) but the user-facing "clear all data" control / audio wipe does not |
+| **J13** Sustained real-world use | 1 (trust case) | ⛔ PENDING | needs a soak harness; entirely manual today |
+
+### 8.3 iOS line — blocked by the stub
+
+Per [architecture.md](architecture.md), `DictationKeyboard/*.swift` on this branch are
+**diagnostic stubs** (a bare `UIInputViewController`; the real `KeyboardViewController` +
+`KeyboardViewModel` + `KeyboardView` live in commit `1554186`). Consequently **every iOS
+adapter assertion is ⛔ PENDING and currently un-runnable**: T-INS (iOS), T-TEL-2 (App-Group
+cross-process), the keyboard-extension memory-ceiling check (§4), and Flow 5 in
+[flows.md](flows.md). These cannot be automated until the real extension is restored — restoring
+it is the prerequisite, not writing the tests.
+
+### 8.4 Summary count
+
+- **✅ COVERED (well):** cleanup (rule-based + packs + sanitizer + factory), hallucination
+  filter, recording store + audio bridge, telemetry retention, hotkey config/conflict, timeout
+  primitive — **6 contract areas, 49 tests.**
+- **⚠️ PARTIAL:** FM cleanup fallback path, telemetry save/aggregate, activation (config only,
+  not the live tap), and journeys J2/J6/J7 (half automated at contract level) — **4 areas.**
+- **⛔ PENDING:** real STT, capture engine, insertion, permissions, `AppState` orchestrator,
+  HUD, the entire iOS adapter line, and journeys J1, J3–J5, J8–J13 — **the PRIMARY end-to-end
+  suite is essentially manual.**
+
+---
+
+## 9. Pending test backlog (no test code written)
+
+Concrete tests to write, grouped by tier, **reconciled with §7 "Known gaps"** (the two iOS /
+retention gaps are folded in below, not duplicated). **Nothing in this section has been
+implemented — it is a to-do list only.** Each item names the plan ID/journey and the public
+surface it would drive.
+
+### Tier 1 — critical path (run every commit)
+1. **`AppState` happy path (T-FLOW-1 / J2).** Inject a fixture-PCM capture seam + `MockTranscriber`; assert cleaned text reaches `ClipboardPaster` and the HUD lifecycle (listening→processing→inserted) fires. *Closes the un-automated half of J2.*
+2. **Never-lose-audio (T-FLOW-2 / J6).** Force a garbled/empty transcription; assert audio is persisted to `RecordingStore`, no paste fires, Retry is offered, and `reTranscribeLastRecording()` recovers it.
+3. **App-level timeout fallback (T-FLOW-3 / J7).** Inject a hung transcribe/clean into `AppState`; assert it recovers within the deadline (HUD doesn't stick) — layering the app behavior on the already-proven `withTimeout` primitive.
+4. **Capture ordering + no-loss (T-CAP-1).** Drive `RecordingEngine` via a fixture/seam; assert total buffer duration ≈ input and temporal order is preserved (the long-recording-scramble regression).
+5. **Real STT ordered/complete output (T-STT-1,2).** A model-gated test (skips without weights) that loads WhisperKit and asserts non-empty, head/tail-complete transcription of a short fixture.
+
+### Tier 2 — integration (before every PR/release)
+6. **FM cleanup fallback (T-CLN-4).** Force `FoundationModelsCleanup` to time out; assert `usedFallback == true`, full text still returned, paste never blocked.
+7. **Telemetry save→weekly stats (T-TEL-1).** Save records via `TelemetryStore`; assert `fetchWeeklyStats`/`fetchUsageTotals` aggregate them (and `markCorrected` flips `correctionRate`) — extends `TelemetryRetentionTests`.
+8. **Correction window (J9).** Drive `markLastTranscriptCorrected()`; assert the row is flagged even when Just Talk wasn't focused.
+9. **Per-context cleanup override (T-FLOW-5 / J10).** Set cleanup Off for a bundle id; assert `effectiveLevel(forBundleId:)` yields raw vs cleaned by record-start app.
+10. **Clipboard restore + focus targeting (T-INS-2,3).** Drive `ClipboardPaster` against a scripted target; assert prior clipboard restored, newer user copy not clobbered, insertion hits the correct target.
+11. **Live `HotkeyManager` tap (T-ACT-1,2).** Harness the event tap; assert start/stop signal, toggle vs hold, and no global-input freeze under load (config layer is already covered by `HotkeyConfigTests`).
+12. **Permissions gating (T-PERM-1,2,3).** Assert status reads are non-prompting, capture won't start without mic, onboarding gates correctly.
+13. **Low-input warning (T-CAP-3,4 / T-HUD-2 / J5).** Feed a low-gain fixture; assert the HUD "too quiet" warning toggles with level.
+14. **Vocab-bias efficacy (T-STT-4, model-gated).** Assert `setVocabularyBias` measurably improves exact-spelling rate on a clip.
+
+### Tier 3 — edge / stress / quality (weekly / major release)
+15. **Long-audio + cleanup timeout (T-STT-3, T-CLN-7).** ~5-min fixture; assert full transcription and that cleanup either completes within the scaled timeout or falls back without collapse/balloon.
+16. **Multilingual (T-STT-6 / J4, model-gated).** Hinglish/Gujarati fixture transcribes sensibly; English-only tiers not offered as multilingual.
+17. **Clear-all-data (T-TEL-3 / J12).** *Blocked on §7 retention feature.* When the control lands, assert transcripts + saved recordings are wiped.
+18. **HUD off-screen reset (T-HUD-3).** A stale multi-monitor position snaps back to a visible default.
+19. **Sustained soak (J13).** Many back-to-back fixture dictations under load; every one inserts, keyboard never freezes.
+
+### iOS adapter line (blocked — §7, §8.3)
+*Prerequisite: restore the real keyboard extension from commit `1554186`; these are un-runnable against the current stub.*
+20. **iOS insert via `textDocumentProxy` (T-INS iOS / Flow 5).** XCUITest the keyboard committing cleaned text in a host app.
+21. **App-Group cross-process telemetry (T-TEL-2).** A record written by the host app is readable by the extension and vice-versa.
+22. **Keyboard-extension memory ceiling (§4).** The extension loads under its ~50 MB budget on the `tinyEn` tier without the heavy STT/LLM deps faulting it.
+
+**Backlog count:** **22 pending tests** — 5 Tier 1, 9 Tier 2, 5 Tier 3, 3 iOS-blocked.
+Implementing #1–#5 would convert the Tier-1 journeys (J2, J6, J7) and the capture/STT
+contracts from ⚠️/⛔ to ✅ and is the highest-value next step. **No test code was added or
+changed in this revision.**
