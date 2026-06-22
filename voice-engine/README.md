@@ -3,6 +3,18 @@
 Strategy-based audio + STT + cue-matching layer. Brand-agnostic and
 product-agnostic. See `docs/api.md`, `docs/architecture.md`, `docs/flows.md`.
 
+> **What this is — read first.** `voice-engine` is the **contract, data, and
+> research core — NOT a library the apps link against.** The Python `lab/` is
+> the real, working comparison harness; `cleanup-packs/` and
+> `docs/model-contracts.md` are the canonical data + contract. The TS `src/` is
+> a **reference skeleton** (only the `mock` strategy runs) that the production
+> apps *mirror in native code* — they do **not** import it. Production STT is
+> implemented per platform: `road-to-sale-app/ios` (SFSpeechRecognizer) +
+> `road-to-sale-app/android` (sherpa-onnx), and the macOS app in `dictation/`
+> links WhisperKit directly via `DictationCore`. Nothing in this repo imports
+> this TS package. (Former empty `ios/`/`android/` placeholder modules were
+> removed for this reason.)
+
 ## Two consumer shapes, one engine
 
 | Facade | Consumer | Entry point |
@@ -15,9 +27,7 @@ product-agnostic. See `docs/api.md`, `docs/architecture.md`, `docs/flows.md`.
 ```
 voice-engine/
 ├── lab/                  Python comparison lab (full implementation)
-├── src/                  TS library (skeleton; mock strategy works, Apple stub)
-├── ios/                  Swift native module — placeholder
-├── android/              Kotlin stub — placeholder
+├── src/                  TS reference skeleton (mock strategy works; mirrored natively by the apps)
 ├── tests/                TS vitest tests
 ├── docs/                 binding spec (api, architecture, flows)
 ├── package.json
