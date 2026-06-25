@@ -76,17 +76,25 @@ an app at a live BFF). It uses Docker for Postgres.
 
 **Start Docker Desktop first.** Then:
 
+Each command block below starts from the **repo root**
+(`.../Trika/roadtosale`). Use a separate terminal for steps 2 and 3 — the Core
+and BFF each run in the foreground.
+
 ```bash
-# 1) Postgres (docker-compose lives at the repo root)
+# 1) Postgres — from the repo root (docker-compose lives at the repo root)
 cd deployment && docker compose up -d
 # starts Postgres 16 on port 5432: database "roadtosale", user/password "roadtosale"
+```
 
-# 2) Core API (Java/Spring) on port 8090
-cd ../road-to-sale-app/backend
+```bash
+# 2) Core API (Java/Spring) on port 8090 — new terminal, from the repo root
+cd road-to-sale-app/backend
 ./build.sh        # mvn clean package -DskipTests → builds the jar
 ./run.sh          # mvn spring-boot:run, dev profile, port 8090
+```
 
-# 3) BFF (Node/Fastify) on port 8089 — in a second terminal
+```bash
+# 3) BFF (Node/Fastify) on port 8089 — new terminal, from the repo root
 cd road-to-sale-app/bff
 ./build.sh        # npm install + tsc --noEmit (type-check)
 ./run.sh          # tsx src/server.ts, port 8089, pointed at the Core
