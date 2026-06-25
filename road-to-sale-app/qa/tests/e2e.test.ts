@@ -13,11 +13,13 @@
  *   d. list sessions includes it
  *   e. POST a batch of real events (mix of >=0.6 and one <0.6), unique cueIds
  *   f. idempotent re-POST -> accepted == 0
- *   g. upload a photo (multipart) -> fileUrl served by Core
+ *   g. upload a real PNG (multipart) -> fileUrl is the BFF-relative content path;
+ *      fetch it THROUGH THE BFF with Bearer -> 200, image content-type, bytes match
  *   h. list photos includes it
  *   i. submit -> COMPLETED, derived outcomes, progress.answered
  *   j. re-submit -> 409; post events to completed session -> 409
  *   k. tenant isolation: rep2 GET rep1's session -> 404
+ *   l. photo-content authz: no token -> 401; rep2 (other tenant) -> 404 (B4 IDOR fix)
  *   + direct DB assertions: sessions / session_events / photos rows.
  */
 
@@ -195,9 +197,11 @@ describe("Road to Sale E2E (lifecycle through the BFF)", () => {
     expect(body.data?.accepted).toBe(0);
   });
 
-  it("g. upload photo (front_left) -> fileUrl served by Core", async () => {
+  it("g. upload real PNG (front_left) -> fileUrl is BFF content path; fetch through BFF with Bearer", async () => {
     const form = new FormData();
     form.append("slot", "front_left");
+    // Must be a REAL valid PNG — Core sniffs magic bytes against an
+    // image/{jpeg,png,webp} allow-list (B3) and rejects anything else with 400.
     form.append("file", new Blob([PNG_1X1], { type: "image/png" }), "front_left.png");
 
     const { status, body } = await http("POST", stack.bffBase, `/sessions/${sessionId}/photos`, {
@@ -205,14 +209,24 @@ describe("Road to Sale E2E (lifecycle through the BFF)", () => {
       body: form,
     });
     expect(status).toBe(200);
-    expect(body.data?.fileUrl).toMatch(/^\/files\//);
+    // fileUrl is now the BFF-relative authed content path (no more public /files/**).
+    expect(body.data?.fileUrl).toMatch(
+      /^\/sessions\/[^/]+\/photos\/[^/]+\/content$/,
+    );
     fileUrl = body.data.fileUrl;
 
-    // The fileUrl is public on Core (no auth) and returns the bytes.
-    const fileRes = await request(`${stack.coreBase}${fileUrl}`, { method: "GET", dispatcher });
+    // The bytes are served by the BFF (NOT the Core) behind auth. Fetch through
+    // the BFF with the Bearer token; assert 200, image content-type, byte parity.
+    const fileRes = await request(`${stack.bffBase}${fileUrl}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${rep1Token}` },
+      dispatcher,
+    });
     const bytes = Buffer.from(await fileRes.body.arrayBuffer());
     expect(fileRes.statusCode).toBe(200);
+    expect(String(fileRes.headers["content-type"] ?? "")).toMatch(/^image\//);
     expect(bytes.length).toBe(PNG_1X1.length);
+    expect(bytes.equals(PNG_1X1)).toBe(true);
   });
 
   it("h. GET photos includes the uploaded photo", async () => {
@@ -238,10 +252,13 @@ describe("Road to Sale E2E (lifecycle through the BFF)", () => {
     for (const qid of SATISFIED_QIDS) {
       expect(byQ.get(qid)?.satisfied, `q${qid} should be satisfied`).toBe(true);
     }
+    // TW7: the low-confidence question MUST have an outcome, and it MUST be
+    // unsatisfied. Asserting unconditionally (no `if`) so an absent outcome fails.
     const lowOutcome = byQ.get(UNSATISFIED_QID);
-    if (lowOutcome) expect(lowOutcome.satisfied).toBe(false);
+    expect(lowOutcome, `q${UNSATISFIED_QID} (confidence < 0.6) must have an outcome`).toBeTruthy();
+    expect(lowOutcome.satisfied, `q${UNSATISFIED_QID} should be unsatisfied`).toBe(false);
 
-    // progress.answered == count of satisfied questions (4); total 16.
+    // progress.answered counts ONLY the >=0.6 questions (4); total 16.
     expect(body.data.progress.total).toBe(16);
     expect(body.data.progress.answered).toBe(SATISFIED_QIDS.length);
   });
@@ -275,6 +292,28 @@ describe("Road to Sale E2E (lifecycle through the BFF)", () => {
       token: rep2Token,
     });
     expect(status).toBe(404);
+  });
+
+  it("l. photo-content authz: no token -> 401; rep2 (other tenant) -> 404 (B4 IDOR)", async () => {
+    expect(fileUrl, "fileUrl must have been captured in step g").toBeTruthy();
+
+    // (a) No Authorization header -> BFF requireAuth rejects with 401.
+    const noAuth = await request(`${stack.bffBase}${fileUrl}`, {
+      method: "GET",
+      dispatcher,
+    });
+    await noAuth.body.text();
+    expect(noAuth.statusCode).toBe(401);
+
+    // (b) rep2 (a different tenant) presents a valid token but the session/photo
+    // belongs to rep1 -> tenant-scoped lookup misses -> 404 (not 403, not bytes).
+    const otherTenant = await request(`${stack.bffBase}${fileUrl}`, {
+      method: "GET",
+      headers: { authorization: `Bearer ${rep2Token}` },
+      dispatcher,
+    });
+    await otherTenant.body.text();
+    expect(otherTenant.statusCode).toBe(404);
   });
 
   // ---- direct DB assertions: data really persisted -------------------------
