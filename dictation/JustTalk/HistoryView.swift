@@ -1,5 +1,34 @@
+import AppKit
 import SwiftUI
 import DictationCore
+
+// MARK: - HistoryWindow
+
+/// Hosts the History view in a normal titled window, managed in AppKit (like OnboardingWindow).
+/// Used so the menu-bar status-item popover can open History directly — `openWindow(id:)` does
+/// not reach a view hosted in an NSPopover outside the SwiftUI scene graph.
+@MainActor
+final class HistoryWindow {
+    private var window: NSWindow?
+
+    func show(appState: AppState) {
+        if window == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 540),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            w.title = "Just Talk History"
+            w.isReleasedWhenClosed = false
+            w.center()
+            w.contentView = NSHostingView(rootView: HistoryView().environmentObject(appState))
+            window = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+    }
+}
 
 /// Searchable dictation history. Copy a past transcript back to the clipboard to re-paste.
 struct HistoryView: View {
