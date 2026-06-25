@@ -32,6 +32,7 @@ ApiResponse<T> = { status: number; message: string; data: T | null }
 | 8 | `POST /sessions/:id/submit` | Bearer | `{transcript?}` | `submitSessionBody` |
 | 9 | `POST /sessions/:id/photos` | Bearer | multipart `{slot, file}` | params + in-handler slot check |
 | 10 | `GET /sessions/:id/photos` | Bearer | path `id` (uuid) | `sessionIdParams` |
+| 11 | `GET /sessions/:id/photos/:photoId/content` | Bearer | path `id`, `photoId` | params |
 | — | `GET /health` | public | — | reports `{ status, coreReachable }` |
 
 ## Status codes
@@ -58,5 +59,15 @@ non-empty.
 field and a `file` binary part. The BFF reads the parts via `@fastify/multipart`,
 validates the slot against the allowed enum, rebuilds the multipart body as an
 undici `FormData` (preserving field names `slot` and `file`, plus filename and
-MIME type), and POSTs it to Core's multipart endpoint. Core's `PhotoDTO`
+MIME type), and POSTs it to Core's multipart endpoint. Core enforces the
+JPEG/PNG/WebP allow-list (by sniffing the bytes) and the 10 MB cap, so a
+non-image relays back as `400` and an oversize file as `413`. Core's `PhotoDTO`
 envelope is relayed back unchanged.
+
+## Photo content relay
+
+`GET /sessions/:id/photos/:photoId/content` (endpoint 11) is the URL that
+`PhotoDTO.fileUrl` points at. The BFF checks the Bearer header is present
+(else `401` without calling Core), then streams Core's raw bytes back with
+Core's `Content-Type`. This is the **only** app-facing response that is not the
+`ApiResponse` JSON envelope. A cross-tenant photo relays back as Core's `404`.

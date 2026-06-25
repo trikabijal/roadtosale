@@ -97,7 +97,8 @@ is gone.
   `SessionService.java`. There is no stored mutable "answer" column.
 - **The NADA checksheet is static reference data, not a table.** It lives as a
   versioned JSON file (`backend/.../resources/checksheets/rts_honda_v1.json`,
-  code `RTS_HONDA_V1`) and is served via `GET /checksheet/{code}`.
+  code `RTS_HONDA_V1`). The app reads it via the BFF at `GET /checksheet/{code}`;
+  the BFF relays to the Core's `GET /api/v1/checksheets/{code}` (plural).
   `ChecksheetService` loads and caches it; an unknown code returns `404`.
 
 ### Why append-only plus derived outcomes
@@ -116,6 +117,11 @@ relevant table carries a `dealership_id`.
   `dealershipId` claims (`JwtService.java`). The Core reads `dealershipId` only
   from the verified token (`AuthenticatedUser`, injected via the `@CurrentUser`
   resolver). A `dealership_id` in a request body or query is ignored.
+- **The signing secret must be strong in production.** On startup outside the
+  `dev`/`test` profiles, `JwtService` refuses to boot if the JWT secret is
+  blank, is the known dev default, or is shorter than 32 bytes (256 bits). This
+  prevents a deploy from silently accepting forged tokens signed with a weak or
+  default key. There is no secret padding.
 - **Every query is scoped to the caller's dealership.** For example,
   `SessionService.requireOwnedSession` looks up a session with
   `findByIdAndDealershipId(sessionId, caller.dealershipId())`.
@@ -131,10 +137,10 @@ relevant table carries a `dealership_id`.
 | BFF | Node 20, TypeScript, Fastify | App-shaped concerns (validation messages, batching, multipart) stay close to the front end; the BFF shares TypeScript DTO types with the app. |
 | BFF role in v1 | Thin validating relay | Keeps business logic in one place (the Core) while still being a real, separate deployable so the app's shape never leaks into the Core. |
 | Migrations | Flyway versioned SQL | One canonical schema (`V1__init.sql`); Hibernate runs in `validate` mode, so the schema is never auto-mutated. |
-| Auth | JWT, access 1h / refresh 30d, BCrypt hashes | Stateless; the access token carries `userId` and `dealershipId` for tenant scoping. |
+| Auth | JWT, access 1h / refresh 30d, BCrypt hashes | Stateless; the access token carries `userId` and `dealershipId` for tenant scoping. The app's signing secret is checked at startup — see fail-fast below. |
 | Outcomes | Derived from events, threshold default 0.6 | No mutable answer state; the threshold is tunable. |
 | Checksheet | Static versioned JSON | The NADA question set does not change per session; no table is needed. |
-| Photo storage | Local disk behind a `StorageService` interface | Simple for v1; S3 is the likely later swap behind the same interface. |
+| Photo storage | Local disk behind a `StorageService` interface | Simple for v1; S3 is the likely later swap behind the same interface. Bytes are served only through the authed, tenant-scoped content endpoint — never a public URL. |
 
 ## Cross-cutting concerns
 
@@ -144,11 +150,36 @@ relevant table carries a `dealership_id`.
   `ApiResponse` with the right status: `ApiException.BadRequest` → 400,
   `Unauthorized` → 401, `NotFound` → 404, `Conflict` → 409, validation failures →
   400, anything unexpected → 500.
-- **Health.** Both services expose `GET /health` (public). The Core's check also
-  opens a DB connection (`HealthController`); the BFF's also reports Core
-  reachability.
+- **Health.** Both services expose `GET /health` (public; on the Core it stays
+  at the root, not under `/api/v1`). The Core's check also opens a DB connection
+  (`HealthController`); the BFF's also reports Core reachability (`coreReachable`).
 - **Logging.** Both log method, path, status, and latency per request. The BFF
   redacts the `Authorization` header and any `password` field; the Core never
   logs secrets or tokens.
 - **OpenAPI.** The Core serves Swagger UI at `/swagger-ui.html`; the BFF serves
   it at `/docs`.
+- **Photo bytes.** Served only via the authed, tenant-scoped content endpoint
+  (`GET /api/v1/sessions/{id}/photos/{photoId}/content` on the Core, relayed by
+  the BFF). Uploads are limited to JPEG/PNG/WebP (checked by sniffing the file's
+  leading bytes, not its declared type) and to 10 MB; an oversize upload returns
+  `413`.
+- **Request size limits (BFF).** The BFF caps JSON request bodies at 1 MiB and
+  the events batch at 500 items (`bff/src/server.ts`, `bff/src/schemas.ts`), so
+  oversized payloads are rejected before reaching the Core.
+- **Paginated listing.** `GET /sessions` is paginated (default page size 50,
+  hard cap 200) and batch-loads events for the page in one query — no per-session
+  N+1 (`SessionService.list`).
+
+## Known v1 limitations / deferred
+
+These are intentional v1 scope cuts, tracked for later work:
+
+- **No refresh-token rotation or revocation (W6).** Tokens are stateless and
+  valid until they expire (access 1h, refresh 30d). There is no logout, no
+  server-side denylist, and a refresh does not invalidate the old refresh token.
+  A stolen, unexpired token stays usable until it expires. Rotation + revocation
+  is planned for v2.
+- **`LoginRequest.deviceType` is accepted but unused (N3).** The field is
+  required and validated on both layers, but the Core does not yet store or act
+  on it. It is kept for forward device-tracking (e.g. per-device sessions or
+  push) so the contract does not have to change later.

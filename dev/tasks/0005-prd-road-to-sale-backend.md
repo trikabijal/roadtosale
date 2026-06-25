@@ -184,11 +184,17 @@ trusted from the request body.
 |---|---|---|
 | id | uuid (PK) | |
 | dealership_id | uuid (FK) | tenant |
-| username | text (unique per dealership) | |
+| username | text (globally unique — see post-review note) | |
 | password_hash | text | bcrypt/argon2 — never store plaintext |
 | name | text | display name |
 | roles | text[] | e.g. `{SALESPERSON}` |
 | created_at | timestamptz | |
+
+> **Post-review decision (W5):** `username` is **globally unique**
+> (`UNIQUE (username)`), not unique-per-dealership. Login looks a user up by
+> username alone (the credentials carry no dealership), so a per-dealership
+> uniqueness rule would make login ambiguous. `dealership_id` is still the tenant
+> FK and is indexed; it just is not part of the login key.
 
 **`sessions`** — the core entity (replaces SmartComply assignment/inspection)
 | column | type | notes |
@@ -211,12 +217,17 @@ trusted from the request body.
 | id | uuid (PK) | |
 | session_id | uuid (FK) | |
 | question_id | text | which NADA question the cue satisfies |
-| step_no | int | NADA step 1–10 |
+| step_no | int | NADA step 1–10 (CHECK `>= 1` — post-review) |
 | detected_at | timestamptz | when the cue fired |
-| confidence | numeric | 0..1 |
+| confidence | numeric(4,3) | 0..1 (CHECK `0..1` — post-review) |
 | transcript_span | text | the words that triggered it |
 | source | enum `feature` \| `workflow` | how the cue was detected |
 | cue_id | text | client-generated id for idempotency |
+
+> **Post-review decision (W2/W3):** `confidence` is stored as `numeric(4,3)` with
+> a `CHECK (confidence >= 0 AND confidence <= 1)`, and `step_no` carries a
+> `CHECK (step_no >= 1)`, so out-of-range values are rejected at the database, not
+> just in code.
 
 > **Why append-only:** a live session produces cues over time. Storing them as an
 > immutable event stream (not upserted rows) preserves the timeline, supports
@@ -297,6 +308,16 @@ ApiResponse<T> = { status: number; message: string; data: T }
 | 8 | `POST /sessions/:id/submit` | `submitSession` | `{transcript?}` → `SessionDTO` (status `COMPLETED`) |
 | 9 | `POST /sessions/:id/photos` | `uploadTradePhoto` | multipart `{slot, file}` → `PhotoDTO` |
 | 10 | `GET /sessions/:id/photos` | `getTradePhotos` | → `PhotoDTO[]` |
+| 11 | `GET /sessions/:id/photos/:photoId/content` | (new — replaces public `/files`) | → raw image bytes (authed) |
+
+> **Post-review decision (#9/#10 + §5 photos):** photo bytes are served **only**
+> through the authenticated, tenant-scoped endpoint #11 above
+> (`GET /sessions/{id}/photos/{photoId}/content`), which `PhotoDTO.fileUrl` points
+> at. The original public `/files/**` handler was an IDOR (any path under the
+> storage dir was world-readable) and was removed. Uploads are also restricted:
+> only JPEG/PNG/WebP images are accepted (validated by sniffing the file's leading
+> bytes, not the declared `Content-Type`) → `400` otherwise, and files are capped
+> at 10 MB → `413` over the cap.
 
 App-facing DTOs:
 
@@ -322,6 +343,8 @@ SessionEventDTO = {
 }
 
 PhotoDTO = { id, sessionId, slot, fileUrl, uploadedAt }
+// fileUrl is the BFF-relative content path:
+//   /sessions/{sessionId}/photos/{photoId}/content   (authed; see endpoint 11)
 ```
 
 Notes:
@@ -343,6 +366,13 @@ For v1 the BFF may be largely a validating relay (auth passthrough + reshape +
 batching), but it is a real, separate deployable so app-shaped concerns never
 leak into the Core.
 
+> **Post-review decision (TR1):** this is how it shipped — the Core's resource
+> endpoints **are** under `/api/v1` and the checksheet path is **plural**
+> (`GET /api/v1/checksheets/{code}`). `GET /health` stays at the **root** on the
+> Core. The app-facing BFF contract is unchanged: root paths and the singular
+> `GET /checksheet/{code}`. The BFF maps each app-facing path to the matching
+> Core `/api/v1` path in `bff/src/coreClient.ts`.
+
 ---
 
 ## 7. Functional Requirements
@@ -361,6 +391,12 @@ appropriate).
    without one (`401`).
 5. The access token must carry the user's `userId` and `dealershipId` as claims.
 
+> **Post-review decision (B1 — JWT prod fail-fast):** outside the `dev`/`test`
+> profiles the Core **refuses to start** if the JWT signing secret is blank, is
+> the known dev default, or is shorter than 32 bytes (256 bits). This stops a
+> production deploy from silently accepting forged tokens signed with a weak or
+> default key. There is no secret padding.
+
 **Multi-tenancy (critical)**
 6. Every data query must be scoped to the `dealershipId` from the caller's token.
 7. A user from dealership A must never be able to read or modify dealership B's
@@ -377,6 +413,9 @@ appropriate).
 11. A salesperson must be able to create a session with `type` `LIVE` or `MOCK`
     and an optional `context`. New sessions start with status `ACTIVE`.
 12. The system must list the authenticated user's sessions (most recent first).
+    **Post-review:** the list is **paginated** — `page`+`size` or `limit`+`offset`,
+    default size 50, hard cap 200 — and batch-loads each page's events in one
+    query (no N+1).
 13. The system must return a single session by id, including derived per-question
     `outcomes`.
 14. The system must let the user submit a session: set status `COMPLETED`, set
@@ -397,7 +436,11 @@ appropriate).
 **Photos**
 19. The system must accept a `multipart/form-data` upload of one photo for a given
     `slot` on a session, store the file via the storage abstraction, and return a
-    `PhotoDTO` with a retrievable `fileUrl`.
+    `PhotoDTO` with a retrievable `fileUrl`. **Post-review:** the upload is
+    restricted to JPEG/PNG/WebP images (validated by sniffing the file's leading
+    bytes → `400` otherwise) and capped at 10 MB (`413` over the cap); the
+    `fileUrl` resolves to the authed, tenant-scoped content endpoint (#11), not a
+    public path.
 20. The system must list all photos for a session.
 
 **Cross-cutting**
@@ -427,6 +470,14 @@ appropriate).
 - **Production deploy automation.** Local run + one manual dev deploy target is
   enough for v1 (full CI/CD is a follow-up per the org CI/CD playbook).
 - **Password reset / email flows.**
+- **Refresh-token rotation / revocation (post-review deferral, W6).** v1 tokens
+  are stateless and valid until they expire (access 1h, refresh 30d). There is no
+  logout, no server-side denylist, and a refresh does not invalidate the old
+  refresh token; a stolen, unexpired token stays usable until it expires.
+  Rotation + revocation is tracked for v2.
+- **`LoginRequest.deviceType` behavior (post-review note, N3).** The field is
+  required and validated on both layers but is not yet stored or used. It is kept
+  for forward device-tracking so the contract does not have to change later.
 
 ---
 
@@ -506,3 +557,20 @@ All six open questions are now **decided**:
 
 _No open questions remain. The threshold (0.6) is tunable and can be revisited
 once real sessions produce confidence distributions._
+
+## 13. Post-review decisions (resolved against the shipped code)
+
+A 5-agent code review (tracked in `dev/tasks/review-0005-findings.md`) produced a
+set of decisions that this PRD now reflects. These tightened the design rather
+than changing intent:
+
+| Area | Decision | PRD §updated |
+|---|---|---|
+| Core paths (TR1) | Core resource endpoints are under `/api/v1`; checksheet is plural `/api/v1/checksheets/{code}`; `/health` stays at root. App-facing BFF stays root + singular `/checksheet`. | §6.2 |
+| Photos (B3/B4) | No public `/files`. Bytes served via authed, tenant-scoped `GET /sessions/{id}/photos/{photoId}/content` (#11). Upload limited to JPEG/PNG/WebP (magic-byte sniff → `400`) and 10 MB (`413`). | §5, §6.1 #9–#11, §7 #19 |
+| Login identity (W5) | `users.username` is **globally unique**, not per-dealership. | §5.1 |
+| Event constraints (W2/W3) | `confidence` is `numeric(4,3)` with a `0..1` CHECK; `step_no` has a `>= 1` CHECK. | §5.1 |
+| Session list (W1) | `GET /sessions` is **paginated** (page+size or limit+offset; default 50, cap 200) and batch-loads events (no N+1). | §7 #12 |
+| Auth secret (B1) | JWT **fail-fast** in prod: refuse to start on a blank / dev-default / < 32-byte secret; no padding. | §7 (auth) |
+| Refresh tokens (W6) | **Deferred to v2:** stateless tokens, valid until expiry; no rotation, revocation, or logout. | §8 |
+| `deviceType` (N3) | Validated but unused for now; kept for forward device-tracking. | §8 |

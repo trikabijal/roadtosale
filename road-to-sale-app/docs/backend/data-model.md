@@ -34,8 +34,12 @@ Five tables. Primary keys are `uuid`, defaulted with `gen_random_uuid()` (the
 | `roles` | text[] | not null, default `'{}'`, e.g. `{SALESPERSON}` |
 | `created_at` | timestamptz | not null, default `now()` |
 
-Constraint: `uq_users_dealership_username` — `UNIQUE (dealership_id, username)`.
-A username is unique within a dealership, not globally.
+Constraint: `uq_users_username` — `UNIQUE (username)`. A username is unique
+**across all dealerships** (globally), because it is the login identity: login
+looks a user up by username alone (the credentials carry no dealership), so two
+users sharing a username would make login ambiguous. `dealership_id` is still
+the tenant FK and is indexed (`idx_users_dealership`); it just is not part of
+the login key.
 
 ### `sessions` — the core entity
 
@@ -62,16 +66,22 @@ tenant-scoped "list my sessions" query.
 | `id` | uuid | PK |
 | `session_id` | uuid | not null, FK → `sessions(id)` |
 | `question_id` | text | not null, which NADA question the cue satisfies |
-| `step_no` | int | not null, NADA step number |
+| `step_no` | int | not null, NADA step number, CHECK `>= 1` |
 | `detected_at` | timestamptz | not null, when the cue fired |
-| `confidence` | numeric | not null, 0..1 |
+| `confidence` | numeric(4,3) | not null, CHECK `>= 0 AND <= 1` |
 | `transcript_span` | text | nullable, the words that triggered it |
 | `source` | text | not null, CHECK `IN ('feature','workflow')` |
 | `cue_id` | text | not null, client-generated id for idempotency |
 
-Constraint: `uq_session_events_session_cue` — `UNIQUE (session_id, cue_id)`. This
-is the idempotency guarantee: a given `cueId` can be recorded at most once per
-session.
+Constraints:
+- `uq_session_events_session_cue` — `UNIQUE (session_id, cue_id)`. The
+  idempotency guarantee: a given `cueId` can be recorded at most once per
+  session.
+- `chk_session_events_confidence` — `CHECK (confidence >= 0 AND confidence <= 1)`.
+  Combined with the `numeric(4,3)` type, `confidence` is a number in `[0, 1]`
+  with three decimal places.
+- `chk_session_events_step_no` — `CHECK (step_no >= 1)`. NADA step numbers start
+  at 1.
 
 Index: `idx_session_events_session` on `(session_id)`.
 

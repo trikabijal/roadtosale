@@ -20,7 +20,8 @@ token, and the user record.
    the Core's `POST /auth/login`.
 4. **Core authenticates.** `AuthController.login` → `AuthService.login`
    (`backend/.../service/AuthService.java`): looks up the user
-   (`UserRepository.findByUsername`), checks the password with
+   (`UserRepository.findByUsername` — `username` is globally unique, so this is
+   unambiguous), checks the password with
    `BCryptPasswordEncoder.matches`. A wrong username or password throws
    `ApiException.Unauthorized` → `401`.
 5. **Core issues tokens.** `JwtService.issueAccessToken` and
@@ -79,17 +80,24 @@ derived outcomes. Every request carries `Authorization: Bearer <accessToken>`.
 - **BFF:** `photoRoutes` (`bff/src/routes/photos.ts`) reads the parts via
   `@fastify/multipart`, validates `slot` against the allowed list (invalid →
   `400`), rebuilds an `undici` `FormData` preserving the `file` and `slot` field
-  names, and calls `coreClient.uploadPhoto`.
+  names, and calls `coreClient.uploadPhoto` (→ `POST /api/v1/sessions/{id}/photos`).
 - **Core:** `PhotoController.upload` → `PhotoService.upload`. After the
-  tenant-scoped session check, it writes the bytes through the `StorageService`
-  interface. The implementation `LocalDiskStorage`
+  tenant-scoped session check, it validates the file: it sniffs the leading
+  bytes and accepts only JPEG, PNG, or WebP (a non-image → `400`), and rejects
+  files over 10 MB (→ `413`). It then writes the bytes through the
+  `StorageService` interface. The implementation `LocalDiskStorage`
   (`backend/.../storage/LocalDiskStorage.java`) stores the file under
   `roadtosale.storage.local-dir` (default `./data/photos`), namespaced by
   session: `<sessionId>/<uuid>.<ext>`. It inserts a `photos` row and returns a
-  `PhotoDTO` whose `fileUrl` is `/files/<sessionId>/<uuid>.<ext>`.
-- **Serving the bytes:** `WebConfig` registers a public resource handler for
-  `/files/**` pointing at the storage dir, so `GET <coreBase>/files/...` returns
-  the image (no auth needed for the file URL itself).
+  `PhotoDTO` whose `fileUrl` is the BFF-relative content path
+  `/sessions/<sessionId>/photos/<photoId>/content`.
+- **Serving the bytes:** there is no public `/files/**` handler. The app fetches
+  `PhotoDTO.fileUrl` with its Bearer token: `GET /sessions/{id}/photos/{photoId}/content`
+  on the BFF relays to `GET /api/v1/sessions/{id}/photos/{photoId}/content` on
+  the Core (`PhotoController.content` → `PhotoService.content`). The Core checks
+  the photo belongs to the caller's dealership; a missing token → `401`, a
+  cross-tenant photo → `404`. The response is the raw image bytes, not the JSON
+  envelope.
 
 ### d. Submit the session
 
@@ -101,7 +109,9 @@ derived outcomes. Every request carries `Authorization: Bearer <accessToken>`.
 
 ### e. Read back derived outcomes and progress
 
-- **App → BFF:** `GET /sessions/{id}` (or `GET /sessions` for summaries).
+- **App → BFF:** `GET /sessions/{id}` (or `GET /sessions` for a paginated list
+  of summaries — default page size 50, hard cap 200; the page's events are
+  batch-loaded in one query, so there is no per-session N+1).
 - **Core:** `SessionService.get` loads the session and its events, then
   `deriveOutcomes` computes one outcome per question that has events: the
   highest-confidence event wins, and `satisfied = confidence >= 0.6` (the

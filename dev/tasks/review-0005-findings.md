@@ -3,42 +3,50 @@
 Source: 5-agent code review (rubric ~/.claude/workflows/code-review*.md + PRD→code→tests→docs traceability), 2026-06-25.
 Status legend: ⬜ open · ✅ fixed · 🟡 deferred-with-rationale (v1-acceptable, tracked).
 
+> Closed 2026-06-25. All code findings fixed and verified green (Core 37 tests,
+> BFF 18, headless E2E 15 checks). Doc/plan/PRD findings closed in the same pass:
+> docs/backend/* refreshed to reality, `backend/docs/{api,architecture,flows}.md`
+> added (TR2), `docs/backend/testing.md` rewritten as a real test plan with a
+> Facade Coverage Ledger (TW9), the PRD reconciled with a "Post-review decisions"
+> section, and deferrals (W6, N3) documented honestly.
+
 ## BLOCKERS — security / correctness
-- ⬜ B1 Core: hardcoded fallback JWT secret accepted; secret-padding masks weak secrets. → fail-fast on prod if default/short; remove padding.
-- ⬜ B2 Core: photo upload no size cap; oversize → 500. → set multipart max-file-size; handle MaxUploadSizeExceededException → 413.
-- ⬜ B3 Core: photo upload accepts any content-type. → MIME allow-list (jpeg/png/webp) + magic-byte sniff; reject → 400.
-- ⬜ B4 Core: `/files/**` public + not tenant-scoped (photo-bytes IDOR). → remove public static handler; serve via authed tenant-scoped endpoint.
-- ⬜ T1 Tests: req #23 (secrets-never-logged) untested. → add assertion-on-logs test.
-- ⬜ T2 Tests: Core health test is false-confidence (static "ok"). → make it actually prove DB reachability.
-- ⬜ T3 Tests: req #8 (body dealership_id ignored) untested. → add forged-dealershipId test.
+- ✅ B1 Core: hardcoded fallback JWT secret accepted; secret-padding masks weak secrets. → fixed: `JwtService` fails fast in prod on blank/dev-default/<32-byte secret; padding removed.
+- ✅ B2 Core: photo upload no size cap; oversize → 500. → fixed: `spring.servlet.multipart.max-file-size` 10MB; `MaxUploadSizeExceededException` → 413 via `GlobalExceptionHandler`.
+- ✅ B3 Core: photo upload accepts any content-type. → fixed: MIME allow-list (jpeg/png/webp) by magic-byte sniff; non-image → 400.
+- ✅ B4 Core: `/files/**` public + not tenant-scoped (photo-bytes IDOR). → fixed: public static handler removed; bytes served via authed tenant-scoped `GET /api/v1/sessions/{id}/photos/{photoId}/content` (401 no token, 404 cross-tenant).
+- ✅ T1 Tests: req #23 (secrets-never-logged) untested. → fixed: `SecurityAndTokenTest.noTokensOrPasswordsAppearInLogs`.
+- ✅ T2 Tests: Core health test is false-confidence (static "ok"). → fixed: `ChecksheetAndHealthTest.healthIsPublicAndProvesDbReachability` opens a DB connection.
+- ✅ T3 Tests: req #8 (body dealership_id ignored) untested. → fixed: `SecurityAndTokenTest.forgedDealershipIdInBodyIsIgnored`.
 
 ## WARNINGS — should fix
-- ⬜ W1 Core: GET /sessions unbounded + N+1 event load. → pagination + batch findBySessionIdIn.
-- ⬜ W2 Core: confidence unbounded numeric, no 0..1 CHECK. → numeric(4,3) + CHECK.
-- ⬜ W3 Core: step_no unvalidated. → @Min(1) + CHECK.
-- ⬜ W5 Core: login lookup global (findByUsername) vs per-dealership unique → latent multi-tenant break. → make username globally unique; update PRD/docs.
-- 🟡 W6 Core: refresh token no rotation/revocation. → v1-acceptable per reviewer; document limitation + track.
-- ⬜ BFF1: requireAuth relies on implicit short-circuit. → explicit `return reply...`.
-- ⬜ BFF2: photo relay buffers fully but comment claims "never buffered". → stream via undici, or correct comment.
-- ⬜ BFF3: events array no maxItems / implicit bodyLimit. → add maxItems + explicit bodyLimit.
-- ⬜ TR1 Trace: Core path deviation vs PRD §6.2 (no /api/v1, /checksheet singular). → add /api/v1 to Core resource controllers + /checksheets plural; update BFF client + docs.
-- ⬜ TR2 Trace: backend/docs/{api,architecture,flows}.md missing (acceptance §11#8). → add module docs.
+- ✅ W1 Core: GET /sessions unbounded + N+1 event load. → fixed: paginated (page+size or limit+offset; default 50, cap 200) + `findBySessionIdIn` batch load.
+- ✅ W2 Core: confidence unbounded numeric, no 0..1 CHECK. → fixed: `numeric(4,3)` + `CHECK (0..1)`.
+- ✅ W3 Core: step_no unvalidated. → fixed: `@Min(1)` + `CHECK (step_no >= 1)`.
+- ✅ W5 Core: login lookup global (findByUsername) vs per-dealership unique → latent multi-tenant break. → fixed: `username` globally unique (`uq_users_username`); PRD/docs updated.
+- 🟡 W6 Core: refresh token no rotation/revocation. → deferred to v2 (v1-acceptable). Documented in PRD §8, `docs/backend/architecture.md` (Known v1 limitations), and the testing.md deferrals.
+- ✅ BFF1: requireAuth relies on implicit short-circuit. → fixed: explicit `return reply...` in `requireAuth`.
+- ✅ BFF2: photo relay buffers fully but comment claims "never buffered". → fixed: content relay streams via undici; upload comment corrected.
+- ✅ BFF3: events array no maxItems / implicit bodyLimit. → fixed: `maxItems: 500` on the events schema + explicit 1 MiB `bodyLimit` in `server.ts`.
+- ✅ TR1 Trace: Core path deviation vs PRD §6.2 (no /api/v1, /checksheet singular). → fixed: Core under `/api/v1` + plural `/checksheets`; `/health` at root; BFF client + docs + PRD updated.
+- ✅ TR2 Trace: backend/docs/{api,architecture,flows}.md missing (acceptance §11#8). → fixed: added concise Core module docs cross-linking the canonical `docs/backend/*`.
 
 ## TEST WARNINGS — missing negatives / weak assertions
-- ⬜ TW1 expired access+refresh token paths untested. → add.
-- ⬜ TW2 MOCK session type untested. → add.
-- ⬜ TW3 list ordering "recent first" unproven (single row). → 2-session ordering test.
-- ⬜ TW4 token claims (userId+dealershipId) not directly tested. → decode-claims test.
-- ⬜ TW5 OpenAPI/Swagger untested both layers. → hit /v3/api-docs + BFF /docs.
-- ⬜ TW6 photo path-traversal not tested. → negative test (../, bad filename).
-- ⬜ TW7 E2E low-outcome assertion is conditional (silently skips). → assert presence then false.
-- ⬜ TW8 Core idempotency asserts response only, not row count. → add Core row-count assertion.
-- ⬜ TW9 testing.md is post-hoc prose, not a plan (no Facade Coverage Ledger). → rewrite as real plan mapping PRD→behavior→tier→test.
+- ✅ TW1 expired access+refresh token paths untested. → fixed: `SecurityAndTokenTest` (`expiredAccessTokenIsRejectedOnProtectedRoute`, `expiredRefreshTokenIsRejectedOnRefresh`).
+- ✅ TW2 MOCK session type untested. → fixed: `SessionLifecycleTest.createMockSessionStartsActive`.
+- ✅ TW3 list ordering "recent first" unproven (single row). → fixed: `SessionLifecycleTest.listReturnsMostRecentFirst` (2 sessions).
+- ✅ TW4 token claims (userId+dealershipId) not directly tested. → fixed: `SecurityAndTokenTest.accessTokenCarriesUserIdAndDealershipIdClaims`.
+- ✅ TW5 OpenAPI/Swagger untested both layers. → fixed: Core `OpenApiTest` hits `/v3/api-docs`; BFF health/docs exercised (`/docs` served, health test asserts envelope).
+- 🟡 TW6 photo path-traversal not tested. → addressed **structurally**: the content endpoint takes a `photoId` UUID (not a filename) and storage writes server-generated `<uuid>` names, so no client-supplied path reaches the filesystem. No explicit `../` negative test (no reachable input). Noted in testing.md deferrals.
+- ✅ TW7 E2E low-outcome assertion is conditional (silently skips). → fixed: E2E step i asserts the below-threshold outcome is present and `satisfied: false`.
+- ✅ TW8 Core idempotency asserts response only, not row count. → fixed: `eventsAreIdempotentByCueId` asserts exactly one persisted row for the cueId.
+- ✅ TW9 testing.md is post-hoc prose, not a plan (no Facade Coverage Ledger). → fixed: rewritten as a real plan with a Facade Coverage Ledger mapping every PRD §7 req + §11 AC to a behavior, tier, and real test.
 
 ## NITS — fix cheap, drop rest
-- ⬜ N1 Core: dev seed logs plaintext password. → remove from log.
-- ⬜ N6 Core: requireOwnedSession duplicated in 2 services (security primitive). → extract shared helper.
-- ⬜ BFF-N: unused @fastify/jwt dependency. → remove.
-- ⬜ BFF-N: /health contract missing `coreReachable`. → add to openapi.yaml.
-- 🟡 N3 Core: deviceType validated but unused. → drop field or keep; low priority (keep, documented).
-- ✅ Docs: reviewer found docs accurate (zero blockers); minor NITs folded into TR2/doc refresh.
+- ✅ N1 Core: dev seed logs plaintext password. → fixed: plaintext password no longer logged by the seed.
+- ✅ N6 Core: requireOwnedSession duplicated in 2 services (security primitive). → fixed: extracted to a shared helper.
+- ✅ BFF-N: unused @fastify/jwt dependency. → fixed: dependency removed.
+- ✅ BFF-N: /health contract missing `coreReachable`. → fixed: `coreReachable` in `openapi.yaml` and the BFF health response.
+- 🟡 N3 Core: deviceType validated but unused. → kept (documented): validated on both layers, unused for now; retained for forward device-tracking. Noted in PRD §8 and `docs/backend/architecture.md`.
+- ✅ Docs: reviewer found docs accurate (zero blockers); minor NITs folded into TR2/doc refresh — docs/backend/* refreshed to match the post-review code.
+</content>

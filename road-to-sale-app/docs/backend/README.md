@@ -81,6 +81,10 @@ On the `dev` profile the Core runs Flyway migrations on start and seeds two
 dealerships and two users (see [data-model.md](./data-model.md) for seed
 credentials). It needs a reachable Postgres (`SPRING_DATASOURCE_*`).
 
+> Outside `dev`/`test`, the Core will not start unless `JWT_SECRET` is set to a
+> real value: at least 32 bytes and not the dev default. This stops a production
+> deploy from accepting tokens signed with a weak or default key.
+
 ### 3. Build and run the BFF
 
 ```bash
@@ -95,14 +99,14 @@ existing config expects the BFF on port 8089.
 ### 4. Run the unit tests
 
 ```bash
-cd road-to-sale-app/backend && ./test.sh   # 25 Core slice tests (embedded Postgres)
-cd road-to-sale-app/bff     && ./test.sh   # 14 BFF unit tests (Core mocked)
+cd road-to-sale-app/backend && ./test.sh   # 37 Core slice tests (embedded Postgres)
+cd road-to-sale-app/bff     && ./test.sh   # 18 BFF unit tests (Core mocked)
 ```
 
 ### 5. Run the headless full-stack E2E
 
 ```bash
-cd road-to-sale-app/qa && ./test.sh        # 14 checks, full lifecycle + DB assertions
+cd road-to-sale-app/qa && ./test.sh        # 15 checks, full lifecycle + DB assertions
 ```
 
 This boots a real Postgres in-process (the `embedded-postgres` package — **no
@@ -120,5 +124,14 @@ persisted. See [testing.md](./testing.md).
   append-only event log, and how outcomes are derived.
 - [flows.md](./flows.md) — end-to-end walkthroughs naming the real files: login,
   a full live session, and tenant isolation.
-- [testing.md](./testing.md) — the test strategy, tiers, and what the E2E
-  asserts. Doubles as the test plan.
+- [testing.md](./testing.md) — the test plan: a Facade Coverage Ledger mapping
+  every PRD requirement and acceptance criterion to a tier and a real test, plus
+  tiers and deferrals.
+
+## Known v1 limitations
+
+Two intentional v1 scope cuts are documented in
+[architecture.md](./architecture.md#known-v1-limitations--deferred): refresh
+tokens are **not** rotated or revoked (stateless, valid until expiry; no
+logout/denylist), and `LoginRequest.deviceType` is validated but currently
+unused (kept for forward device-tracking).
