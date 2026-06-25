@@ -20,7 +20,12 @@
     <properties>
         <java.version>17</java.version>
         <springdoc.version>2.6.0</springdoc.version>
-        <zonky.embedded.version>2.6.0</zonky.embedded.version>
+        <!-- 2.2.2 is the latest published io.zonky.test:embedded-postgres
+             (the Phase-1 placeholder 2.6.0 was never released to Central). -->
+        <zonky.embedded.version>2.2.2</zonky.embedded.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <!-- zonky 2.2.2 needs commons-lang3 >= 3.18 (SystemProperties.getUserName). -->
+        <commons-lang3.version>3.18.0</commons-lang3.version>
     </properties>
 
     <dependencies>
@@ -72,6 +77,25 @@
             <version>${springdoc.version}</version>
         </dependency>
 
+        <!-- JWT (jjwt) for access/refresh token issuance + validation -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
         <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -89,6 +113,13 @@
             <groupId>io.zonky.test</groupId>
             <artifactId>embedded-postgres</artifactId>
             <version>${zonky.embedded.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Apple Silicon Postgres binary (zonky 2.2.2 only declares amd64). -->
+        <dependency>
+            <groupId>io.zonky.test.postgres</groupId>
+            <artifactId>embedded-postgres-binaries-darwin-arm64v8</artifactId>
+            <version>16.2.0</version>
             <scope>test</scope>
         </dependency>
         <dependency>

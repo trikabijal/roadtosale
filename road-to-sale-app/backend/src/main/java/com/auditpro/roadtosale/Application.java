@@ -1,7 +1,9 @@
 package com.auditpro.roadtosale;
 
+import com.auditpro.roadtosale.config.RoadToSaleProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
 /**
  * Road to Sale Core API — entry point.
@@ -12,6 +14,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * <p>Phase 1 scaffold only: controllers/services/repositories land in Phase 2.
  */
 @SpringBootApplication
+@EnableConfigurationProperties(RoadToSaleProperties.class)
 public class Application {
 
     public static void main(String[] args) {
