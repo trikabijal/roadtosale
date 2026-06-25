@@ -1,0 +1,675 @@
+openapi: 3.0.3
+info:
+  title: Road to Sale — App-facing API (BFF)
+  description: |
+    The authoritative app-facing contract for the Road to Sale mobile app.
+    The React Native front end talks ONLY to the BFF, which implements these
+    endpoints. The BFF relays/reshapes to the internal Core API (Java/Spring).
+
+    This file is the single source of truth shared by the BFF (implementation)
+    and the QA harness (black-box E2E). All responses except multipart photo
+    upload use the ApiResponse envelope: { status, message, data }.
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8089
+    description: BFF (local dev)
+
+tags:
+  - name: health
+  - name: auth
+  - name: checksheet
+  - name: sessions
+  - name: events
+  - name: photos
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness/readiness probe
+      security: []
+      responses:
+        "200":
+          description: Service reachable
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Log in with username + password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Exchange a refresh token for a new token pair
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshRequest"
+      responses:
+        "200":
+          description: New token pair issued
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/RefreshResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+
+  /checksheet/{code}:
+    get:
+      tags: [checksheet]
+      summary: Get a NADA checksheet by code (static reference data)
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema:
+            type: string
+          example: RTS_HONDA_V1
+      responses:
+        "200":
+          description: Checksheet
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/ChecksheetDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sessions:
+    get:
+      tags: [sessions]
+      summary: List the authenticated user's sessions (most recent first)
+      responses:
+        "200":
+          description: Session summaries
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/SessionSummaryDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      tags: [sessions]
+      summary: Create a new session (status starts ACTIVE)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSessionRequest"
+      responses:
+        "200":
+          description: Created session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sessions/{id}:
+    get:
+      tags: [sessions]
+      summary: Get a single session by id (with derived per-question outcomes)
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDTO"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /sessions/{id}/events:
+    post:
+      tags: [events]
+      summary: Append a batch of detected cue events (idempotent by cueId)
+      description: |
+        Events whose cueId was already recorded for the session are ignored
+        (not errored). The session must be ACTIVE; a COMPLETED session returns 409.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostEventsRequest"
+      responses:
+        "200":
+          description: Events accepted
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PostEventsResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sessions/{id}/submit:
+    post:
+      tags: [sessions]
+      summary: Submit (complete) a session
+      description: |
+        Sets status COMPLETED, sets endedAt, stores the optional final transcript.
+        Submitting an already-completed session returns 409.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitSessionRequest"
+      responses:
+        "200":
+          description: Completed session
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/SessionDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /sessions/{id}/photos:
+    get:
+      tags: [photos]
+      summary: List all photos for a session
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Photos
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PhotoDTO"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      tags: [photos]
+      summary: Upload one trade-in photo for a slot (multipart)
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [slot, file]
+              properties:
+                slot:
+                  $ref: "#/components/schemas/PhotoSlot"
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Uploaded photo
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/ApiResponse"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PhotoDTO"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  security:
+    - bearerAuth: []
+
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    BadRequest:
+      description: Invalid input
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    Unauthorized:
+      description: Missing or invalid access token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    NotFound:
+      description: Resource not found (also used for cross-tenant access)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+    Conflict:
+      description: Conflicting state (e.g. session already COMPLETED)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ApiResponse"
+
+  schemas:
+    ApiResponse:
+      type: object
+      description: Standard response envelope for all JSON responses.
+      required: [status, message, data]
+      properties:
+        status:
+          type: integer
+          description: HTTP status code
+          example: 200
+        message:
+          type: string
+          example: OK
+        data:
+          description: Payload (nullable on error)
+          nullable: true
+
+    SessionType:
+      type: string
+      enum: [LIVE, MOCK]
+
+    SessionStatus:
+      type: string
+      enum: [ACTIVE, COMPLETED]
+
+    EventSource:
+      type: string
+      enum: [feature, workflow]
+
+    PhotoSlot:
+      type: string
+      enum:
+        - front_left
+        - front_right
+        - rear_left
+        - rear_right
+        - interior
+        - odometer
+        - vin
+
+    ResultType:
+      type: string
+      enum: [CUE, FREE_TEXT, NUMERIC, PHOTO]
+
+    user:
+      type: object
+      required: [id, username, name, dealershipId, roles]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        name:
+          type: string
+        dealershipId:
+          type: string
+          format: uuid
+        roles:
+          type: array
+          items:
+            type: string
+
+    LoginRequest:
+      type: object
+      required: [username, password, deviceType]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        deviceType:
+          type: string
+          example: ios
+
+    LoginResponse:
+      type: object
+      required: [accessToken, refreshToken, user]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: "#/components/schemas/user"
+
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    RefreshResponse:
+      type: object
+      required: [accessToken, refreshToken]
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+
+    SessionContext:
+      type: object
+      description: Optional free-form session context.
+      properties:
+        customerName:
+          type: string
+        vehicleOfInterest:
+          type: string
+
+    CreateSessionRequest:
+      type: object
+      required: [type, checksheetCode]
+      properties:
+        type:
+          $ref: "#/components/schemas/SessionType"
+        checksheetCode:
+          type: string
+          example: RTS_HONDA_V1
+        context:
+          $ref: "#/components/schemas/SessionContext"
+
+    SubmitSessionRequest:
+      type: object
+      properties:
+        transcript:
+          type: string
+
+    SessionProgress:
+      type: object
+      required: [answered, total]
+      properties:
+        answered:
+          type: integer
+        total:
+          type: integer
+
+    SessionSummaryDTO:
+      type: object
+      required: [id, type, status, checksheetCode, startedAt, progress]
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/SessionType"
+        status:
+          $ref: "#/components/schemas/SessionStatus"
+        checksheetCode:
+          type: string
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        context:
+          $ref: "#/components/schemas/SessionContext"
+        progress:
+          $ref: "#/components/schemas/SessionProgress"
+
+    SessionOutcome:
+      type: object
+      required: [questionId, stepNo, satisfied]
+      properties:
+        questionId:
+          type: string
+        stepNo:
+          type: integer
+        satisfied:
+          type: boolean
+        confidence:
+          type: number
+          format: float
+          nullable: true
+        transcriptSpan:
+          type: string
+          nullable: true
+
+    SessionDTO:
+      allOf:
+        - $ref: "#/components/schemas/SessionSummaryDTO"
+        - type: object
+          required: [outcomes]
+          properties:
+            transcript:
+              type: string
+              nullable: true
+            outcomes:
+              type: array
+              items:
+                $ref: "#/components/schemas/SessionOutcome"
+
+    SessionEventDTO:
+      type: object
+      required: [cueId, questionId, stepNo, detectedAt, confidence, transcriptSpan, source]
+      properties:
+        cueId:
+          type: string
+          description: Client-generated id, unique per session for idempotency
+        questionId:
+          type: string
+        stepNo:
+          type: integer
+        detectedAt:
+          type: string
+          format: date-time
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        transcriptSpan:
+          type: string
+        source:
+          $ref: "#/components/schemas/EventSource"
+
+    PostEventsRequest:
+      type: object
+      required: [events]
+      properties:
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionEventDTO"
+
+    PostEventsResponse:
+      type: object
+      required: [accepted]
+      properties:
+        accepted:
+          type: integer
+          description: Number of new (non-duplicate) events appended
+
+    PhotoDTO:
+      type: object
+      required: [id, sessionId, slot, fileUrl, uploadedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        slot:
+          $ref: "#/components/schemas/PhotoSlot"
+        fileUrl:
+          type: string
+        uploadedAt:
+          type: string
+          format: date-time
+
+    ChecksheetQuestion:
+      type: object
+      required: [id, text, orderNo, isMandatory, resultType]
+      properties:
+        id:
+          type: string
+          description: question_id referenced by session_events
+        text:
+          type: string
+        orderNo:
+          type: integer
+        isMandatory:
+          type: boolean
+        resultType:
+          $ref: "#/components/schemas/ResultType"
+
+    ChecksheetStep:
+      type: object
+      required: [id, name, orderNo, questions]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        orderNo:
+          type: integer
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChecksheetQuestion"
+
+    ChecksheetDTO:
+      type: object
+      required: [code, name, version, steps]
+      properties:
+        code:
+          type: string
+          example: RTS_HONDA_V1
+        name:
+          type: string
+        version:
+          type: string
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChecksheetStep"
+
+security:
+  - bearerAuth: []
