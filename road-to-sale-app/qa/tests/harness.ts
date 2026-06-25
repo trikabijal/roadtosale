@@ -16,7 +16,7 @@
 
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer } from "node:net";
-import { mkdtempSync, mkdirSync, rmSync, existsSync, readdirSync, openSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, existsSync, readdirSync, statSync, openSync } from "node:fs";
 import { execSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -102,11 +102,35 @@ function findJar(): string {
   return "";
 }
 
-function buildJar(): void {
-  // Only build if the jar is missing — building is slow and the orchestrator
-  // may have pre-built it.
+function newestMtime(dir: string): number {
+  let newest = 0;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      newest = Math.max(newest, newestMtime(full));
+    } else {
+      newest = Math.max(newest, statSync(full).mtimeMs);
+    }
+  }
+  return newest;
+}
+
+/**
+ * The jar is stale if any Core source or the pom is newer than the built jar.
+ * Reusing a stale jar makes the E2E test old bytecode — a silent false result.
+ */
+function isJarStale(jar: string): boolean {
+  const jarMtime = statSync(jar).mtimeMs;
+  const srcDir = path.join(BACKEND_DIR, "src");
+  const pom = path.join(BACKEND_DIR, "pom.xml");
+  const srcNewest = existsSync(srcDir) ? newestMtime(srcDir) : 0;
+  const pomMtime = existsSync(pom) ? statSync(pom).mtimeMs : 0;
+  return Math.max(srcNewest, pomMtime) > jarMtime;
+}
+
+function buildJar(reason: string): void {
   // eslint-disable-next-line no-console
-  console.log("[harness] Core jar missing — building with Maven (skip tests)...");
+  console.log(`[harness] building Core jar with Maven (skip tests) — ${reason}...`);
   execSync("mvn -q clean package -DskipTests", {
     cwd: BACKEND_DIR,
     stdio: "inherit",
@@ -165,12 +189,18 @@ export async function startStack(): Promise<Stack> {
     // eslint-disable-next-line no-console
     console.log("[harness] embedded Postgres ready");
 
-    // 2) Ensure the Core jar exists (build only if missing).
+    // 2) Ensure a CURRENT Core jar exists. Rebuild if missing OR stale
+    //    (any Core source / pom newer than the jar) — a stale jar would test
+    //    old bytecode and give a false pass/fail.
     let jar = findJar();
     if (!jar) {
-      buildJar();
+      buildJar("jar missing");
       jar = findJar();
       if (!jar) throw new Error("Core jar not found after build");
+    } else if (isJarStale(jar)) {
+      buildJar("jar stale (sources newer than jar)");
+      jar = findJar();
+      if (!jar) throw new Error("Core jar not found after rebuild");
     }
     // eslint-disable-next-line no-console
     console.log(`[harness] using Core jar: ${path.basename(jar)}`);
