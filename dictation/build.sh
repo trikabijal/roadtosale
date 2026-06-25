@@ -89,11 +89,11 @@ case "$TARGET" in
     ;;
   install)
     build_macos
-    DEST="/Applications/$(basename "$BUILT_APP")"
-    echo "▶ Installing to $DEST…"
-    rm -rf "$DEST"
-    cp -R "$BUILT_APP" "$DEST"
-    echo "✓ Installed."
+    install_dest="/Applications/$(basename "$BUILT_APP")"
+    echo "Installing to $install_dest ..."
+    rm -rf "$install_dest"
+    cp -R "$BUILT_APP" "$install_dest"
+    echo "Installed."
     echo "  First launch: grant Microphone + Accessibility in"
     echo "  System Settings → Privacy & Security (Accessibility lets Fn paste & suppresses the emoji picker)."
     ;;
