@@ -41,6 +41,12 @@ public final class RecordingEngine: NSObject {
 
     private let audioEngine = AVAudioEngine()
     private var converter: AVAudioConverter?
+    private let targetFormat = AVAudioFormat(
+        commonFormat: .pcmFormatFloat32,
+        sampleRate: RecordingEngine.targetSampleRate,
+        channels: RecordingEngine.targetChannels,
+        interleaved: false
+    )!
 
     /// RMS below this threshold counts as silence. Default 0.01 (-40 dBFS approx).
     public var silenceThreshold: Float = 0.01
@@ -54,6 +60,16 @@ public final class RecordingEngine: NSObject {
     private var silenceStartDate: Date?
 
     private var isRunning = false
+
+    // Observer for AVAudioEngineConfigurationChange. macOS posts this — and STOPS the engine,
+    // killing the tap — whenever the audio I/O config changes: another app grabs/changes the
+    // default device, headphones plug in, sample rate shifts, etc. ("other software loaded").
+    // Without handling it, capture silently freezes mid-recording and only the audio BEFORE the
+    // change is kept → the classic "only the first part transcribed" bug. We re-arm the tap and
+    // restart the engine in place; the accumulated buffers live in the caller, so nothing already
+    // captured is lost. Serialized on the main queue with a guard so a burst can't re-enter.
+    private var configChangeObserver: NSObjectProtocol?
+    private var isReconfiguring = false
 
     // MARK: - Public API
 
@@ -92,6 +108,26 @@ public final class RecordingEngine: NSObject {
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         #endif
 
+        try armTapAndStart()
+
+        // Re-arm automatically if the audio I/O config changes mid-recording (default device
+        // change, sample-rate shift, headphones, another app seizing the device). macOS stops the
+        // engine on this notification, which used to silently truncate the recording.
+        configChangeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: audioEngine, queue: nil
+        ) { [weak self] _ in
+            self?.handleConfigurationChange()
+        }
+
+        isRunning = true
+        hasSpeechStarted = false
+        silenceStartDate = nil
+    }
+
+    /// Install the tap at the current hardware format and start the engine. Shared by `start()`
+    /// and the configuration-change recovery so both arm identically against the LIVE input
+    /// format (which may have changed). Does NOT touch `isRunning`/VAD state — the callers own that.
+    private func armTapAndStart() throws {
         let inputNode = audioEngine.inputNode
         // Defensive: clear any tap left over from a previous (possibly aborted) session.
         // Installing a second tap on the same bus raises an UNCATCHABLE ObjC exception that
@@ -107,23 +143,17 @@ public final class RecordingEngine: NSObject {
             throw RecordingError.audioFormatUnavailable
         }
 
-        let targetFormat = AVAudioFormat(
-            commonFormat: .pcmFormatFloat32,
-            sampleRate: Self.targetSampleRate,
-            channels: Self.targetChannels,
-            interleaved: false
-        )!
-
         guard let conv = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             throw RecordingError.audioFormatUnavailable
         }
         self.converter = conv
+        let target = targetFormat
 
         // Tap at the native hardware format, convert on the fly to 16kHz. Clamp the buffer
         // size so a momentarily-zero sample rate can't produce an invalid (0) buffer size.
         let hardwareBufferSize = max(AVAudioFrameCount(inputFormat.sampleRate * 0.1), 1024)
         inputNode.installTap(onBus: 0, bufferSize: hardwareBufferSize, format: inputFormat) { [weak self] buffer, _ in
-            self?.handleBuffer(buffer, converter: conv, targetFormat: targetFormat)
+            self?.handleBuffer(buffer, converter: conv, targetFormat: target)
         }
 
         audioEngine.prepare()
@@ -133,14 +163,33 @@ public final class RecordingEngine: NSObject {
             inputNode.removeTap(onBus: 0)   // don't leave a tap behind on a failed start
             throw RecordingError.engineFailedToStart(error)
         }
+    }
 
-        isRunning = true
-        hasSpeechStarted = false
-        silenceStartDate = nil
+    /// The audio I/O config changed and macOS stopped the engine. Re-arm the tap against the new
+    /// hardware format and restart so capture continues into the SAME buffer the caller is
+    /// accumulating — the user keeps talking, we keep recording. Posted on an arbitrary thread,
+    /// so we serialize onto main and guard against a re-entrant burst of notifications.
+    private func handleConfigurationChange() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.isRunning, !self.isReconfiguring else { return }
+            self.isReconfiguring = true
+            defer { self.isReconfiguring = false }
+            do {
+                try self.armTapAndStart()
+            } catch {
+                // Couldn't recover (e.g. no usable input device right now). Leave isRunning true:
+                // a later config change (device back) can re-arm, and stop() still tears down cleanly.
+                // The audio captured before the change is already safe in the caller's buffer.
+            }
+        }
     }
 
     public func stop() {
         guard isRunning else { return }
+        if let observer = configChangeObserver {
+            NotificationCenter.default.removeObserver(observer)
+            configChangeObserver = nil
+        }
         audioEngine.inputNode.removeTap(onBus: 0)
         audioEngine.stop()
         isRunning = false

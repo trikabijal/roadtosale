@@ -1,0 +1,84 @@
+# Road to Sale Core API — configuration.
+# The `dev` profile is the default for local runs. The `test` profile is wired
+# to a zonky embedded Postgres so the test suite runs headless (no Docker).
+
+spring:
+  application:
+    name: road-to-sale-backend
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      # Photo upload cap (B2): a single oversize file -> 413, never a 500.
+      max-file-size: 10MB
+      max-request-size: 12MB
+
+# Outcome derivation threshold (Phase 2 reads this): a question is "satisfied"
+# when its highest-confidence event has confidence >= this value.
+roadtosale:
+  outcome:
+    confidence-threshold: 0.6
+  auth:
+    # JWT lifetimes per PRD §7: access 1h, refresh 30d. Secret comes from env.
+    jwt-secret: ${JWT_SECRET:change-me-in-env-dev-only-secret-please}
+    access-token-ttl-seconds: 3600
+    refresh-token-ttl-seconds: 2592000
+  storage:
+    # Local-disk photo storage now; S3 is the likely later swap (behind interface).
+    local-dir: ${STORAGE_DIR:./data/photos}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/roadtosale}
+    username: ${SPRING_DATASOURCE_USERNAME:roadtosale}
+    password: ${SPRING_DATASOURCE_PASSWORD:roadtosale}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8090
+
+---
+spring:
+  config:
+    activate:
+      on-profile: test
+  # zonky embedded-database-spring-test provides a real Postgres binary
+  # in-process; @AutoConfigureEmbeddedDatabase wires the datasource in tests.
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    properties:
+      hibernate:
+        # Zonky swaps the datasource late; pin the dialect so Hibernate does not
+        # need live JDBC metadata while building the EntityManagerFactory.
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 0

@@ -1,6 +1,21 @@
 # macOS
 .DS_Store
 
+# Road to Sale backend (Core API — Maven)
+road-to-sale-app/backend/target/
+road-to-sale-app/backend/data/
+road-to-sale-app/backend/.env
+
+# Road to Sale BFF + QA (Node)
+road-to-sale-app/bff/node_modules/
+road-to-sale-app/bff/dist/
+road-to-sale-app/bff/.env
+road-to-sale-app/qa/node_modules/
+road-to-sale-app/qa/.env
+
+# deployment
+deployment/.env
+
 # Road to Sale app
 road-to-sale-app/node_modules/
 road-to-sale-app/.expo/

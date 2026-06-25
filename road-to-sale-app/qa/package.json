@@ -1,0 +1,22 @@
+{
+  "name": "road-to-sale-qa",
+  "version": "1.0.0",
+  "description": "Road to Sale headless E2E harness — drives ui→bff→backend through public facades only (black box).",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/pg": "^8.11.10",
+    "pg": "^8.13.1",
+    "typescript": "^5.6.3",
+    "undici": "^7.1.0",
+    "vitest": "^2.1.5"
+  },
+  "dependencies": {
+    "@embedded-postgres/darwin-arm64": "^18.4.0-beta.17",
+    "embedded-postgres": "^18.4.0-beta.17"
+  }
+}
