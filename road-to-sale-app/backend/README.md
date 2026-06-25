@@ -30,20 +30,27 @@ directly.
 
 ## Endpoints
 
+Core resource controllers live under `/api/v1`. Only `/health` sits at the
+root.
+
 | Method & path | Auth | Notes |
 |---|---|---|
-| `GET /health` | public | 200 when the service + DB are reachable |
-| `POST /auth/login` | public | `{username, password, deviceType}` → `{accessToken, refreshToken, user}` |
-| `POST /auth/refresh` | public | `{refreshToken}` → `{accessToken, refreshToken}` |
-| `GET /checksheet/{code}` | bearer | static NADA checksheet; unknown code → 404 |
-| `POST /sessions` | bearer | `{type, checksheetCode, context?}` → `SessionDTO` (ACTIVE) |
-| `GET /sessions` | bearer | caller's sessions, newest first |
-| `GET /sessions/{id}` | bearer | one session incl. derived outcomes; not yours → 404 |
-| `POST /sessions/{id}/submit` | bearer | `{transcript?}` → COMPLETED; already done → 409 |
-| `POST /sessions/{id}/events` | bearer | batch append, idempotent by cueId → `{accepted}`; completed → 409 |
-| `POST /sessions/{id}/photos` | bearer | multipart `{slot, file}` → `PhotoDTO` |
-| `GET /sessions/{id}/photos` | bearer | photos for a session |
-| `GET /files/**` | public | serves uploaded photo bytes (see below) |
+| `GET /health` | public | 200 when the service + DB are reachable (root, no `/api/v1`) |
+| `POST /api/v1/auth/login` | public | `{username, password, deviceType}` → `{accessToken, refreshToken, user}` |
+| `POST /api/v1/auth/refresh` | public | `{refreshToken}` → `{accessToken, refreshToken}` |
+| `GET /api/v1/checksheets/{code}` | bearer | static NADA checksheet; unknown code → 404 |
+| `POST /api/v1/sessions` | bearer | `{type, checksheetCode, context?}` → `SessionDTO` (ACTIVE) |
+| `GET /api/v1/sessions` | bearer | caller's sessions, newest first |
+| `GET /api/v1/sessions/{id}` | bearer | one session incl. derived outcomes; not yours → 404 |
+| `POST /api/v1/sessions/{id}/submit` | bearer | `{transcript?}` → COMPLETED; already done → 409 |
+| `POST /api/v1/sessions/{id}/events` | bearer | batch append, idempotent by cueId → `{accepted}`; completed → 409 |
+| `POST /api/v1/sessions/{id}/photos` | bearer | multipart `{slot, file}` → `PhotoDTO` |
+| `GET /api/v1/sessions/{id}/photos` | bearer | photos for a session |
+| `GET /api/v1/sessions/{id}/photos/{photoId}/content` | bearer | raw photo bytes (tenant-scoped; see below) |
+
+> The Core checksheet path is plural (`/api/v1/checksheets/{code}`). The
+> app-facing path the BFF exposes is singular (`GET /checksheet/{code}`). See
+> [docs/backend/api.md](../docs/backend/api.md).
 
 Swagger UI at `/swagger-ui.html`, OpenAPI JSON at `/v3/api-docs`.
 
@@ -52,8 +59,10 @@ Swagger UI at `/swagger-ui.html`, OpenAPI JSON at `/v3/api-docs`.
 - BCrypt password hashes. Access token TTL 3600s, refresh 2592000s.
 - Tokens carry `userId` and `dealershipId` claims. Refresh tokens carry
   `type=refresh` and cannot be used as access tokens.
-- Public routes: `/health`, `/auth/**`, `/v3/api-docs/**`, `/swagger-ui/**`,
-  `/files/**`. Everything else requires a valid access token (else 401).
+- Public routes: `/health`, `/api/v1/auth/**`, `/v3/api-docs/**`,
+  `/swagger-ui/**`, `/swagger-ui.html`. Everything else requires a valid access
+  token (else 401). There is no public `/files/**` route; photo bytes are served
+  only by the authenticated content endpoint below.
 
 ## Multi-tenancy
 
@@ -73,9 +82,18 @@ of satisfied questions.
 
 Photos are written via the `StorageService` interface (`LocalDiskStorage` impl)
 under `roadtosale.storage.local-dir` (default `./data/photos`), namespaced by
-session: `<sessionId>/<uuid>.<ext>`. The stored key is exposed as a retrievable
-URL: `PhotoDTO.fileUrl = /files/<sessionId>/<uuid>.<ext>`, served by a public
-resource handler. S3 is the likely later swap behind the same interface.
+session: `<sessionId>/<uuid>.<ext>`.
+
+Photo bytes are **not** served at a public `/files/**` URL. They are served only
+by the authenticated, tenant-scoped endpoint
+`GET /api/v1/sessions/{id}/photos/{photoId}/content`. (The old public resource
+handler was an IDOR — any path under the storage dir was world-readable — and
+has been removed; see `WebConfig`.)
+
+`PhotoDTO.fileUrl` is the **app-facing** logical path the BFF exposes:
+`/sessions/{sessionId}/photos/{photoId}/content` (no `/files`, no `/api/v1`).
+The app fetches it through the BFF, which maps it to the Core `/api/v1` path
+above. S3 is the likely later swap behind the same `StorageService` interface.
 
 ## Seed credentials (dev + E2E)
 
@@ -94,7 +112,7 @@ cross-tenant 404 behavior.
 
 ```bash
 # 1) login
-curl -s localhost:8090/auth/login -H 'Content-Type: application/json' \
+curl -s localhost:8090/api/v1/auth/login -H 'Content-Type: application/json' \
   -d '{"username":"rep1","password":"password123","deviceType":"ios"}'
 # → { "status":200, "message":"OK",
 #     "data": { "accessToken":"<JWT>", "refreshToken":"<JWT>",
@@ -102,7 +120,7 @@ curl -s localhost:8090/auth/login -H 'Content-Type: application/json' \
 #                         "dealershipId":"<uuid>", "roles":["SALESPERSON"] } } }
 
 # 2) create a session
-curl -s localhost:8090/sessions -H "Authorization: Bearer <JWT>" \
+curl -s localhost:8090/api/v1/sessions -H "Authorization: Bearer <JWT>" \
   -H 'Content-Type: application/json' \
   -d '{"type":"LIVE","checksheetCode":"RTS_HONDA_V1",
        "context":{"customerName":"Jane Doe","vehicleOfInterest":"CR-V"}}'
@@ -113,7 +131,7 @@ curl -s localhost:8090/sessions -H "Authorization: Bearer <JWT>" \
 #               "progress":{"answered":0,"total":16}, "outcomes":[] } }
 
 # 3) post a batch of events (idempotent by cueId)
-curl -s localhost:8090/sessions/<id>/events -H "Authorization: Bearer <JWT>" \
+curl -s localhost:8090/api/v1/sessions/<id>/events -H "Authorization: Bearer <JWT>" \
   -H 'Content-Type: application/json' \
   -d '{"events":[{"cueId":"c1","questionId":"1","stepNo":1,
        "detectedAt":"2026-06-25T10:00:00Z","confidence":0.8,

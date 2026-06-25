@@ -6,6 +6,10 @@ owns end to end, built around a **session**: a salesperson's recorded
 conversation with a customer, scored against the NADA "Road to the Sale" question
 set.
 
+> **New here? Start with [GETTING-STARTED.md](./GETTING-STARTED.md).** It walks
+> you through prerequisites, a one-command proof the stack works, a manual local
+> run, and what you are expected to build.
+
 > These docs cover the **backend stack** (BFF + Core + Postgres + QA). The
 > front-end app's own docs live one level up in `road-to-sale-app/docs/`
 > (`architecture.md`, `api.md`, `flows.md`, `build.md`).
@@ -113,6 +117,13 @@ This boots a real Postgres in-process (the `embedded-postgres` package — **no
 Docker daemon**), the Core jar, and the BFF, then drives the full session
 lifecycle through the BFF and reads Postgres directly to confirm the data
 persisted. See [testing.md](./testing.md).
+
+> Version note: you will see different Postgres versions depending on the path,
+> and that is expected. Local dev (docker-compose) runs **Postgres 16**. The
+> Core's own Maven tests (`backend/test.sh`) use the zonky embedded binary,
+> also **Postgres 16**. The headless qa E2E (`qa/test.sh`) uses the npm
+> `embedded-postgres` package, which currently ships **Postgres 18** — so the
+> qa logs will show a higher version than docker-compose. Nothing is broken.
 
 ## The other docs
 
