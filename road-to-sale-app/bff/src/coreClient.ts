@@ -109,36 +109,38 @@ export const coreClient = {
   },
 
   // ---- auth (public) -------------------------------------------------------
+  // NOTE: Core serves at the root (no /api/v1 prefix) and uses the SINGULAR
+  // /checksheet/{code}. These paths must match the Core's runtime routes.
   login(payload: LoginRequest): Promise<CoreResult> {
-    return call("POST", "/api/v1/auth/login", { json: payload });
+    return call("POST", "/auth/login", { json: payload });
   },
   refresh(payload: RefreshRequest): Promise<CoreResult> {
-    return call("POST", "/api/v1/auth/refresh", { json: payload });
+    return call("POST", "/auth/refresh", { json: payload });
   },
 
   // ---- checksheet ----------------------------------------------------------
   getChecksheet(code: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/api/v1/checksheets/${encodeURIComponent(code)}`,
+      `/checksheet/${encodeURIComponent(code)}`,
       { authorization },
     );
   },
 
   // ---- sessions ------------------------------------------------------------
   listSessions(authorization?: string): Promise<CoreResult> {
-    return call("GET", "/api/v1/sessions", { authorization });
+    return call("GET", "/sessions", { authorization });
   },
   createSession(
     payload: CreateSessionRequest,
     authorization?: string,
   ): Promise<CoreResult> {
-    return call("POST", "/api/v1/sessions", { authorization, json: payload });
+    return call("POST", "/sessions", { authorization, json: payload });
   },
   getSession(id: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/api/v1/sessions/${encodeURIComponent(id)}`,
+      `/sessions/${encodeURIComponent(id)}`,
       { authorization },
     );
   },
@@ -149,7 +151,7 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/api/v1/sessions/${encodeURIComponent(id)}/submit`,
+      `/sessions/${encodeURIComponent(id)}/submit`,
       { authorization, json: payload },
     );
   },
@@ -162,7 +164,7 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/api/v1/sessions/${encodeURIComponent(id)}/events`,
+      `/sessions/${encodeURIComponent(id)}/events`,
       { authorization, json: payload },
     );
   },
@@ -171,7 +173,7 @@ export const coreClient = {
   listPhotos(id: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/api/v1/sessions/${encodeURIComponent(id)}/photos`,
+      `/sessions/${encodeURIComponent(id)}/photos`,
       { authorization },
     );
   },
@@ -187,7 +189,7 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/api/v1/sessions/${encodeURIComponent(id)}/photos`,
+      `/sessions/${encodeURIComponent(id)}/photos`,
       { authorization, body: form },
     );
   },

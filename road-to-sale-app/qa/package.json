@@ -14,5 +14,9 @@
     "typescript": "^5.6.3",
     "undici": "^7.1.0",
     "vitest": "^2.1.5"
+  },
+  "dependencies": {
+    "@embedded-postgres/darwin-arm64": "^18.4.0-beta.17",
+    "embedded-postgres": "^18.4.0-beta.17"
   }
 }
