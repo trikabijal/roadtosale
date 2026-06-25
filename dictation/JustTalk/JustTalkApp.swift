@@ -47,6 +47,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var stateCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Single-instance guard. Two copies (a stale /Applications build + the dev build, or a
+        // duplicated login item) each install a global hotkey tap and grab the mic, so the instance
+        // you're watching often isn't the one recording — the "icon won't light up / no HUD / wrong
+        // History" confusion. If another instance with our bundle id is already running, hand off to
+        // it and quit, so exactly one menu-bar presence exists.
+        let me = NSRunningApplication.current
+        let other = NSWorkspace.shared.runningApplications.first {
+            $0.bundleIdentifier == me.bundleIdentifier && $0.processIdentifier != me.processIdentifier
+        }
+        if let other {
+            NSLog("JustTalk: another instance (pid \(other.processIdentifier)) is already running — exiting to stay single-instance.")
+            other.activate()
+            NSApp.terminate(nil)
+            return
+        }
+
         let appState = AppState.shared
 
         // Popover hosting the existing SwiftUI menu content. `.transient` closes it on an

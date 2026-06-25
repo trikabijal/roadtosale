@@ -98,6 +98,15 @@ public actor TelemetryStore {
     public init(databaseURL: URL) throws {
         var config = Configuration()
         config.label = "DictationTelemetry"
+        // Harden against concurrent access from a second app instance (a stale copy still in the
+        // menu bar, a duplicate login item). With the default rollback journal, the second process
+        // to write hits "database is locked" and its store init throws — leaving that instance's
+        // History silently empty while the other writes fine. WAL lets readers and a writer coexist
+        // across processes; the busy timeout waits out a transient lock instead of failing.
+        config.busyMode = .timeout(5)
+        config.prepareDatabase { db in
+            try db.execute(sql: "PRAGMA journal_mode = WAL")
+        }
         self.dbQueue = try DatabaseQueue(path: databaseURL.path, configuration: config)
         try Self.migrate(dbQueue)
     }
