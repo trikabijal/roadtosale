@@ -22,7 +22,7 @@ class TenantIsolationTest extends AbstractIntegrationTest {
     private String createSessionAs(String token) throws Exception {
         String body = objectMapper.writeValueAsString(
                 Map.of("type", "LIVE", "checksheetCode", "RTS_HONDA_V1"));
-        MvcResult res = mockMvc.perform(post("/sessions")
+        MvcResult res = mockMvc.perform(post("/api/v1/sessions")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON).content(body)).andReturn();
         return dataOf(res).path("id").asText();
@@ -34,7 +34,7 @@ class TenantIsolationTest extends AbstractIntegrationTest {
         String rep2Session = createSessionAs(rep2);
 
         String rep1 = login("rep1", SeedService.DEFAULT_PASSWORD);
-        mockMvc.perform(get("/sessions/" + rep2Session).header("Authorization", bearer(rep1)))
+        mockMvc.perform(get("/api/v1/sessions/" + rep2Session).header("Authorization", bearer(rep1)))
                 .andExpect(status().isNotFound());
     }
 
@@ -44,7 +44,7 @@ class TenantIsolationTest extends AbstractIntegrationTest {
         String rep2Session = createSessionAs(rep2);
 
         String rep1 = login("rep1", SeedService.DEFAULT_PASSWORD);
-        mockMvc.perform(post("/sessions/" + rep2Session + "/submit")
+        mockMvc.perform(post("/api/v1/sessions/" + rep2Session + "/submit")
                         .header("Authorization", bearer(rep1))
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isNotFound());
@@ -60,7 +60,7 @@ class TenantIsolationTest extends AbstractIntegrationTest {
                 "cueId", "x", "questionId", "1", "stepNo", 1,
                 "detectedAt", "2026-06-25T10:00:00Z", "confidence", 0.9,
                 "transcriptSpan", "hi", "source", "feature"))));
-        mockMvc.perform(post("/sessions/" + rep2Session + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + rep2Session + "/events")
                         .header("Authorization", bearer(rep1))
                         .contentType(MediaType.APPLICATION_JSON).content(events))
                 .andExpect(status().isNotFound());
@@ -73,7 +73,7 @@ class TenantIsolationTest extends AbstractIntegrationTest {
 
         String rep1 = login("rep1", SeedService.DEFAULT_PASSWORD);
         // rep1 created nothing; rep2's session must not appear.
-        mockMvc.perform(get("/sessions").header("Authorization", bearer(rep1)))
+        mockMvc.perform(get("/api/v1/sessions").header("Authorization", bearer(rep1)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data").isArray())
                 .andExpect(jsonPath("$.data.length()").value(0));

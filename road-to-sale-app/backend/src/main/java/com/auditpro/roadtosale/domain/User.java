@@ -12,7 +12,12 @@ import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-/** A salesperson (and future roles). Unique by (dealership_id, username). */
+/**
+ * A salesperson (and future roles). {@code username} is the GLOBAL login identity
+ * (unique across all dealerships) — login resolves a user by username alone, so it
+ * must be globally unique (W5). {@code dealershipId} is the tenant FK, not part of
+ * the login key.
+ */
 @Entity
 @Table(name = "users")
 public class User {

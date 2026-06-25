@@ -24,8 +24,17 @@ import { errorEnvelope } from "./util.js";
 const PORT = Number(process.env.PORT ?? 8089);
 const HOST = process.env.HOST ?? "0.0.0.0";
 
+/**
+ * Explicit JSON body limit (1 MiB). Caps the size of any non-multipart
+ * request body the BFF will parse, independent of Fastify's implicit default.
+ * Multipart photo uploads bypass this and are bounded separately by the
+ * @fastify/multipart fileSize cap (25 MiB) registered below.
+ */
+const JSON_BODY_LIMIT_BYTES = 1024 * 1024;
+
 export async function buildServer(): Promise<FastifyInstance> {
   const app = Fastify({
+    bodyLimit: JSON_BODY_LIMIT_BYTES,
     logger: {
       // Never log Authorization headers or password fields.
       redact: {
@@ -108,7 +117,21 @@ export async function buildServer(): Promise<FastifyInstance> {
   // ---- health (also reports Core reachability) ----------------------------
   app.get(
     "/health",
-    { schema: { tags: ["health"], summary: "Liveness/readiness probe" } },
+    {
+      schema: {
+        tags: ["health"],
+        summary: "Liveness/readiness probe (also reports Core reachability)",
+        response: {
+          200: {
+            type: "object",
+            properties: {
+              status: { type: "string" },
+              coreReachable: { type: "boolean" },
+            },
+          },
+        },
+      },
+    },
     async () => {
       const coreReachable = await coreClient.health();
       return { status: "ok", coreReachable };

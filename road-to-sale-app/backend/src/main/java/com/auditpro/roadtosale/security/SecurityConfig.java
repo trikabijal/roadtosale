@@ -11,19 +11,19 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 /**
- * Stateless JWT security. Public routes: health, auth, OpenAPI/Swagger, and the
- * uploaded-file serving route. Everything else requires a valid access token.
+ * Stateless JWT security. Public routes: health, auth, and OpenAPI/Swagger.
+ * Everything else (including photo bytes via the authed content endpoint)
+ * requires a valid access token.
  */
 @Configuration
 public class SecurityConfig {
 
     private static final String[] PUBLIC_PATHS = {
             "/health",
-            "/auth/**",
+            "/api/v1/auth/**",
             "/v3/api-docs/**",
             "/swagger-ui/**",
-            "/swagger-ui.html",
-            "/files/**"
+            "/swagger-ui.html"
     };
 
     private final JwtAuthFilter jwtAuthFilter;

@@ -9,7 +9,10 @@ import com.auditpro.roadtosale.web.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +24,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
-/** Trade-in photo upload (multipart) + list. Scoped to the caller's dealership. */
+/**
+ * Trade-in photo upload (multipart) + list + authed byte serving.
+ * Every route is tenant-scoped to the caller's dealership (cross-tenant -> 404).
+ */
 @RestController
-@RequestMapping("/sessions/{id}/photos")
+@RequestMapping("/api/v1/sessions/{id}/photos")
 @Tag(name = "photos")
 @SecurityRequirement(name = "bearerAuth")
 public class PhotoController {
@@ -47,5 +53,17 @@ public class PhotoController {
                                         @RequestParam("slot") PhotoSlot slot,
                                         @RequestParam("file") MultipartFile file) {
         return ApiResponse.ok(photoService.upload(caller, id, slot, file));
+    }
+
+    @Operation(summary = "Download the bytes of one photo (authed, tenant-scoped)")
+    @GetMapping("/{photoId}/content")
+    public ResponseEntity<Resource> content(@CurrentUser AuthenticatedUser caller,
+                                            @PathVariable UUID id,
+                                            @PathVariable UUID photoId) {
+        PhotoService.PhotoContent content = photoService.content(caller, id, photoId);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(content.contentType()))
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline")
+                .body(content.resource());
     }
 }

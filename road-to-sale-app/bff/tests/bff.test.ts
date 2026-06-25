@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { FastifyInstance } from "fastify";
+import { Readable } from "node:stream";
 
 // Mock the Core client module before importing the server.
 vi.mock("../src/coreClient.js", async () => {
@@ -30,6 +31,7 @@ vi.mock("../src/coreClient.js", async () => {
       postEvents: vi.fn(),
       listPhotos: vi.fn(),
       uploadPhoto: vi.fn(),
+      getPhotoContent: vi.fn(),
     },
   };
 });
@@ -118,6 +120,31 @@ describe("(a) input validation rejects bad bodies with 400 before hitting Core",
     expect(res.statusCode).toBe(400);
     expect(coreClient.postEvents).not.toHaveBeenCalled();
   });
+
+  it("post events over the maxItems cap (500) → 400, Core not called", async () => {
+    const oneEvent = {
+      cueId: "c",
+      questionId: "q1",
+      stepNo: 1,
+      detectedAt: "2026-06-25T10:00:00Z",
+      confidence: 0.9,
+      transcriptSpan: "hi",
+      source: "feature" as const,
+    };
+    const events = Array.from({ length: 501 }, (_, i) => ({
+      ...oneEvent,
+      cueId: `c${i}`,
+    }));
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/sessions/11111111-1111-1111-1111-111111111111/events",
+      headers: { authorization: AUTH },
+      payload: { events },
+    });
+    expect(res.statusCode).toBe(400);
+    expect(coreClient.postEvents).not.toHaveBeenCalled();
+  });
 });
 
 describe("(b) missing Authorization → 401 on a protected route", () => {
@@ -134,13 +161,15 @@ describe("(b) missing Authorization → 401 on a protected route", () => {
     expect(coreClient.getChecksheet).not.toHaveBeenCalled();
   });
 
-  it("non-Bearer Authorization → 401", async () => {
+  it("non-Bearer Authorization → 401, Core not called", async () => {
     const res = await app.inject({
       method: "GET",
       url: "/sessions",
       headers: { authorization: "Basic abc" },
     });
     expect(res.statusCode).toBe(401);
+    // requireAuth must explicitly short-circuit: the route handler never runs.
+    expect(coreClient.listSessions).not.toHaveBeenCalled();
   });
 });
 
@@ -279,6 +308,60 @@ describe("(d) multipart photo route forwards the file", () => {
 
     expect(res.statusCode).toBe(400);
     expect(coreClient.uploadPhoto).not.toHaveBeenCalled();
+  });
+});
+
+describe("(f) photo-content route relays raw bytes from Core", () => {
+  it("missing Bearer → 401 before Core (getPhotoContent not called)", async () => {
+    const res = await app.inject({
+      method: "GET",
+      url: "/sessions/11111111-1111-1111-1111-111111111111/photos/p1/content",
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().status).toBe(401);
+    expect(coreClient.getPhotoContent).not.toHaveBeenCalled();
+  });
+
+  it("happy path relays Core bytes + Content-Type + 200", async () => {
+    const bytes = Buffer.from("JPEGBYTES");
+    vi.mocked(coreClient.getPhotoContent).mockResolvedValue({
+      status: 200,
+      contentType: "image/jpeg",
+      body: Readable.from(bytes) as any,
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/sessions/11111111-1111-1111-1111-111111111111/photos/p1/content",
+      headers: { authorization: AUTH },
+    });
+
+    expect(coreClient.getPhotoContent).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      "p1",
+      AUTH,
+    );
+    expect(res.statusCode).toBe(200);
+    expect(res.headers["content-type"]).toContain("image/jpeg");
+    expect(res.rawPayload.equals(bytes)).toBe(true);
+  });
+
+  it("Core 404 → relayed 404", async () => {
+    vi.mocked(coreClient.getPhotoContent).mockResolvedValue({
+      status: 404,
+      contentType: "application/json",
+      body: Readable.from(
+        Buffer.from(JSON.stringify({ status: 404, message: "Not found", data: null })),
+      ) as any,
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: "/sessions/11111111-1111-1111-1111-111111111111/photos/missing/content",
+      headers: { authorization: AUTH },
+    });
+
+    expect(res.statusCode).toBe(404);
   });
 });
 

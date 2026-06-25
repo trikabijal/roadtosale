@@ -35,7 +35,8 @@ public class SessionEvent {
     @Column(name = "detected_at", nullable = false)
     private OffsetDateTime detectedAt;
 
-    @Column(name = "confidence", nullable = false)
+    // numeric(4,3): confidence is bounded 0..1 with 3 decimal places (W2).
+    @Column(name = "confidence", nullable = false, precision = 4, scale = 3)
     private BigDecimal confidence;
 
     @Column(name = "transcript_span")

@@ -1,13 +1,16 @@
 package com.auditpro.roadtosale;
 
+import com.auditpro.roadtosale.repo.SessionEventRepository;
 import com.auditpro.roadtosale.seed.SeedService;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -17,12 +20,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class SessionLifecycleTest extends AbstractIntegrationTest {
 
+    @Autowired
+    private SessionEventRepository eventRepository;
+
     private String createSession(String token) throws Exception {
         String body = objectMapper.writeValueAsString(Map.of(
                 "type", "LIVE",
                 "checksheetCode", "RTS_HONDA_V1",
                 "context", Map.of("customerName", "Jane Doe", "vehicleOfInterest", "CR-V")));
-        MvcResult res = mockMvc.perform(post("/sessions")
+        MvcResult res = mockMvc.perform(post("/api/v1/sessions")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
@@ -40,12 +46,12 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
         String token = login("rep1", SeedService.DEFAULT_PASSWORD);
         String id = createSession(token);
 
-        mockMvc.perform(get("/sessions/" + id).header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/sessions/" + id).header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(id))
                 .andExpect(jsonPath("$.data.outcomes").isArray());
 
-        mockMvc.perform(get("/sessions").header("Authorization", bearer(token)))
+        mockMvc.perform(get("/api/v1/sessions").header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].id").value(id));
     }
@@ -54,7 +60,7 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
     void createSessionWithUnknownChecksheetReturns404() throws Exception {
         String token = login("rep1", SeedService.DEFAULT_PASSWORD);
         String body = objectMapper.writeValueAsString(Map.of("type", "LIVE", "checksheetCode", "NOPE"));
-        mockMvc.perform(post("/sessions")
+        mockMvc.perform(post("/api/v1/sessions")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isNotFound());
@@ -66,7 +72,7 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
         String id = createSession(token);
 
         String submitBody = objectMapper.writeValueAsString(Map.of("transcript", "hello world"));
-        mockMvc.perform(post("/sessions/" + id + "/submit")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/submit")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(submitBody))
                 .andExpect(status().isOk())
@@ -74,7 +80,7 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
                 .andExpect(jsonPath("$.data.transcript").value("hello world"))
                 .andExpect(jsonPath("$.data.endedAt").isNotEmpty());
 
-        mockMvc.perform(post("/sessions/" + id + "/submit")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/submit")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(submitBody))
                 .andExpect(status().isConflict())
@@ -84,7 +90,7 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
     @Test
     void getNonexistentSessionReturns404() throws Exception {
         String token = login("rep1", SeedService.DEFAULT_PASSWORD);
-        mockMvc.perform(get("/sessions/" + java.util.UUID.randomUUID())
+        mockMvc.perform(get("/api/v1/sessions/" + java.util.UUID.randomUUID())
                         .header("Authorization", bearer(token)))
                 .andExpect(status().isNotFound());
     }
@@ -108,18 +114,25 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
         String id = createSession(token);
 
         // First post: 1 accepted.
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-1", 0.9)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accepted").value(1));
 
         // Re-post same cueId: 0 accepted (idempotent), no duplicate row.
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-1", 0.9)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accepted").value(0));
+
+        // TW8: idempotency at the ROW level — exactly one row for the one distinct cueId.
+        UUID sessionId = UUID.fromString(id);
+        long rows = eventRepository.findBySessionId(sessionId).stream()
+                .filter(e -> e.getCueId().equals("cue-1")).count();
+        assertThat(rows).isEqualTo(1L);
+        assertThat(eventRepository.findBySessionId(sessionId)).hasSize(1);
     }
 
     @Test
@@ -128,16 +141,16 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
         String id = createSession(token);
 
         // Two events for question "1": low (0.4) then high (0.8). Highest wins, >= 0.6 -> satisfied.
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-low", 0.4)))
                 .andExpect(status().isOk());
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-high", 0.8)))
                 .andExpect(status().isOk());
 
-        MvcResult res = mockMvc.perform(get("/sessions/" + id).header("Authorization", bearer(token)))
+        MvcResult res = mockMvc.perform(get("/api/v1/sessions/" + id).header("Authorization", bearer(token)))
                 .andExpect(status().isOk())
                 .andReturn();
         JsonNode data = dataOf(res);
@@ -153,12 +166,12 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
         String token = login("rep1", SeedService.DEFAULT_PASSWORD);
         String id = createSession(token);
 
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-x", 0.5)))
                 .andExpect(status().isOk());
 
-        MvcResult res = mockMvc.perform(get("/sessions/" + id).header("Authorization", bearer(token)))
+        MvcResult res = mockMvc.perform(get("/api/v1/sessions/" + id).header("Authorization", bearer(token)))
                 .andReturn();
         JsonNode data = dataOf(res);
         assertThat(data.path("outcomes").get(0).path("satisfied").asBoolean()).isFalse();
@@ -169,14 +182,46 @@ class SessionLifecycleTest extends AbstractIntegrationTest {
     void eventsOnCompletedSessionReturn409() throws Exception {
         String token = login("rep1", SeedService.DEFAULT_PASSWORD);
         String id = createSession(token);
-        mockMvc.perform(post("/sessions/" + id + "/submit")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/submit")
                 .header("Authorization", bearer(token))
                 .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isOk());
 
-        mockMvc.perform(post("/sessions/" + id + "/events")
+        mockMvc.perform(post("/api/v1/sessions/" + id + "/events")
                         .header("Authorization", bearer(token))
                         .contentType(MediaType.APPLICATION_JSON).content(eventsBody("cue-late", 0.9)))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void createMockSessionStartsActive() throws Exception {
+        // TW2: a MOCK-type session is created with status ACTIVE.
+        String token = login("rep1", SeedService.DEFAULT_PASSWORD);
+        String body = objectMapper.writeValueAsString(
+                Map.of("type", "MOCK", "checksheetCode", "RTS_HONDA_V1"));
+        mockMvc.perform(post("/api/v1/sessions")
+                        .header("Authorization", bearer(token))
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.type").value("MOCK"))
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
+    }
+
+    @Test
+    void listReturnsMostRecentFirst() throws Exception {
+        // TW3: two sessions for the same user; list is ordered newest-first.
+        String token = login("rep1", SeedService.DEFAULT_PASSWORD);
+        String first = createSession(token);
+        // Small gap so startedAt timestamps differ deterministically.
+        Thread.sleep(10);
+        String second = createSession(token);
+
+        MvcResult res = mockMvc.perform(get("/api/v1/sessions").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.length()").value(2))
+                .andReturn();
+        JsonNode data = dataOf(res);
+        assertThat(data.get(0).path("id").asText()).isEqualTo(second);
+        assertThat(data.get(1).path("id").asText()).isEqualTo(first);
     }
 }

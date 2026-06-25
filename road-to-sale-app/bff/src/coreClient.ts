@@ -28,6 +28,15 @@ import type {
 export const CORE_BASE_URL =
   process.env.CORE_BASE_URL ?? "http://localhost:8090";
 
+/**
+ * Core serves its resource endpoints under /api/v1 (auth, checksheets,
+ * sessions, events, photos). The Core /health probe is the one exception:
+ * it stays at the ROOT (/health). This prefix is internal to the BFF↔Core
+ * boundary; the BFF's own app-facing surface is unversioned and uses the
+ * singular /checksheet — see the route files.
+ */
+const CORE_API_PREFIX = "/api/v1";
+
 /** Thrown when the Core API cannot be reached at all. Mapped to HTTP 502. */
 export class CoreUnreachableError extends Error {
   constructor(public readonly cause: unknown) {
@@ -95,6 +104,40 @@ async function call(
   }
 }
 
+/** A raw (non-JSON) Core response: status, Content-Type, and the streamable body. */
+export type CoreRawResult = {
+  status: number;
+  contentType?: string;
+  /** undici response body; stream it through to the caller without buffering. */
+  body: Dispatcher.ResponseData["body"];
+};
+
+/**
+ * Like `call`, but does NOT parse/buffer the body — used for binary payloads
+ * (e.g. photo content). The caller is responsible for consuming/streaming the
+ * returned body so the socket is released.
+ */
+async function callRaw(
+  method: "GET",
+  path: string,
+  opts: { authorization?: string } = {},
+): Promise<CoreRawResult> {
+  const url = `${CORE_BASE_URL}${path}`;
+  try {
+    const res = await request(url, {
+      method,
+      headers: authHeader(opts.authorization),
+    });
+    return {
+      status: res.statusCode,
+      contentType: res.headers["content-type"] as string | undefined,
+      body: res.body,
+    };
+  } catch (err) {
+    throw new CoreUnreachableError(err);
+  }
+}
+
 export const coreClient = {
   /** GET /health on Core — used to report Core reachability. */
   async health(): Promise<boolean> {
@@ -109,38 +152,41 @@ export const coreClient = {
   },
 
   // ---- auth (public) -------------------------------------------------------
-  // NOTE: Core serves at the root (no /api/v1 prefix) and uses the SINGULAR
-  // /checksheet/{code}. These paths must match the Core's runtime routes.
+  // NOTE: Core serves resource endpoints under /api/v1 and uses the PLURAL
+  // /checksheets/{code}. These paths must match the Core's runtime routes.
   login(payload: LoginRequest): Promise<CoreResult> {
-    return call("POST", "/auth/login", { json: payload });
+    return call("POST", `${CORE_API_PREFIX}/auth/login`, { json: payload });
   },
   refresh(payload: RefreshRequest): Promise<CoreResult> {
-    return call("POST", "/auth/refresh", { json: payload });
+    return call("POST", `${CORE_API_PREFIX}/auth/refresh`, { json: payload });
   },
 
   // ---- checksheet ----------------------------------------------------------
   getChecksheet(code: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/checksheet/${encodeURIComponent(code)}`,
+      `${CORE_API_PREFIX}/checksheets/${encodeURIComponent(code)}`,
       { authorization },
     );
   },
 
   // ---- sessions ------------------------------------------------------------
   listSessions(authorization?: string): Promise<CoreResult> {
-    return call("GET", "/sessions", { authorization });
+    return call("GET", `${CORE_API_PREFIX}/sessions`, { authorization });
   },
   createSession(
     payload: CreateSessionRequest,
     authorization?: string,
   ): Promise<CoreResult> {
-    return call("POST", "/sessions", { authorization, json: payload });
+    return call("POST", `${CORE_API_PREFIX}/sessions`, {
+      authorization,
+      json: payload,
+    });
   },
   getSession(id: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/sessions/${encodeURIComponent(id)}`,
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(id)}`,
       { authorization },
     );
   },
@@ -151,7 +197,7 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/sessions/${encodeURIComponent(id)}/submit`,
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(id)}/submit`,
       { authorization, json: payload },
     );
   },
@@ -164,7 +210,7 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/sessions/${encodeURIComponent(id)}/events`,
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(id)}/events`,
       { authorization, json: payload },
     );
   },
@@ -173,14 +219,15 @@ export const coreClient = {
   listPhotos(id: string, authorization?: string): Promise<CoreResult> {
     return call(
       "GET",
-      `/sessions/${encodeURIComponent(id)}/photos`,
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(id)}/photos`,
       { authorization },
     );
   },
   /**
-   * Relay a multipart photo upload to Core. We build a fresh multipart body
-   * (field name `file` + `slot`) from the streamed upload so the file is never
-   * buffered fully in BFF memory beyond what undici needs.
+   * Relay a multipart photo upload to Core. The handler streams the uploaded
+   * file part directly into this form (see routes/photos.ts); undici then
+   * streams the multipart body to Core. The BFF does not buffer the whole file
+   * in memory (only @fastify/multipart's bounded internal chunking applies).
    */
   uploadPhoto(
     id: string,
@@ -189,8 +236,26 @@ export const coreClient = {
   ): Promise<CoreResult> {
     return call(
       "POST",
-      `/sessions/${encodeURIComponent(id)}/photos`,
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(id)}/photos`,
       { authorization, body: form },
+    );
+  },
+  /**
+   * Fetch a single photo's raw bytes from Core. Returns the streamable body +
+   * Content-Type + status so the route can relay them through without
+   * buffering. Authed; the caller's Authorization header is forwarded.
+   */
+  getPhotoContent(
+    id: string,
+    photoId: string,
+    authorization?: string,
+  ): Promise<CoreRawResult> {
+    return callRaw(
+      "GET",
+      `${CORE_API_PREFIX}/sessions/${encodeURIComponent(
+        id,
+      )}/photos/${encodeURIComponent(photoId)}/content`,
+      { authorization },
     );
   },
 };

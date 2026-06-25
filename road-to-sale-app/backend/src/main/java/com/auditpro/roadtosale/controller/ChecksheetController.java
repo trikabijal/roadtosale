@@ -21,7 +21,7 @@ public class ChecksheetController {
     }
 
     @Operation(summary = "Get a NADA checksheet by code (static reference data)")
-    @GetMapping("/checksheet/{code}")
+    @GetMapping("/api/v1/checksheets/{code}")
     public ApiResponse<ChecksheetDTO> get(@PathVariable String code) {
         return ApiResponse.ok(checksheetService.getByCode(code));
     }

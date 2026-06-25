@@ -1,21 +1,41 @@
 /**
  * Protected photo routes:
- *   GET  /sessions/:id/photos        — list
- *   POST /sessions/:id/photos        — multipart upload, relayed to Core
+ *   GET  /sessions/:id/photos                    — list
+ *   POST /sessions/:id/photos                    — multipart upload, relayed to Core
+ *   GET  /sessions/:id/photos/:photoId/content   — relay raw photo bytes from Core
  *
- * Multipart relay: the app sends multipart/form-data with a `slot` text field
- * and a `file` binary part. We read the parts via @fastify/multipart, validate
- * the slot, then rebuild a multipart body (preserving field names `file` + `slot`)
- * as an undici FormData and POST it to Core's multipart endpoint. The file is
- * buffered to a Blob (photos are small); for very large files a streaming relay
- * would be the next step, but trade-in photos are well within memory limits.
+ * Multipart upload relay: the app sends multipart/form-data with a `slot` text
+ * field and a `file` binary part. We read the parts via @fastify/multipart,
+ * validate the slot, then rebuild a multipart body (preserving field names
+ * `file` + `slot`) as an undici FormData and POST it to Core's multipart
+ * endpoint.
+ *
+ * NOTE ON BUFFERING: the `file` part IS buffered into memory (up to the 25MB
+ * per-file cap enforced by @fastify/multipart in server.ts) before being
+ * re-encoded as a Blob for undici. Trade-in photos are well within that cap.
+ * A future optimization could stream the part through a hand-built multipart
+ * body, but that is not done today — the cap is the memory bound.
+ *
+ * Photo CONTENT relay (GET .../content): this path DOES stream — Core's
+ * response body is piped straight through to the client without buffering.
  */
 
 import type { FastifyInstance } from "fastify";
 import { FormData } from "undici";
 import { coreClient } from "../coreClient.js";
-import { listPhotosSchema, uploadPhotoSchema, PHOTO_SLOTS } from "../schemas.js";
-import { errorEnvelope, relay, requireAuth, withCore } from "../util.js";
+import {
+  listPhotosSchema,
+  uploadPhotoSchema,
+  photoContentSchema,
+  PHOTO_SLOTS,
+} from "../schemas.js";
+import {
+  errorEnvelope,
+  relay,
+  relayRaw,
+  requireAuth,
+  withCore,
+} from "../util.js";
 
 export async function photoRoutes(app: FastifyInstance): Promise<void> {
   app.get<{ Params: { id: string } }>(
@@ -48,6 +68,8 @@ export async function photoRoutes(app: FastifyInstance): Promise<void> {
             await part.toBuffer();
             continue;
           }
+          // Buffer the file (bounded by the 25MB multipart cap) to re-encode
+          // it as a Blob for the undici relay below.
           fileBuffer = await part.toBuffer();
           fileName = part.filename ?? fileName;
           fileMime = part.mimetype ?? fileMime;
@@ -88,6 +110,23 @@ export async function photoRoutes(app: FastifyInstance): Promise<void> {
         req.headers.authorization,
       );
       return relay(reply, result);
+    }),
+  );
+
+  // Relay raw photo bytes from Core. PhotoDTO.fileUrl points the app here
+  // (a BFF-relative /sessions/{id}/photos/{photoId}/content path). We forward
+  // the Authorization header, then stream Core's body + Content-Type + status
+  // (including 404) straight through without buffering.
+  app.get<{ Params: { id: string; photoId: string } }>(
+    "/sessions/:id/photos/:photoId/content",
+    { schema: photoContentSchema, preHandler: requireAuth },
+    withCore(async (req, reply) => {
+      const result = await coreClient.getPhotoContent(
+        req.params.id,
+        req.params.photoId,
+        req.headers.authorization,
+      );
+      return relayRaw(reply, result);
     }),
   );
 }

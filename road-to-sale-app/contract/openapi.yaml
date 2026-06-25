@@ -36,10 +36,15 @@ paths:
             application/json:
               schema:
                 type: object
+                required: [status, coreReachable]
                 properties:
                   status:
                     type: string
                     example: ok
+                  coreReachable:
+                    type: boolean
+                    description: Whether the BFF could reach the Core /health probe.
+                    example: true
 
   /auth/login:
     post:
@@ -320,6 +325,48 @@ paths:
                         $ref: "#/components/schemas/PhotoDTO"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sessions/{id}/photos/{photoId}/content:
+    get:
+      tags: [photos]
+      summary: Get the raw bytes of a single photo
+      description: |
+        Returns the photo's binary content with Core's Content-Type.
+        PhotoDTO.fileUrl points here (a BFF-relative path). The BFF streams the
+        bytes through from the internal Core endpoint. This is the ONLY
+        app-facing response that is not the ApiResponse JSON envelope.
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+        - name: photoId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Photo bytes
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":

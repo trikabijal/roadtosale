@@ -1,5 +1,7 @@
 package com.auditpro.roadtosale.storage;
 
+import org.springframework.core.io.Resource;
+
 import java.io.InputStream;
 
 /**
@@ -10,7 +12,7 @@ public interface StorageService {
 
     /**
      * Persist a file and return an opaque storage key (relative path) used to
-     * locate it later and to build its public URL.
+     * locate it later.
      *
      * @param sessionId    the owning session (used to namespace the stored file)
      * @param originalName the client filename (for extension only; not trusted as a path)
@@ -20,6 +22,10 @@ public interface StorageService {
      */
     String store(String sessionId, String originalName, String contentType, InputStream content);
 
-    /** Build a retrievable URL for a stored key (served under {@code /files/**}). */
-    String urlFor(String storageKey);
+    /**
+     * Load the bytes for a stored key as a readable {@link Resource}.
+     * Bytes are served only through the authed, tenant-scoped content endpoint —
+     * never as a public static resource (was an IDOR, B4).
+     */
+    Resource load(String storageKey);
 }

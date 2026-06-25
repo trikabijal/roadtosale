@@ -16,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /** Public auth endpoints: login and refresh. */
 @RestController
-@RequestMapping("/auth")
+@RequestMapping("/api/v1/auth")
 @Tag(name = "auth")
 public class AuthController {
 

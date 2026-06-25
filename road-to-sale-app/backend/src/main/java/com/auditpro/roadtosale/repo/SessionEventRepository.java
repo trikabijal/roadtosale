@@ -8,12 +8,16 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 public interface SessionEventRepository extends JpaRepository<SessionEvent, UUID> {
 
     List<SessionEvent> findBySessionId(UUID sessionId);
+
+    /** Batch-load events for many sessions in ONE query (avoids list N+1, W1). */
+    List<SessionEvent> findBySessionIdIn(Collection<UUID> sessionIds);
 
     /**
      * Idempotent append (PRD §7 #16): inserts one event, ignoring it if

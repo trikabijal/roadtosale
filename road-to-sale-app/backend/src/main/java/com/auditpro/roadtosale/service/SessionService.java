@@ -19,6 +19,9 @@ import com.auditpro.roadtosale.web.ApiException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -27,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Session lifecycle + derived outcomes. Every read/write is scoped to the
@@ -35,18 +39,26 @@ import java.util.UUID;
 @Service
 public class SessionService {
 
+    /** Default page size when the caller does not specify one. */
+    static final int DEFAULT_PAGE_SIZE = 50;
+    /** Hard cap on page size to protect the DB/response from unbounded reads (W1). */
+    static final int MAX_PAGE_SIZE = 200;
+
     private final SessionRepository sessionRepository;
     private final SessionEventRepository eventRepository;
     private final ChecksheetService checksheetService;
+    private final SessionAccess sessionAccess;
     private final double confidenceThreshold;
 
     public SessionService(SessionRepository sessionRepository,
                           SessionEventRepository eventRepository,
                           ChecksheetService checksheetService,
+                          SessionAccess sessionAccess,
                           RoadToSaleProperties props) {
         this.sessionRepository = sessionRepository;
         this.eventRepository = eventRepository;
         this.checksheetService = checksheetService;
+        this.sessionAccess = sessionAccess;
         this.confidenceThreshold = props.getOutcome().getConfidenceThreshold();
     }
 
@@ -67,28 +79,65 @@ public class SessionService {
         return toSessionDTO(saved, List.of());
     }
 
+    /**
+     * Paginated, tenant-scoped session list (W1). Accepts either {@code page+size}
+     * or {@code limit+offset}; size defaults to {@link #DEFAULT_PAGE_SIZE} and is
+     * hard-capped at {@link #MAX_PAGE_SIZE}. Events are batch-loaded in a single
+     * {@code findBySessionIdIn} query (no per-session N+1).
+     */
     @Transactional(readOnly = true)
-    public List<SessionSummaryDTO> list(AuthenticatedUser caller) {
+    public List<SessionSummaryDTO> list(AuthenticatedUser caller,
+                                        Integer page, Integer size,
+                                        Integer limit, Integer offset) {
+        Pageable pageable = resolvePageable(page, size, limit, offset);
         List<Session> sessions = sessionRepository
-                .findByDealershipIdAndUserIdOrderByStartedAtDesc(caller.dealershipId(), caller.userId());
+                .findByDealershipIdAndUserIdOrderByStartedAtDesc(
+                        caller.dealershipId(), caller.userId(), pageable);
+        if (sessions.isEmpty()) {
+            return List.of();
+        }
+        // Single batched query for all events across the page, grouped by session.
+        List<UUID> sessionIds = sessions.stream().map(Session::getId).toList();
+        Map<UUID, List<SessionEvent>> eventsBySession = eventRepository.findBySessionIdIn(sessionIds).stream()
+                .collect(Collectors.groupingBy(SessionEvent::getSessionId));
         List<SessionSummaryDTO> out = new ArrayList<>(sessions.size());
         for (Session s : sessions) {
-            List<SessionEvent> events = eventRepository.findBySessionId(s.getId());
-            out.add(toSummaryDTO(s, events));
+            out.add(toSummaryDTO(s, eventsBySession.getOrDefault(s.getId(), List.of())));
         }
         return out;
     }
 
+    /** Translate page/size or limit/offset params into a bounded {@link Pageable}. */
+    private Pageable resolvePageable(Integer page, Integer size, Integer limit, Integer offset) {
+        // limit/offset takes precedence if supplied; otherwise page/size.
+        if (limit != null || offset != null) {
+            int boundedLimit = clampSize(limit == null ? DEFAULT_PAGE_SIZE : limit);
+            int safeOffset = (offset == null || offset < 0) ? 0 : offset;
+            int pageNumber = safeOffset / boundedLimit;
+            return PageRequest.of(pageNumber, boundedLimit);
+        }
+        int boundedSize = clampSize(size == null ? DEFAULT_PAGE_SIZE : size);
+        int pageNumber = (page == null || page < 0) ? 0 : page;
+        return PageRequest.of(pageNumber, boundedSize);
+    }
+
+    private int clampSize(int requested) {
+        if (requested < 1) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(requested, MAX_PAGE_SIZE);
+    }
+
     @Transactional(readOnly = true)
     public SessionDTO get(AuthenticatedUser caller, UUID sessionId) {
-        Session s = requireOwnedSession(caller, sessionId);
+        Session s = sessionAccess.requireOwnedSession(caller, sessionId);
         List<SessionEvent> events = eventRepository.findBySessionId(s.getId());
         return toSessionDTO(s, events);
     }
 
     @Transactional
     public SessionDTO submit(AuthenticatedUser caller, UUID sessionId, String transcript) {
-        Session s = requireOwnedSession(caller, sessionId);
+        Session s = sessionAccess.requireOwnedSession(caller, sessionId);
         if (s.getStatus() == SessionStatus.COMPLETED) {
             throw new ApiException.Conflict("Session is already completed");
         }
@@ -104,7 +153,7 @@ public class SessionService {
 
     @Transactional
     public PostEventsResponse appendEvents(AuthenticatedUser caller, UUID sessionId, List<SessionEventDTO> events) {
-        Session s = requireOwnedSession(caller, sessionId);
+        Session s = sessionAccess.requireOwnedSession(caller, sessionId);
         if (s.getStatus() == SessionStatus.COMPLETED) {
             throw new ApiException.Conflict("Cannot append events to a completed session");
         }
@@ -123,12 +172,6 @@ public class SessionService {
             accepted += inserted;
         }
         return new PostEventsResponse(accepted);
-    }
-
-    /** Tenant-scoped fetch: any miss (incl. another dealership's id) -> 404. */
-    private Session requireOwnedSession(AuthenticatedUser caller, UUID sessionId) {
-        return sessionRepository.findByIdAndDealershipId(sessionId, caller.dealershipId())
-                .orElseThrow(() -> new ApiException.NotFound("Session not found"));
     }
 
     // ── DTO mapping & outcome derivation ─────────────────────────────────────

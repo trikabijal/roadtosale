@@ -1,13 +1,14 @@
 package com.auditpro.roadtosale.storage;
 
 import com.auditpro.roadtosale.config.RoadToSaleProperties;
+import com.auditpro.roadtosale.web.ApiException;
+import org.springframework.core.io.PathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.util.UriUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -16,7 +17,8 @@ import java.util.UUID;
 
 /**
  * Writes uploaded files under {@code roadtosale.storage.local-dir}, namespaced by
- * session. Files are served back via the {@code /files/**} resource handler.
+ * session. Bytes are read back only through the authed, tenant-scoped photo
+ * content endpoint (never a public static handler).
  */
 @Service
 public class LocalDiskStorage implements StorageService {
@@ -47,13 +49,16 @@ public class LocalDiskStorage implements StorageService {
     }
 
     @Override
-    public String urlFor(String storageKey) {
-        // Encode each path segment but keep the slashes.
-        String encoded = String.join("/",
-                java.util.Arrays.stream(storageKey.split("/"))
-                        .map(seg -> UriUtils.encodePathSegment(seg, StandardCharsets.UTF_8))
-                        .toArray(String[]::new));
-        return "/files/" + encoded;
+    public Resource load(String storageKey) {
+        Path target = baseDir.resolve(storageKey).normalize();
+        // Defence in depth: a stored key must never escape the storage root.
+        if (!target.startsWith(baseDir)) {
+            throw new IllegalArgumentException("Resolved path escapes storage dir");
+        }
+        if (!Files.isReadable(target)) {
+            throw new ApiException.NotFound("Photo not found");
+        }
+        return new PathResource(target);
     }
 
     private String extensionOf(String originalName) {

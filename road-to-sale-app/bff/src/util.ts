@@ -4,7 +4,11 @@
  */
 
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { CoreUnreachableError, type CoreResult } from "./coreClient.js";
+import {
+  CoreUnreachableError,
+  type CoreResult,
+  type CoreRawResult,
+} from "./coreClient.js";
 import type { ApiResponse } from "./types.js";
 
 /** Build an error ApiResponse envelope (data = null). */
@@ -21,10 +25,13 @@ export function errorEnvelope(status: number, message: string): ApiResponse<null
 export async function requireAuth(
   req: FastifyRequest,
   reply: FastifyReply,
-): Promise<void> {
+): Promise<FastifyReply | void> {
   const header = req.headers.authorization;
   if (!header || !/^Bearer\s+.+/i.test(header)) {
-    reply
+    // Explicitly send AND return: returning the reply tells Fastify the
+    // preHandler short-circuited the request, so the route handler never runs
+    // and Core is never called. (Do not rely on an implicit halt.)
+    return reply
       .code(401)
       .send(errorEnvelope(401, "Missing or invalid Authorization header"));
   }
@@ -36,6 +43,26 @@ export async function requireAuth(
  */
 export function relay(reply: FastifyReply, result: CoreResult): FastifyReply {
   reply.code(result.status);
+  return reply.send(result.body);
+}
+
+/**
+ * Relay a RAW (binary) Core result back to the app: pass through Core's HTTP
+ * status and Content-Type, and stream Core's body directly to the client
+ * without buffering it in BFF memory. Used for photo-content bytes.
+ *
+ * Works for non-2xx too (e.g. Core 404): the body is streamed through as-is.
+ */
+export function relayRaw(
+  reply: FastifyReply,
+  result: CoreRawResult,
+): FastifyReply {
+  reply.code(result.status);
+  if (result.contentType) {
+    reply.header("content-type", result.contentType);
+  }
+  // result.body is a Readable; Fastify streams it through and releases the
+  // underlying Core socket when it finishes.
   return reply.send(result.body);
 }
 

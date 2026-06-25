@@ -22,7 +22,8 @@ public class DevSeedRunner implements CommandLineRunner {
     @Override
     public void run(String... args) {
         seedService.seed();
-        log.info("Dev seed applied: dealerships [{}, {}], users [rep1, rep2] (password: {})",
-                SeedService.FREMONT, SeedService.OAKLAND, SeedService.DEFAULT_PASSWORD);
+        // Never log the seed password (N1) — credentials are documented in SeedService.
+        log.info("Dev seed applied: dealerships [{}, {}], users [rep1, rep2]",
+                SeedService.FREMONT, SeedService.OAKLAND);
     }
 }

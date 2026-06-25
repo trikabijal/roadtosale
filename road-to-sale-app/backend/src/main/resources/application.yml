@@ -7,6 +7,11 @@ spring:
     name: road-to-sale-backend
   profiles:
     active: dev
+  servlet:
+    multipart:
+      # Photo upload cap (B2): a single oversize file -> 413, never a 500.
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 # Outcome derivation threshold (Phase 2 reads this): a question is "satisfied"
 # when its highest-confidence event has confidence >= this value.

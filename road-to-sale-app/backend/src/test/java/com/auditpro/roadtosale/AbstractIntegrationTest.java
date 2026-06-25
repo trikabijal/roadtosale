@@ -49,7 +49,7 @@ public abstract class AbstractIntegrationTest {
     protected String login(String username, String password) throws Exception {
         String body = objectMapper.writeValueAsString(
                 Map.of("username", username, "password", password, "deviceType", "test"));
-        MvcResult res = mockMvc.perform(post("/auth/login")
+        MvcResult res = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andReturn();

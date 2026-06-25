@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -26,7 +27,7 @@ import java.util.UUID;
 
 /** Session lifecycle + cue events. All routes scoped to the caller's dealership. */
 @RestController
-@RequestMapping("/sessions")
+@RequestMapping("/api/v1/sessions")
 @Tag(name = "sessions")
 @SecurityRequirement(name = "bearerAuth")
 public class SessionController {
@@ -37,10 +38,15 @@ public class SessionController {
         this.sessionService = sessionService;
     }
 
-    @Operation(summary = "List the authenticated user's sessions (most recent first)")
+    @Operation(summary = "List the authenticated user's sessions (most recent first, paginated)")
     @GetMapping
-    public ApiResponse<List<SessionSummaryDTO>> list(@CurrentUser AuthenticatedUser caller) {
-        return ApiResponse.ok(sessionService.list(caller));
+    public ApiResponse<List<SessionSummaryDTO>> list(
+            @CurrentUser AuthenticatedUser caller,
+            @RequestParam(name = "page", required = false) Integer page,
+            @RequestParam(name = "size", required = false) Integer size,
+            @RequestParam(name = "limit", required = false) Integer limit,
+            @RequestParam(name = "offset", required = false) Integer offset) {
+        return ApiResponse.ok(sessionService.list(caller, page, size, limit, offset));
     }
 
     @Operation(summary = "Create a new session (status starts ACTIVE)")

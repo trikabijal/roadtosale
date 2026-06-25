@@ -20,7 +20,7 @@ class AuthTest extends AbstractIntegrationTest {
     void loginReturnsTokensAndUser() throws Exception {
         String body = objectMapper.writeValueAsString(
                 Map.of("username", "rep1", "password", SeedService.DEFAULT_PASSWORD, "deviceType", "ios"));
-        MvcResult res = mockMvc.perform(post("/auth/login")
+        MvcResult res = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
@@ -35,7 +35,7 @@ class AuthTest extends AbstractIntegrationTest {
     void loginWithWrongPasswordReturns401() throws Exception {
         String body = objectMapper.writeValueAsString(
                 Map.of("username", "rep1", "password", "wrong", "deviceType", "ios"));
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
@@ -44,7 +44,7 @@ class AuthTest extends AbstractIntegrationTest {
     @Test
     void loginMissingFieldReturns400() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of("username", "rep1"));
-        mockMvc.perform(post("/auth/login")
+        mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isBadRequest());
     }
@@ -53,12 +53,12 @@ class AuthTest extends AbstractIntegrationTest {
     void refreshIssuesNewPair() throws Exception {
         String loginBody = objectMapper.writeValueAsString(
                 Map.of("username", "rep1", "password", SeedService.DEFAULT_PASSWORD, "deviceType", "ios"));
-        MvcResult login = mockMvc.perform(post("/auth/login")
+        MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON).content(loginBody)).andReturn();
         String refreshToken = dataOf(login).path("refreshToken").asText();
 
         String refreshBody = objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken));
-        MvcResult res = mockMvc.perform(post("/auth/refresh")
+        MvcResult res = mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON).content(refreshBody))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
@@ -66,14 +66,14 @@ class AuthTest extends AbstractIntegrationTest {
                 .andReturn();
         JsonNode data = dataOf(res);
         // The new access token must actually work on a protected route.
-        mockMvc.perform(get("/sessions").header("Authorization", bearer(data.path("accessToken").asText())))
+        mockMvc.perform(get("/api/v1/sessions").header("Authorization", bearer(data.path("accessToken").asText())))
                 .andExpect(status().isOk());
     }
 
     @Test
     void refreshWithGarbageReturns401() throws Exception {
         String body = objectMapper.writeValueAsString(Map.of("refreshToken", "not-a-jwt"));
-        mockMvc.perform(post("/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
     }
@@ -82,21 +82,21 @@ class AuthTest extends AbstractIntegrationTest {
     void accessTokenCannotBeUsedAsRefreshToken() throws Exception {
         String accessToken = login("rep1", SeedService.DEFAULT_PASSWORD);
         String body = objectMapper.writeValueAsString(Map.of("refreshToken", accessToken));
-        mockMvc.perform(post("/auth/refresh")
+        mockMvc.perform(post("/api/v1/auth/refresh")
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isUnauthorized());
     }
 
     @Test
     void protectedRouteWithoutTokenReturns401() throws Exception {
-        mockMvc.perform(get("/sessions"))
+        mockMvc.perform(get("/api/v1/sessions"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
     }
 
     @Test
     void protectedRouteWithBadTokenReturns401() throws Exception {
-        mockMvc.perform(get("/sessions").header("Authorization", "Bearer abc.def.ghi"))
+        mockMvc.perform(get("/api/v1/sessions").header("Authorization", "Bearer abc.def.ghi"))
                 .andExpect(status().isUnauthorized());
     }
 }

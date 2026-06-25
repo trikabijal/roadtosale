@@ -43,6 +43,15 @@ const sessionIdParams = {
   },
 } as const;
 
+const photoContentParams = {
+  type: "object",
+  required: ["id", "photoId"],
+  properties: {
+    id: { type: "string", format: "uuid" },
+    photoId: { type: "string", minLength: 1 },
+  },
+} as const;
+
 const checksheetCodeParams = {
   type: "object",
   required: ["code"],
@@ -132,6 +141,9 @@ export const postEventsBody = {
     events: {
       type: "array",
       minItems: 1,
+      // Cap batch size so a single request can't carry an unbounded payload.
+      // Rejected with 400 at the edge before Core is called.
+      maxItems: 500,
       items: sessionEvent,
     },
   },
@@ -213,6 +225,14 @@ export const uploadPhotoSchema: FastifySchema = {
   consumes: ["multipart/form-data"],
   params: sessionIdParams,
   response: okEnvelope,
+};
+
+// Raw photo-bytes relay. No response envelope (binary pass-through), so no
+// `response` schema is attached — Core's Content-Type/body are streamed as-is.
+export const photoContentSchema: FastifySchema = {
+  tags: ["photos"],
+  summary: "Get the raw bytes of a single photo (streamed from Core)",
+  params: photoContentParams,
 };
 
 export const PHOTO_SLOTS = photoSlot.enum;
