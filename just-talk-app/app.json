@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "JustTalk",
+    "slug": "just-talk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.trika.justtalk",
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "NSMicrophoneUsageDescription": "JustTalk uses the microphone to transcribe your speech.",
+        "NSSpeechRecognitionUsageDescription": "JustTalk uses on-device speech recognition to produce a live transcript."
+      }
+    },
+    "plugins": [
+      "./plugins/withVoiceModule"
+    ],
+    "experiments": {
+      "newArchEnabled": false
+    },
+    "android": {
+      "package": "com.trika.justtalk"
+    }
+  }
+}
