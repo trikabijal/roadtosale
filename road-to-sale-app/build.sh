@@ -46,7 +46,7 @@ fi
 # ── Step 4: expo prebuild ────────────────────────────────────────────────────
 echo ""
 echo "→ [4/4] Running expo prebuild --clean (generates ios/ and android/ projects)..."
-npx expo prebuild --clean
+npx expo prebuild
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""

@@ -57,9 +57,9 @@ const withVoiceModuleIos: ConfigPlugin = (config) => {
 
       // Add group if it doesn't exist yet
       if (!xcodeProject.pbxGroupByName(groupName)) {
-        xcodeProject.addPbxGroup([], groupName, 'ios/VoiceModule');
+        const { uuid: groupUuid } = xcodeProject.addPbxGroup([], groupName, 'ios/VoiceModule');
         const mainGroup = xcodeProject.getFirstProject().firstProject.mainGroup;
-        xcodeProject.addToPbxGroup({ uuid: xcodeProject.pbxGroupByName(groupName) }, mainGroup);
+        xcodeProject.addToPbxGroup({ uuid: groupUuid }, mainGroup);
       }
 
       // Skip if the file reference already exists
