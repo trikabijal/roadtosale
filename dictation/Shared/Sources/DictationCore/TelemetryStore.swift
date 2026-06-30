@@ -49,7 +49,7 @@ public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, Persista
         self.recordedAt = recordedAt
         self.audioDurationMs = audioDurationMs
         self.transcriptText = transcriptText
-        self.wordCount = wordCount ?? transcriptText.split(separator: " ").count
+        self.wordCount = wordCount ?? transcriptText.split(whereSeparator: \.isWhitespace).count
         self.whisperkitConfidence = whisperkitConfidence
         self.latencyMs = latencyMs
         self.modelTier = modelTier
@@ -107,6 +107,17 @@ public actor TelemetryStore {
     public func save(_ record: TranscriptRecord) throws {
         try dbQueue.write { db in
             try record.insert(db)
+        }
+    }
+
+    /// Privacy retention: delete transcript records older than `days`. Dictated text can hold
+    /// secrets/PII, so it is not kept indefinitely. Audio recordings are bounded separately
+    /// (RecordingStore keeps only the last few). Returns the number of records removed.
+    @discardableResult
+    public func purge(olderThanDays days: Int) throws -> Int {
+        let cutoff = Date().addingTimeInterval(-Double(days) * 86_400)
+        return try dbQueue.write { db in
+            try TranscriptRecord.filter(Column("recorded_at") < cutoff).deleteAll(db)
         }
     }
 
@@ -210,6 +221,12 @@ public actor TelemetryStore {
                 t.add(column: "cleanup_level", .text)
                 t.add(column: "cleanup_provider", .text)
             }
+        }
+        // Index recorded_at — every read orders/filters by it (fetchRecent, stats, retention
+        // purge), and the table grows with use.
+        migrator.registerMigration("v3_index_recorded_at") { db in
+            try db.create(index: "idx_transcript_recorded_at",
+                          on: TranscriptRecord.databaseTableName, columns: ["recorded_at"])
         }
         try migrator.migrate(dbQueue)
     }

@@ -1,0 +1,188 @@
+{
+  "code": "RTS_HONDA_V1",
+  "name": "Road to the Sale — Honda US 2026",
+  "version": "1.0.0",
+  "steps": [
+    {
+      "id": "step-1-greet-hospitality",
+      "name": "Greet / Hospitality",
+      "orderNo": 1,
+      "questions": [
+        {
+          "id": "1",
+          "text": "Did the salesperson greet the customer within 30 seconds?",
+          "orderNo": 1,
+          "isMandatory": true,
+          "resultType": "CUE"
+        },
+        {
+          "id": "2",
+          "text": "Did the salesperson introduce themselves by name?",
+          "orderNo": 2,
+          "isMandatory": true,
+          "resultType": "CUE"
+        },
+        {
+          "id": "3",
+          "text": "Was the customer offered hospitality?",
+          "orderNo": 3,
+          "isMandatory": false,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-2-interview-needs",
+      "name": "Interview / Needs",
+      "orderNo": 2,
+      "questions": [
+        {
+          "id": "4",
+          "text": "Did the salesperson conduct a thorough needs discovery?",
+          "orderNo": 1,
+          "isMandatory": false,
+          "resultType": "CUE"
+        },
+        {
+          "id": "5",
+          "text": "Did the salesperson identify the customer's budget?",
+          "orderNo": 2,
+          "isMandatory": true,
+          "resultType": "CUE"
+        },
+        {
+          "id": "6",
+          "text": "Did the salesperson probe for lifestyle requirements?",
+          "orderNo": 3,
+          "isMandatory": false,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-3-vehicle-selection",
+      "name": "Vehicle Selection",
+      "orderNo": 3,
+      "questions": [
+        {
+          "id": "7",
+          "text": "Did the salesperson make a vehicle recommendation?",
+          "orderNo": 1,
+          "isMandatory": true,
+          "resultType": "CUE"
+        },
+        {
+          "id": "8",
+          "text": "Was the vehicle presented as front-line ready?",
+          "orderNo": 2,
+          "isMandatory": true,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-4-walkaround-presentation",
+      "name": "Walk-around / Presentation",
+      "orderNo": 4,
+      "questions": [
+        {
+          "id": "9",
+          "text": "Did the salesperson conduct a structured exterior walkaround?",
+          "orderNo": 1,
+          "isMandatory": true,
+          "resultType": "CUE"
+        },
+        {
+          "id": "10",
+          "text": "Did the salesperson present interior features?",
+          "orderNo": 2,
+          "isMandatory": true,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-5-test-drive",
+      "name": "Test Drive",
+      "orderNo": 5,
+      "questions": [
+        {
+          "id": "11",
+          "text": "Was the customer offered and taken on a test drive?",
+          "orderNo": 1,
+          "isMandatory": true,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-6-trade-evaluation",
+      "name": "Trade Evaluation",
+      "orderNo": 6,
+      "questions": [
+        {
+          "id": "12",
+          "text": "Was the customer's trade-in vehicle inspected?",
+          "orderNo": 1,
+          "isMandatory": false,
+          "resultType": "CUE"
+        },
+        {
+          "id": "13",
+          "text": "Were trade-in tires and exterior condition assessed?",
+          "orderNo": 2,
+          "isMandatory": true,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-7-service-walk",
+      "name": "Service Walk",
+      "orderNo": 7,
+      "questions": []
+    },
+    {
+      "id": "step-8-writeup-proposal",
+      "name": "Write-up / Proposal",
+      "orderNo": 8,
+      "questions": [
+        {
+          "id": "14",
+          "text": "Was a financial proposal presented?",
+          "orderNo": 1,
+          "isMandatory": true,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-9-desk-negotiation",
+      "name": "Desk / Negotiation",
+      "orderNo": 9,
+      "questions": [
+        {
+          "id": "15",
+          "text": "Was the customer introduced to the F&I team?",
+          "orderNo": 1,
+          "isMandatory": false,
+          "resultType": "CUE"
+        }
+      ]
+    },
+    {
+      "id": "step-10-delivery",
+      "name": "Delivery",
+      "orderNo": 10,
+      "questions": [
+        {
+          "id": "16",
+          "text": "Was the sale completed or a next step agreed?",
+          "orderNo": 1,
+          "isMandatory": false,
+          "resultType": "CUE"
+        }
+      ]
+    }
+  ]
+}

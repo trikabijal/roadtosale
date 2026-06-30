@@ -21,7 +21,11 @@ final class ClipboardPaster {
     ///
     /// When `autoPaste` is false the transcript is intentionally left on the clipboard
     /// for the user to paste manually, so there is nothing to restore.
-    func writeAndPaste(text: String, autoPaste: Bool, targetApp: NSRunningApplication? = nil) {
+    /// `onPasteSkipped` is called when the intended target never became frontmost within the
+    /// wait window — we deliberately do NOT synthesize ⌘V (it could land in the wrong app);
+    /// the transcript is left on the clipboard for the user to paste manually.
+    func writeAndPaste(text: String, autoPaste: Bool, targetApp: NSRunningApplication? = nil,
+                       onPasteSkipped: (() -> Void)? = nil) {
         let pasteboard = NSPasteboard.general
 
         guard autoPaste else {
@@ -55,7 +59,7 @@ final class ClipboardPaster {
         // actually frontmost — so the paste lands where the user intended even if the
         // menu-bar panel stole focus, and never fires into a window that isn't ready yet.
         targetApp?.activate()
-        pasteWhenFocused(targetApp: targetApp, attempt: 0, myGeneration: myGeneration) { [weak self] in
+        pasteWhenFocused(targetApp: targetApp, attempt: 0, myGeneration: myGeneration, paste: { [weak self] in
             guard let self else { return }
             self.sendCmdV()
 
@@ -72,24 +76,34 @@ final class ClipboardPaster {
                 self.burstSnapshot = nil
                 self.restorePending = false
             }
-        }
+        }, onSkip: { [weak self] in
+            guard let self else { return }
+            // Target never came frontmost — leave the transcript on the clipboard (don't restore
+            // over it) and let the caller surface a "couldn't paste" notice.
+            self.burstSnapshot = nil
+            self.restorePending = false
+            onPasteSkipped?()
+        })
     }
 
     /// Fire `paste` once the target app is frontmost, polling at 0.1 s up to ~0.6 s. Replaces
     /// a blind fixed delay so the synthetic ⌘V lands in the right, focused window. Aborts if a
     /// newer dictation burst supersedes this one.
     private func pasteWhenFocused(targetApp: NSRunningApplication?, attempt: Int,
-                                  myGeneration: Int, _ paste: @escaping () -> Void) {
+                                  myGeneration: Int,
+                                  paste: @escaping () -> Void, onSkip: @escaping () -> Void) {
         guard myGeneration == generation else { return }
         let maxAttempts = 6
         let focused = targetApp == nil
             || NSWorkspace.shared.frontmostApplication?.processIdentifier == targetApp?.processIdentifier
-        if focused || attempt >= maxAttempts {
+        if focused {
             paste()
+        } else if attempt >= maxAttempts {
+            onSkip()   // never became frontmost — refuse to paste into whatever IS frontmost
         } else {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                 self?.pasteWhenFocused(targetApp: targetApp, attempt: attempt + 1,
-                                       myGeneration: myGeneration, paste)
+                                       myGeneration: myGeneration, paste: paste, onSkip: onSkip)
             }
         }
     }

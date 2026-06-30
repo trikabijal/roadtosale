@@ -42,6 +42,12 @@ struct OnboardingView: View {
     @State private var tick = 0
     private let ticker = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
+    private var doneLabel: String {
+        if !appState.requiredPermissionsGranted { return "Grant the steps above" }
+        if !appState.hotkeyTestPassed { return "Test your activation key above" }
+        return "Done — start talking"
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
@@ -56,12 +62,15 @@ struct OnboardingView: View {
                 Button {
                     appState.completeOnboarding()
                 } label: {
-                    Text(appState.requiredPermissionsGranted ? "Done — start talking" : "Grant the steps above")
+                    Text(doneLabel)
                         .frame(maxWidth: .infinity)
                 }
                 .controlSize(.large)
                 .buttonStyle(.borderedProminent)
-                .disabled(!appState.requiredPermissionsGranted)
+                // Require the activation key to be PROVEN (not just permissions) — otherwise a
+                // user can finish setup with the key still claimed by macOS/another app, and the
+                // app reports "Ready" but can't be activated.
+                .disabled(!(appState.requiredPermissionsGranted && appState.hotkeyTestPassed))
                 .padding(.top, 4)
             }
             .padding(20)
@@ -240,6 +249,14 @@ private struct HotkeyCard: View {
                     text: "\(competitors.compactMap { $0.localizedName }.joined(separator: ", ")) is running and uses Fn by default — macOS can't share one key between two apps. Quit it, or pick a non-Fn key above.",
                     actionLabel: "Quit it"
                 ) {
+                    // Confirm before terminating someone else's app — it can lose their work.
+                    let names = competitors.compactMap { $0.localizedName }.joined(separator: ", ")
+                    let alert = NSAlert()
+                    alert.messageText = "Quit \(names)?"
+                    alert.informativeText = "Just Talk will close \(names) so it stops claiming the key. Unsaved work in that app may be lost."
+                    alert.addButton(withTitle: "Quit \(names)")
+                    alert.addButton(withTitle: "Cancel")
+                    guard alert.runModal() == .alertFirstButtonReturn else { return }
                     competitors.forEach { _ = $0.terminate() }
                     appState.refreshPermissions()
                 }

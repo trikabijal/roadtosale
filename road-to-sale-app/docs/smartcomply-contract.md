@@ -26,9 +26,9 @@ The mapping between Road to Sale concepts and SmartComply entities is:
 
 Every customer walk-in creates one `inspection` (via
 `POST /api/audit/addAuditAssignments`) and one `user_checksheet` (via
-`POST /api/userChecksheet/createOrUpdate`). Cue events fire
-`POST /api/userChecksheet/createOrUpdateUserChksAns` in real time as the
-voice engine detects them. The rep reviews and submits at the end of the visit.
+`POST /api/userChecksheet/createOrUpdate`). As the voice engine detects cues, each
+one fires `POST /api/userChecksheet/createOrUpdateUserChksAns` in real time. The
+rep reviews and submits at the end of the visit.
 
 ---
 

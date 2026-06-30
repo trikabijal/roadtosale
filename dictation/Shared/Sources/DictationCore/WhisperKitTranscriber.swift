@@ -4,22 +4,31 @@ import WhisperKit
 // MARK: - WhisperKit model tiers
 
 public enum ModelTier: String, CaseIterable, Sendable {
-    /// ~40 MB — fits in iOS keyboard extension memory limit
+    // English-only (.en) tiers — fast, but mangle non-English. Good for English-only use (coding).
+    /// ~40 MB — fits in iOS keyboard extension memory limit.
     case tinyEn = "openai_whisper-tiny.en"
-    /// ~75 MB — iOS app, good balance
+    /// ~75 MB.
     case baseEn = "openai_whisper-base.en"
-    /// ~150 MB — iOS app or Mac where latency matters
+    /// ~150 MB — fast + accurate for English-only contexts.
     case smallEn = "openai_whisper-small.en"
-    /// ~800 MB — macOS only, best accuracy
-    /// Model name must match WhisperKit 0.18.0 HuggingFace repo exactly
+
+    // Multilingual tiers — handle Hindi/Gujarati (Hinglish). Smaller = faster but weaker on
+    // low-resource languages (esp. Gujarati), which need a large model.
+    /// Multilingual small — much faster than the large tiers; decent Hindi, weak Gujarati.
+    case small = "openai_whisper-small"
+    /// Multilingual, speed-optimized large (pruned decoder). Default — Hinglish at reasonable speed.
     case largeV3Turbo = "openai_whisper-large-v3_turbo_954MB"
+    /// Multilingual, full large-v3 — best accuracy incl. Gujarati; slowest/largest (~3 GB download).
+    case largeV3 = "openai_whisper-large-v3"
 
     public var displayName: String {
         switch self {
-        case .tinyEn: return "Tiny (fastest)"
-        case .baseEn: return "Base (balanced)"
-        case .smallEn: return "Small (accurate)"
-        case .largeV3Turbo: return "Large Turbo (best)"
+        case .tinyEn:       return "Tiny (English, fastest)"
+        case .baseEn:       return "Base (English)"
+        case .smallEn:      return "Small (English, fast)"
+        case .small:        return "Small (multilingual)"
+        case .largeV3Turbo: return "Large Turbo (multilingual, balanced)"
+        case .largeV3:      return "Large v3 (multilingual, best)"
         }
     }
 }
@@ -44,6 +53,15 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
     /// Custom-vocabulary biasing: the terms become a decoder conditioning prompt so
     /// names/jargon transcribe correctly.
+    /// Drop the loaded model (e.g. after a timeout) so a stuck/orphaned transcribe can't keep
+    /// holding it; the next transcribe reloads fresh.
+    public func reset() {
+        loadTask?.cancel()
+        loadTask = nil
+        whisperKit = nil
+        isLoaded = false
+    }
+
     public func setVocabularyBias(_ terms: [String]) {
         let cleaned = terms.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -52,6 +70,20 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 
     // MARK: - Load
 
+    /// Where model files are downloaded/cached. WhisperKit's default `downloadBase` is the user's
+    /// **Documents** folder — on a non-sandboxed Mac app every access there triggers a macOS
+    /// "allow access to Documents" TCC prompt, so a multi-tier app fires a burst of them. We instead
+    /// keep models under Application Support, alongside the telemetry DB and recordings, which needs
+    /// no TCC grant. Named `huggingface` so the on-disk layout (`<base>/models/<repo>/<variant>`)
+    /// matches WhisperKit's default `Documents/huggingface`, making the existing cache portable here.
+    public static func modelDownloadBase() throws -> URL {
+        let base = try FileManager.default.url(for: .applicationSupportDirectory,
+                                               in: .userDomainMask, appropriateFor: nil, create: true)
+        let dir = base.appendingPathComponent("com.trika.dictation/huggingface", isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     /// Downloads (first run only) and loads the model. `onProgress` reports download
     /// completion fraction (0.0–1.0) on the main actor — the large models are
     /// ~150 MB–1 GB, so the first launch needs visible progress.
@@ -59,9 +91,12 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         isLoaded = false
         loadTask?.cancel()
         let tier = modelTier
+        let downloadBase = try Self.modelDownloadBase()
         loadTask = Task {
-            // 1. Fetch model files (returns immediately from cache on later runs).
-            let modelFolder = try await WhisperKit.download(variant: tier.rawValue) { progress in
+            // 1. Fetch model files (returns immediately from cache on later runs). downloadBase keeps
+            //    them out of ~/Documents so macOS doesn't prompt for Documents-folder access.
+            let modelFolder = try await WhisperKit.download(variant: tier.rawValue,
+                                                            downloadBase: downloadBase) { progress in
                 Task { @MainActor in onProgress?(progress.fractionCompleted) }
             }
             if Task.isCancelled { return }
@@ -138,7 +173,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         let results = try await wk.transcribe(audioArray: samples, decodeOptions: decodeOptions)
         let latencyMs = Int(Date().timeIntervalSince(transcribeStart) * 1000)
 
-        guard let first = results.first else {
+        guard !results.isEmpty else {
             throw TranscriptionError.emptyResult
         }
 
@@ -152,7 +187,11 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
             confidence = 0.5
         }
 
-        let text = first.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+        // Join ALL result entries, not just the first — for long/windowed audio WhisperKit can
+        // emit more than one, and confidence is already averaged across all of them, so taking
+        // only `first.text` would silently truncate the transcript.
+        let text = results.map(\.text).joined(separator: " ")
+            .trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
 
         // Reject low-confidence single phantom phrases on short clips.
         if Self.isLikelyHallucination(text: text, confidence: confidence, durationMs: audioDurationMs) {

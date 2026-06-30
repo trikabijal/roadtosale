@@ -3,7 +3,7 @@
  * fetch and expo-secure-store are mocked below.
  */
 
-import { SmartComplyClient, AuthError } from './SmartComplyClient';
+import { SmartComplyClient, AuthError, SmartComplyApiError } from './SmartComplyClient';
 import type { ApiResponse, LoginResponse, AssignmentDTO, UserChecksheetCreateDTO } from './types';
 
 // ── Mock expo-secure-store ────────────────────────────────────────────────────
@@ -221,6 +221,142 @@ describe('SmartComplyClient', () => {
 
     it('getStoredUserId() returns null when not stored', async () => {
       expect(await SmartComplyClient.getStoredUserId()).toBeNull();
+    });
+  });
+
+  // ── submitAnswers([]) short-circuit (C-API-8) ──────────────────────────────
+
+  describe('submitAnswers()', () => {
+    it('short-circuits on an empty array — no network call', async () => {
+      mockStore['rts_access_token'] = 'tok';
+
+      await client.submitAnswers([]);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('POSTs the answers when the array is non-empty', async () => {
+      mockStore['rts_access_token'] = 'tok';
+      mockFetch.mockResolvedValueOnce(makeJsonResponse(null));
+
+      await client.submitAnswers([
+        { userChecksheetId: 1, chksQuestionId: 101 },
+      ]);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toContain('/userChecksheet/createOrUpdateUserChksAns');
+      const body = JSON.parse(init?.body as string);
+      expect(Array.isArray(body)).toBe(true);
+      expect(body[0].chksQuestionId).toBe(101);
+    });
+  });
+
+  // ── logout() (C-API-10) ────────────────────────────────────────────────────
+
+  describe('logout()', () => {
+    it('deletes the three SecureStore keys and makes no HTTP call', async () => {
+      mockStore['rts_access_token'] = 'a';
+      mockStore['rts_refresh_token'] = 'r';
+      mockStore['rts_user_id'] = '42';
+
+      await client.logout();
+
+      expect(mockStore['rts_access_token']).toBeUndefined();
+      expect(mockStore['rts_refresh_token']).toBeUndefined();
+      expect(mockStore['rts_user_id']).toBeUndefined();
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  // ── uploadTradePhoto() multipart (C-API-11) ────────────────────────────────
+
+  describe('uploadTradePhoto()', () => {
+    it('builds a multipart FormData (file, slot, userChecksheetId) and attaches the bearer', async () => {
+      mockStore['rts_access_token'] = 'photo-token';
+      mockFetch.mockResolvedValueOnce(
+        makeJsonResponse({
+          id: 5,
+          inspectionId: 99,
+          slot: 'front_left',
+          fileUrl: 'https://cdn/x.jpg',
+          uploadedAt: '2026-05-24 10:00:00.000',
+        }),
+      );
+
+      const result = await client.uploadTradePhoto(99, 'front_left', 'file:///tmp/x.jpg', 'image/jpeg');
+
+      expect(result.id).toBe(5);
+      const [url, init] = mockFetch.mock.calls[0];
+      expect(url).toContain('/rts/tradePhoto/upload');
+      expect(init?.method).toBe('POST');
+      // Bearer attached directly (not via the JSON request() path)
+      const headers = init?.headers as Record<string, string>;
+      expect(headers['Authorization']).toBe('Bearer photo-token');
+      // Body is a FormData carrying file + slot + userChecksheetId
+      const form = init?.body as FormData;
+      expect(form).toBeInstanceOf(FormData);
+      expect(form.get('slot')).toBe('front_left');
+      expect(form.get('userChecksheetId')).toBe('99');
+      expect(form.get('file')).not.toBeNull();
+    });
+  });
+
+  // ── SmartComplyApiError on non-2xx (C-API-12) ──────────────────────────────
+
+  describe('non-2xx (non-401) responses', () => {
+    it('throws SmartComplyApiError carrying the status and response text on 403', async () => {
+      mockStore['rts_access_token'] = 'tok';
+      mockFetch.mockResolvedValue(makeErrorResponse(403, 'Forbidden: no access'));
+
+      const err = await client.getMyAssignments().catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(SmartComplyApiError);
+      expect((err as SmartComplyApiError).statusCode).toBe(403);
+      expect((err as SmartComplyApiError).message).toBe('Forbidden: no access');
+    });
+  });
+
+  // ── Concurrent-401 refresh dedup (C-API-6) ─────────────────────────────────
+
+  describe('concurrent 401s', () => {
+    it('triggers exactly one refreshToken; all concurrent callers replay with the new token', async () => {
+      mockStore['rts_access_token'] = 'expired';
+      mockStore['rts_refresh_token'] = 'refresh-token';
+
+      // A controllable refresh response so both 401s land while refresh is in flight.
+      let releaseRefresh!: () => void;
+      const refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+
+      let refreshCallCount = 0;
+      mockFetch.mockImplementation((url: string, init?: { headers?: Record<string, string> }) => {
+        if (typeof url === 'string' && url.includes('/user/refreshToken')) {
+          refreshCallCount += 1;
+          return refreshGate.then(() =>
+            makeJsonResponse({ accessToken: 'new-access', refreshToken: 'new-refresh' }),
+          );
+        }
+        // Calls carrying the expired token → 401; the retry (new token) → data.
+        const tok = init?.headers?.['Authorization'];
+        if (tok === 'Bearer expired') return Promise.resolve(makeErrorResponse(401));
+        return Promise.resolve(makeJsonResponse(ASSIGNMENTS));
+      });
+
+      // Two assignments calls fire concurrently; both 401, both await one refresh.
+      const p1 = client.getMyAssignments();
+      const p2 = client.getMyAssignments();
+
+      // Let both originals 401 and enqueue on the in-flight refresh.
+      await Promise.resolve();
+      await Promise.resolve();
+      releaseRefresh();
+
+      const [r1, r2] = await Promise.all([p1, p2]);
+
+      expect(r1).toHaveLength(1);
+      expect(r2).toHaveLength(1);
+      // Exactly one refresh despite two concurrent 401s.
+      expect(refreshCallCount).toBe(1);
+      expect(mockStore['rts_access_token']).toBe('new-access');
     });
   });
 });

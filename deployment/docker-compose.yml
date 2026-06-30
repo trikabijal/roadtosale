@@ -1,0 +1,25 @@
+# Postgres for Road to Sale local development.
+# Headless tests use an embedded Postgres instead (zonky); this is for normal
+# local dev (Core runs Flyway migrations against it on start).
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: roadtosale-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-roadtosale}
+      POSTGRES_USER: ${POSTGRES_USER:-roadtosale}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-roadtosale}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - roadtosale_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-roadtosale} -d ${POSTGRES_DB:-roadtosale}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  roadtosale_pgdata:

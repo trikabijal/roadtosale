@@ -1,12 +1,23 @@
 import SwiftUI
 import DictationCore
 
+// MARK: - SettingsLauncher
+
+/// Opens the SwiftUI `Settings` scene from AppKit context (the status-item popover is outside the
+/// SwiftUI scene graph, so `@Environment(\.openSettings)` isn't available there). Uses the system
+/// selector — renamed in macOS 14 from the older `showPreferencesWindow:`, so try both.
+enum SettingsLauncher {
+    static func open() {
+        NSApp.activate(ignoringOtherApps: true)
+        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
+        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+    }
+}
+
 // MARK: - MenuBarView
 
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
-    @Environment(\.openWindow) private var openWindow
-    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -42,15 +53,13 @@ struct MenuBarView: View {
             // Bottom action buttons
             HStack {
                 Button("Settings") {
-                    openSettings()
-                    NSApp.activate(ignoringOtherApps: true)
+                    SettingsLauncher.open()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
 
                 Button("History") {
-                    openWindow(id: "history")
-                    NSApp.activate(ignoringOtherApps: true)
+                    appState.showHistoryWindow()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)

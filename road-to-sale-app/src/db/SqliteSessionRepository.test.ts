@@ -233,6 +233,99 @@ describe('SqliteSessionRepository', () => {
     });
   });
 
+  describe('incrementWriteRetry()', () => {
+    it('runs an UPDATE that bumps retry_count and stamps last_attempted_at', async () => {
+      const repo = new SqliteSessionRepository();
+      await repo.incrementWriteRetry('pw-1');
+
+      expect(mockDb.runAsync).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDb.runAsync.mock.calls[0];
+      expect(sql).toMatch(/UPDATE pending_writes/i);
+      expect(sql).toMatch(/retry_count\s*=\s*retry_count\s*\+\s*1/i);
+      expect(sql).toMatch(/last_attempted_at\s*=/i);
+      expect(params[0]).toBe('pw-1');
+    });
+  });
+
+  describe('markWriteFailed()', () => {
+    it("runs an UPDATE that sets status='failed'", async () => {
+      const repo = new SqliteSessionRepository();
+      await repo.markWriteFailed('pw-9');
+
+      expect(mockDb.runAsync).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDb.runAsync.mock.calls[0];
+      expect(sql).toMatch(/UPDATE pending_writes/i);
+      expect(sql).toMatch(/status\s*=\s*'failed'/i);
+      expect(params[0]).toBe('pw-9');
+    });
+  });
+
+  describe('updateSession()', () => {
+    it('persists a status transition via an UPDATE on the matching id', async () => {
+      const repo = new SqliteSessionRepository();
+      await repo.updateSession({ id: 'session-1', status: 'ended' });
+
+      expect(mockDb.runAsync).toHaveBeenCalledTimes(1);
+      const [sql, params] = mockDb.runAsync.mock.calls[0];
+      expect(sql).toMatch(/UPDATE sessions SET/i);
+      expect(sql).toMatch(/status = \?/i);
+      // 'ended' is bound, and the id is always the last bound param (WHERE id = ?)
+      expect(params).toContain('ended');
+      expect(params[params.length - 1]).toBe('session-1');
+    });
+
+    it('persists the tradeIn blob as JSON', async () => {
+      const repo = new SqliteSessionRepository();
+      const tradeIn = { photos: { front_left: 'file:///x.jpg' }, spokenNotes: [] };
+      await repo.updateSession({ id: 'session-1', tradeIn });
+
+      const [sql, params] = mockDb.runAsync.mock.calls[0];
+      expect(sql).toMatch(/trade_in_json = \?/i);
+      // The serialized blob is one of the bound params.
+      const jsonParam = params.find(
+        (p: unknown) => typeof p === 'string' && p.includes('front_left'),
+      );
+      expect(jsonParam).toBeDefined();
+      expect(JSON.parse(jsonParam as string)).toEqual(tradeIn);
+    });
+  });
+
+  describe('getActiveSessions()', () => {
+    it("queries only status='active' rows and maps them", async () => {
+      const session = makeSession();
+      const row: Record<string, unknown> = {
+        id: session.id,
+        smart_comply_assignment_id: session.smartComplyAssignmentId,
+        smart_comply_uc_id: null,
+        customer_json: JSON.stringify(session.customer),
+        vehicle_json: JSON.stringify(session.vehicle),
+        checksheet_id: session.checksheetId,
+        status: 'active',
+        started_at: session.startedAt.toISOString(),
+        ended_at: null,
+        checklist_json: JSON.stringify(session.checklist),
+        trade_in_json: null,
+        session_note: null,
+      };
+      mockDb.getAllAsync.mockResolvedValueOnce([row]);
+
+      const repo = new SqliteSessionRepository();
+      const result = await repo.getActiveSessions();
+
+      const [sql] = mockDb.getAllAsync.mock.calls[0];
+      expect(sql).toMatch(/status\s*=\s*'active'/i);
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe(session.id);
+      expect(result[0].status).toBe('active');
+    });
+
+    it('returns an empty array when no active sessions exist', async () => {
+      mockDb.getAllAsync.mockResolvedValueOnce([]);
+      const repo = new SqliteSessionRepository();
+      expect(await repo.getActiveSessions()).toEqual([]);
+    });
+  });
+
   describe('cacheTemplate() / getCachedTemplate()', () => {
     it('round-trips template data correctly', async () => {
       const repo = new SqliteSessionRepository();

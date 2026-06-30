@@ -2,6 +2,10 @@
   "name": "road-to-sale-app",
   "version": "1.0.0",
   "main": "index.ts",
+  "engines": {
+    "node": ">=20",
+    "npm": ">=10"
+  },
   "dependencies": {
     "voice-engine": "file:../voice-engine",
     "@react-native-async-storage/async-storage": "^3.1.0",

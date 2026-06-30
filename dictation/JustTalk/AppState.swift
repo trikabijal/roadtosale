@@ -2,6 +2,12 @@ import AppKit
 import AVFoundation
 import SwiftUI
 import DictationCore
+import os
+
+/// Subsystem logger — surfaces history/telemetry failures that were previously swallowed by
+/// `try?`, so "my dictation never reached History" is diagnosable from Console.app instead of
+/// invisible. Filter Console with subsystem `com.trika.dictation`.
+private let log = Logger(subsystem: "com.trika.dictation", category: "AppState")
 
 // MARK: - DictationState
 
@@ -54,6 +60,10 @@ final class BufferAccumulator: @unchecked Sendable {
 @MainActor
 public final class AppState: NSObject, ObservableObject {
 
+    /// Single app-wide instance. The menu-bar status item (AppKit, see AppDelegate) and the
+    /// SwiftUI Settings scene both need the SAME AppState; a singleton is the one source of truth.
+    public static let shared = AppState()
+
     // MARK: - Published
 
     @Published public var dictationState: DictationState = .idle
@@ -85,6 +95,10 @@ public final class AppState: NSObject, ObservableObject {
 
     let permissions = PermissionsService()
     private let onboardingWindow = OnboardingWindow()
+    // History is an AppKit-managed window (like onboarding) rather than a SwiftUI scene, so the
+    // menu-bar popover — which is hosted outside the SwiftUI scene graph via NSStatusItem — can
+    // open it directly. `openWindow(id:)` does not reach an NSPopover's hosting controller.
+    private let historyWindow = HistoryWindow()
     private var permissionTimer: Timer?
 
     /// The permissions Just Talk genuinely needs to function: mic to hear you, plus
@@ -123,6 +137,15 @@ public final class AppState: NSObject, ObservableObject {
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
     private var recordingPeakLevel: Float = 0
     private static let lowInputPeakThreshold: Float = 0.04
+    /// Transcript text retention window (privacy) — records older than this are purged on launch.
+    private static let transcriptRetentionDays = 30
+    /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
+    /// audio unbounded — recording auto-stops at this length.
+    private static let maxRecordingSeconds: Double = 600
+    /// Live preview only transcribes the most recent audio, so it doesn't re-run on an
+    /// ever-growing buffer (O(n²) CPU) during long recordings. The final transcription still
+    /// uses the full audio.
+    private static let previewWindowSeconds: Double = 30
     // Frontmost app at the moment recording started — the dictation target. Captured up
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
@@ -150,6 +173,11 @@ public final class AppState: NSObject, ObservableObject {
     public override init() {
         let defaults = UserDefaults.standard
         let provider = STTProvider(rawValue: defaults.string(forKey: "sttProvider") ?? "") ?? .whisperKit
+        // Default to large-v3-turbo: it is the only MULTILINGUAL tier (the *.en models are
+        // English-only and mangle Hindi/Gujarati). The user dictates Hinglish (English + Hindi +
+        // Gujarati mixed) in real life, so a multilingual model is required despite being slower
+        // than small.en (~4s vs ~0.9s on a 10s clip). English-heavy contexts (e.g. coding) can
+        // select small.en in Settings for the speed; a per-app model override is the ideal fix.
         let model = defaults.string(forKey: "sttModel")
             ?? defaults.string(forKey: "modelTier")          // legacy key from PRD 0003
             ?? ModelTier.largeV3Turbo.rawValue
@@ -181,6 +209,12 @@ public final class AppState: NSObject, ObservableObject {
         super.init()
         recordingEngine.delegate = self
         transcriber.setVocabularyBias(vocabulary)
+
+        // HUD open/close audio cues (Wispr Flow-style): a soft chime when the pill appears and
+        // another when it disappears. Centralised on real visibility transitions, so phase changes
+        // (recording→processing→done) while the pill stays up don't re-fire. Gated by soundEnabled.
+        recordingHUD.onAppear = { [weak self] in self?.playSound("Tink") }
+        recordingHUD.onDisappear = { [weak self] in self?.playSound("Pop") }
 
         Task { await setup() }
     }
@@ -228,13 +262,20 @@ public final class AppState: NSObject, ObservableObject {
             return
         }
 
-        // 6. Open telemetry store (non-fatal).
+        // 6. Open telemetry store. App still dictates+pastes without it, but History is fully
+        //    DB-backed: if this throws, NOTHING is ever persisted. Previously swallowed silently —
+        //    the root of "I could see it transcribe but it never reached History". Now logged and
+        //    surfaced so the failure is diagnosable instead of invisible.
         do {
             let url = try TelemetryStore.macOSDatabaseURL()
             telemetryStore = try TelemetryStore(databaseURL: url)
+            // Privacy retention: drop transcripts older than 30 days on launch (audio is bounded
+            // to the last 5 by RecordingStore). Dictated text isn't hoarded indefinitely.
+            try? await telemetryStore?.purge(olderThanDays: Self.transcriptRetentionDays)
             await refreshTranscripts()
         } catch {
-            // Non-fatal — app still works without telemetry
+            telemetryStore = nil
+            log.error("Telemetry store failed to open — History will stay empty: \(error.localizedDescription, privacy: .public)")
         }
 
         // 7. Load the tiny live-preview model in the background (best-effort).
@@ -274,6 +315,12 @@ public final class AppState: NSObject, ObservableObject {
     func showOnboardingWindow() {
         refreshPermissions()
         onboardingWindow.show(appState: self)
+    }
+
+    /// Open the searchable History window (menu-bar "History" button). AppKit-managed so it works
+    /// from the status-item popover.
+    func showHistoryWindow() {
+        historyWindow.show(appState: self)
     }
 
     /// Trigger the system mic prompt (only on a wizard button tap). Guarded so rapid taps
@@ -348,6 +395,9 @@ public final class AppState: NSObject, ObservableObject {
         audio.reset()
         recordingPeakLevel = 0
         recordingStartDate = Date()
+        // Warm the cleanup model now, while the user talks, so the cleanup at stop is fast
+        // (~355ms warm vs ~1.3s cold). No-op for non-LLM cleanup providers.
+        cleanup.prewarm()
         let frontApp = NSWorkspace.shared.frontmostApplication
         recordingFrontmostApp = frontApp?.bundleIdentifier
         recordingTargetApp = frontApp
@@ -355,8 +405,7 @@ public final class AppState: NSObject, ObservableObject {
             try recordingEngine.start()
             dictationState = .recording
             statusMessage = "Recording…"
-            recordingHUD.show(phase: .recording, label: "Listening…")
-            playSound("Tink")
+            recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
             startPreviewLoop()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
@@ -442,10 +491,26 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
+    /// The most recent `maxSeconds` of captured audio (tail of the ordered buffer), so the live
+    /// preview transcribes a bounded window instead of the whole growing recording.
+    private func recentBuffers(maxSeconds: Double) -> [AVAudioPCMBuffer] {
+        let all = audio.snapshot()
+        let maxFrames = Int(RecordingEngine.targetSampleRate * maxSeconds)
+        var tail: [AVAudioPCMBuffer] = []
+        var frames = 0
+        for buffer in all.reversed() {
+            tail.append(buffer)
+            frames += Int(buffer.frameLength)
+            if frames >= maxFrames { break }
+        }
+        return tail.reversed()
+    }
+
     private func runPreview() async {
         guard dictationState == .recording,
               let preview = previewTranscriber, preview.isLoaded else { return }
-        let buffers = audio.snapshot()
+        // Only the most recent audio — bounds preview cost on long recordings.
+        let buffers = recentBuffers(maxSeconds: Self.previewWindowSeconds)
         // Need ~0.6s of audio before a preview is meaningful.
         let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
         guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
@@ -459,6 +524,21 @@ public final class AppState: NSObject, ObservableObject {
 
     // MARK: - Transcription
 
+    /// A model call timed out — release the (possibly stuck) STT + cleanup resources so nothing
+    /// orphaned lingers, then reload the transcriber fresh for the next dictation.
+    private func recoverAfterTimeout() {
+        transcriber.reset()
+        cleanup.reset()
+        engineLoaded = false
+        let t = transcriber
+        statusMessage = "Reloading the model…"
+        Task {
+            try? await t.load()
+            engineLoaded = t.isLoaded
+            if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
+        }
+    }
+
     private func performTranscription(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async {
         // Transcribe with automatic retries — STT can fail transiently. The audio is preserved
         // so a failure is never silently lost (Wispr-style: keep audio, retry, then discard).
@@ -467,6 +547,12 @@ public final class AppState: NSObject, ObservableObject {
             result = try await transcribeWithRetry(buffers: buffers, audioStartDate: audioStartDate)
         } catch TranscriptionError.emptyResult, TranscriptionError.noAudioData {
             handleEmpty(buffers: buffers, audioStartDate: audioStartDate)
+            return
+        } catch is TimeoutError {
+            // A stuck model call: release everything so orphaned work can't linger, then preserve
+            // the audio for retry on a freshly-reloaded engine.
+            recoverAfterTimeout()
+            failWithRetry(buffers: buffers, audioStartDate: audioStartDate, message: "Timed out — retry")
             return
         } catch {
             failWithRetry(buffers: buffers, audioStartDate: audioStartDate, message: "Transcription failed")
@@ -507,8 +593,12 @@ public final class AppState: NSObject, ObservableObject {
 
         // Write to clipboard and optionally paste
         let ap = autoPaste
-        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp)
-        playSound("Pop")
+        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp) { [weak self] in
+            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
+            // the text is waiting on the clipboard.
+            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
+        }
+        // (Close cue is fired by HUD.onDisappear when the pill goes away — no per-paste sound here.)
 
         // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
         // STT output for the cross-platform learnings dataset.
@@ -524,7 +614,21 @@ public final class AppState: NSObject, ObservableObject {
             cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
             cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
         )
-        try? await telemetryStore?.save(record)
+        // Persist to History. Was `try?` — a throw here pasted the text but silently dropped it
+        // from History (exactly the reported bug). Now: a nil store and a failed write are both
+        // logged + surfaced, so a persistence failure is visible instead of looking like success.
+        var historyWarning: String?
+        if let store = telemetryStore {
+            do {
+                try await store.save(record)
+            } catch {
+                log.error("Failed to save transcript to History: \(error.localizedDescription, privacy: .public)")
+                historyWarning = "Saved to clipboard, but couldn't write to History"
+            }
+        } else {
+            log.error("Transcript pasted but History store is unavailable — not saved")
+            historyWarning = "Pasted — History unavailable (text not saved)"
+        }
 
         recentTranscripts.insert(record, at: 0)
         if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
@@ -537,11 +641,17 @@ public final class AppState: NSObject, ObservableObject {
         correctionWindowTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
             self?.correctionWindowOpen = false
+            // Hide the correction prompt when the window closes (unless a new recording took over).
+            if self?.dictationState == .idle { self?.recordingHUD.hide() }
         }
 
-        // Success — drop the preserved audio and reset.
+        // Success — drop preserved audio, go idle, and show the post-insert correction prompt in
+        // the HUD for the correction window (the in-HUD "mark wrong" replaces the global ⌘⇧Z key).
         pendingAudio = nil
-        finishIdle()
+        dictationState = .idle
+        // Keep a persistence warning visible; otherwise return to the normal ready prompt.
+        statusMessage = historyWarning ?? readyMessage
+        recordingHUD.showCorrectionPrompt { [weak self] in self?.markLastTranscriptCorrected() }
     }
 
     /// Per-attempt cap on the STT engine. On-device transcription is normally faster than
@@ -627,12 +737,20 @@ public final class AppState: NSObject, ObservableObject {
         // Only honour within the 5-second correction window
         guard correctionWindowOpen else { return }
         guard let record = recentTranscripts.first else { return }
+        let id = record.id   // capture the ID — index 0 may differ by the time the write returns
         Task {
-            try? await telemetryStore?.markCorrected(id: record.id, note: nil)
-            if !recentTranscripts.isEmpty {
-                recentTranscripts[0].wasCorrected = true
+            do {
+                try await telemetryStore?.markCorrected(id: id, note: nil)
+            } catch {
+                statusMessage = "Couldn't save correction"
+            }
+            // Update the matching record by ID, not a stale index.
+            if let idx = recentTranscripts.firstIndex(where: { $0.id == id }) {
+                recentTranscripts[idx].wasCorrected = true
             }
         }
+        // Dismiss the correction prompt now that the user has acted (if still showing).
+        if dictationState == .idle { recordingHUD.hide() }
     }
 
     // MARK: - Settings
@@ -641,21 +759,33 @@ public final class AppState: NSObject, ObservableObject {
     /// via the factory, and reloads with progress.
     func setSTTConfig(_ config: STTConfig) {
         guard config != sttConfig else { return }
+        // Never switch to a provider that isn't implemented yet — its transcriber's load()
+        // throws, engineLoaded stays false, and dictation is blocked until the user switches
+        // back (a self-brick from Settings). The picker binding snaps back to the current value.
+        guard config.provider.isAvailable else {
+            statusMessage = "\(config.provider.displayName) isn't available yet"
+            return
+        }
         sttConfig = config
         let defaults = UserDefaults.standard
         defaults.set(config.provider.rawValue, forKey: "sttProvider")
         defaults.set(config.model, forKey: "sttModel")
 
         engineLoaded = false
-        transcriber = SpeechTranscriberFactory.make(config)
-        transcriber.setVocabularyBias(vocabulary)
+        // Capture THIS switch's transcriber instance locally — the Task below must load/read
+        // exactly this object. Using the mutable `self.transcriber` let a stale task from an
+        // earlier switch call load() on (and cancel the load of) whatever the current
+        // transcriber happened to be. The generation token still guards UI state writes.
+        let newTranscriber = SpeechTranscriberFactory.make(config)
+        newTranscriber.setVocabularyBias(vocabulary)
+        transcriber = newTranscriber
         sttLoadGeneration += 1
         let token = sttLoadGeneration
         let modelName = config.modelDisplayName
         statusMessage = "Preparing \(modelName)…"
         Task {
             do {
-                try await transcriber.load { [weak self] fraction in
+                try await newTranscriber.load { [weak self] fraction in
                     // Ignore progress from a superseded switch.
                     guard let self, self.sttLoadGeneration == token else { return }
                     if fraction < 1.0 {
@@ -668,7 +798,7 @@ public final class AppState: NSObject, ObservableObject {
                 // stomp its state. Keyed on the load token, not the config value, so
                 // rapid same-value switches (A→B→A→B) are disambiguated.
                 guard sttLoadGeneration == token else { return }
-                engineLoaded = transcriber.isLoaded
+                engineLoaded = newTranscriber.isLoaded
                 statusMessage = engineLoaded
                     ? readyMessage
                     : "\(config.provider.displayName) unavailable"
@@ -687,6 +817,13 @@ public final class AppState: NSObject, ObservableObject {
     /// Switch cleanup provider and/or level. Persists and rebuilds the cleanup engine.
     func setCleanupConfig(_ config: CleanupConfig) {
         guard config != cleanupConfig else { return }
+        // Mirror the STT guard: don't switch to a cleanup provider this build/OS can't run.
+        // (Runtime fallback — e.g. Apple Intelligence off — is still possible and surfaced via
+        // the result's usedFallback flag; this just blocks selecting an outright-unavailable one.)
+        guard config.provider.isAvailable else {
+            statusMessage = "\(config.provider.displayName) isn't available on this Mac"
+            return
+        }
         cleanupConfig = config
         let defaults = UserDefaults.standard
         defaults.set(config.provider.rawValue, forKey: "cleanupProvider")
@@ -824,6 +961,12 @@ extension AppState: RecordingEngineDelegate {
     /// (and stays cleared) as soon as the user is loud enough once.
     private func evaluateInputLevel(_ level: Float) {
         guard dictationState == .recording, let start = recordingStartDate else { return }
+        // Hard safety stop so a stuck/forgotten recording can't balloon RAM/CPU.
+        if Date().timeIntervalSince(start) > Self.maxRecordingSeconds {
+            statusMessage = "Reached the \(Int(Self.maxRecordingSeconds / 60))-minute limit — stopping"
+            stopRecordingAndTranscribe()
+            return
+        }
         recordingPeakLevel = max(recordingPeakLevel, level)
         guard Date().timeIntervalSince(start) > 2 else { return }
         recordingHUD.setLowInput(recordingPeakLevel < Self.lowInputPeakThreshold)

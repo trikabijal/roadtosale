@@ -4,7 +4,7 @@
 
 This document defines the high-level technical architecture for `Road to Sale by AuditPro`.
 
-It exists to separate the product into clear pieces so implementation stays organized.
+It splits the product into clear pieces so implementation stays organized.
 
 Last updated:
 - `2026-05-22`

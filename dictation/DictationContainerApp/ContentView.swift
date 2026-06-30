@@ -20,7 +20,7 @@ struct SetupTab: View {
         NavigationView {
             List {
                 Section {
-                    Text("Follow these steps to enable the Dictation keyboard on your iPhone or iPad.")
+                    Text("Follow these steps to enable the Just Talk keyboard on your iPhone or iPad.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         .listRowBackground(Color.clear)
@@ -30,9 +30,9 @@ struct SetupTab: View {
                     SetupStep(number: 1, text: "Open the **Settings** app")
                     SetupStep(number: 2, text: "Go to **General → Keyboard → Keyboards**")
                     SetupStep(number: 3, text: "Tap **Add New Keyboard…**")
-                    SetupStep(number: 4, text: "Select **Dictation** from the list")
-                    SetupStep(number: 5, text: "Tap **Dictation** in the keyboard list, then enable **Allow Full Access**")
-                    SetupStep(number: 6, text: "In any app, tap the 🌐 globe key to switch to Dictation keyboard")
+                    SetupStep(number: 4, text: "Select **Just Talk** from the list")
+                    SetupStep(number: 5, text: "Tap **Just Talk** in the keyboard list, then enable **Allow Full Access**")
+                    SetupStep(number: 6, text: "In any app, tap the 🌐 globe key to switch to Just Talk")
                 }
 
                 Section("Using the keyboard") {

@@ -10,7 +10,7 @@ import FoundationModels
 /// degenerate, it transparently falls back to `RuleBasedCleanup` and flags
 /// `usedFallback`. Cleanup never throws to the caller — paste must never be blocked.
 @available(macOS 26.0, iOS 26.0, *)
-public struct FoundationModelsCleanup: TextCleanup {
+public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
     /// Cap on the on-device LLM call, scaled to transcript length. The on-device model needs
     /// ~16 ms/word; a 5-minute (~760-word) dictation legitimately cleans in ~12 s, so a flat
     /// 12 s budget timed out by a hair and fell back to rule-based. We give ~50 ms/word (3×
@@ -22,10 +22,28 @@ public struct FoundationModelsCleanup: TextCleanup {
 
     let pack: CleanupPack
     let fallback: RuleBasedCleanup
+    /// Held only to keep a prewarm in flight alive; never used for an actual cleanup turn.
+    private var prewarmSession: LanguageModelSession?
 
     public init(pack: CleanupPack, fallback: RuleBasedCleanup) {
         self.pack = pack
         self.fallback = fallback
+    }
+
+    /// Warm the on-device model during recording so the cleanup at stop is fast — measured
+    /// ~355 ms warm vs ~1.3 s cold (model warmup dominates). Prewarming any session loads the
+    /// shared model, so the fresh per-cleanup session (which avoids context bleed) still
+    /// benefits. We hold the session so the background load isn't cancelled by deallocation.
+    public func prewarm() {
+        guard SystemLanguageModel.default.isAvailable else { return }
+        let session = LanguageModelSession(instructions: pack.prompts[CleanupLevel.full.rawValue] ?? "")
+        session.prewarm()
+        prewarmSession = session
+    }
+
+    /// Drop the held prewarm session (e.g. after a timeout) so nothing lingers.
+    public func reset() {
+        prewarmSession = nil
     }
 
     public func clean(_ req: CleanupRequest) async -> CleanupResult {
@@ -76,6 +94,9 @@ public struct FoundationModelsCleanup: TextCleanup {
             text = CleanupText.applyMap(text, req.vocab, op: "vocab", ops: &ops)
             text = CleanupText.applyMap(text, pack.lexicon.expansions, op: "lexicon", ops: &ops)
             text = CleanupText.applyMap(text, pack.lexicon.termMap, op: "terms", ops: &ops)
+            // Deterministically capitalize sentence starts. The trimmed (fast) prompt sometimes
+            // leaves them lowercase; guaranteeing it here is cheaper than teaching the model.
+            text = CleanupText.capitalizeSentences(text)
 
             return CleanupResult(
                 cleanedText: text.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -85,6 +106,9 @@ public struct FoundationModelsCleanup: TextCleanup {
                 provider: .foundationModels
             )
         } catch {
+            // On timeout/failure, release the (possibly stuck) session before falling back so
+            // orphaned model work doesn't keep holding it.
+            reset()
             return await fallbackResult(req)
         }
     }

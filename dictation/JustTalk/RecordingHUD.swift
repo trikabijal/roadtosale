@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 enum RecordingHUDPhase {
-    case recording, processing, failed
+    case recording, processing, failed, done
 }
 
 /// Observable backing for the floating HUD.
@@ -16,6 +16,8 @@ final class RecordingHUDModel: ObservableObject {
     // Failure actions, set when `phase == .failed`.
     var onRetry: (() -> Void)?
     var onDismiss: (() -> Void)?
+    // Correction action, set when `phase == .done` (post-insert "mark wrong").
+    var onMarkWrong: (() -> Void)?
 }
 
 /// A small always-on-top floating panel shown near the bottom of the screen while
@@ -25,6 +27,13 @@ final class RecordingHUDModel: ObservableObject {
 final class RecordingHUD {
     private let model = RecordingHUDModel()
     private var panel: NSPanel?
+    /// Tracks on-screen state so the open/close cues fire on true visibility transitions only —
+    /// not on phase changes (e.g. recording→processing) while the pill stays up.
+    private var isVisible = false
+    /// Fired when the pill appears (hidden→visible) and disappears (visible→hidden). AppState
+    /// wires these to the open/close sounds, mirroring Wispr Flow's HUD chimes.
+    var onAppear: (() -> Void)?
+    var onDisappear: (() -> Void)?
 
     func show(phase: RecordingHUDPhase, label: String) {
         model.phase = phase
@@ -32,9 +41,18 @@ final class RecordingHUD {
         model.level = 0
         model.previewText = ""
         model.lowInput = false
+        present()
+    }
+
+    /// Bring the panel on screen, positioning it, and fire `onAppear` only on a hidden→visible edge.
+    private func present() {
         let panel = ensurePanel()
         position(panel)
         panel.orderFrontRegardless()
+        if !isVisible {
+            isVisible = true
+            onAppear?()
+        }
     }
 
     func setPhase(_ phase: RecordingHUDPhase, label: String) {
@@ -60,6 +78,23 @@ final class RecordingHUD {
 
     func hide() {
         panel?.orderOut(nil)
+        if isVisible {
+            isVisible = false
+            onDisappear?()
+        }
+    }
+
+    /// After a successful insert, show a brief confirmation with a "mark wrong" button — the
+    /// correction affordance lives here in the HUD (reachable no matter which app is focused),
+    /// replacing the global ⌘⇧Z shortcut that collided with the foreground app's redo.
+    func showCorrectionPrompt(onMarkWrong: @escaping () -> Void) {
+        model.phase = .done
+        model.label = "Inserted"
+        model.level = 0
+        model.previewText = ""
+        model.lowInput = false
+        model.onMarkWrong = onMarkWrong
+        present()
     }
 
     /// Show a persistent failure state with Retry / dismiss actions. Does NOT auto-hide —
@@ -71,9 +106,7 @@ final class RecordingHUD {
         model.previewText = ""
         model.onRetry = onRetry
         model.onDismiss = onDismiss
-        let panel = ensurePanel()
-        position(panel)
-        panel.orderFrontRegardless()
+        present()
     }
 
     // MARK: - Panel
@@ -139,11 +172,12 @@ final class RecordingHUD {
         return NSPointFromString(s)
     }
 
-    /// True if the saved origin still lands the panel on a connected display, so a position
-    /// saved on a since-disconnected monitor falls back to the default.
+    /// True only if the saved origin lands the panel's CENTER within a screen's visible area —
+    /// so a position saved on a since-disconnected/rearranged monitor, or dragged mostly
+    /// off-screen, falls back to the default bottom-centre instead of hiding the HUD.
     nonisolated private static func isOnScreen(_ origin: NSPoint, size: NSSize) -> Bool {
-        let rect = NSRect(origin: origin, size: size)
-        return NSScreen.screens.contains { $0.frame.intersects(rect) }
+        let center = NSPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+        return NSScreen.screens.contains { $0.visibleFrame.contains(center) }
     }
 }
 
@@ -171,10 +205,10 @@ private struct HUDContentView: View {
 
     var body: some View {
         Group {
-            if model.phase == .failed {
-                failedContent
-            } else {
-                activeContent
+            switch model.phase {
+            case .failed: failedContent
+            case .done:   doneContent
+            default:      activeContent
             }
         }
         .padding(.horizontal, 16)
@@ -201,6 +235,25 @@ private struct HUDContentView: View {
                 .lineLimit(1)
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var doneContent: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(.green)
+
+            Text("Inserted")
+                .font(.callout)
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button { model.onMarkWrong?() } label: {
+                Label("Mark wrong", systemImage: "xmark")
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
     }
 

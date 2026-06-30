@@ -41,11 +41,15 @@ public protocol SpeechTranscriber: AnyObject {
     /// Optional custom-vocabulary biasing (names, jargon). Providers that don't support
     /// biasing ignore it. Default: no-op.
     func setVocabularyBias(_ terms: [String])
+    /// Release the loaded model so orphaned/timed-out work can't keep holding resources; the
+    /// next `transcribe` reloads. Default: no-op (only heavyweight engines need it).
+    func reset()
 }
 
 public extension SpeechTranscriber {
     func load() async throws { try await load(onProgress: nil) }
     func setVocabularyBias(_ terms: [String]) {}
+    func reset() {}
 }
 
 // MARK: - Provider + config

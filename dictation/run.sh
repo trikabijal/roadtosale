@@ -1,13 +1,25 @@
 #!/usr/bin/env bash
 #
-# Build and launch the macOS Just Talk app locally.
+# run.sh — Build and launch the macOS Just Talk app locally.
+#
+# Usage:
+#   ./run.sh
+#
+# Builds the JustTalk macOS app (via build.sh) and opens the resulting .app. The app
+# lives in the menu bar (no Dock icon). Hold your activation key to talk.
 #
 set -euo pipefail
 cd "$(dirname "$0")"
 
-./build.sh
+# ---- Prerequisite checks (shared, fail loudly before any real work) --------
+source "$(dirname "$0")/scripts/prereqs.sh"
+require_build_prereqs
 
-APP=$(find build/Build/Products/Release -maxdepth 1 -name "*.app" | head -1)
+CONFIG="${CONFIG:-Release}"
+
+./build.sh macos
+
+APP=$(find "build/Build/Products/$CONFIG" -maxdepth 1 -name "*.app" | head -1)
 if [[ -z "${APP:-}" ]]; then
   echo "✗ Build product not found." >&2
   exit 1

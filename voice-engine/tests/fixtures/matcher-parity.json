@@ -1,0 +1,73 @@
+{
+  "_comment": "Shared cue-matcher parity fixtures. Fed to BOTH the Python CueMatcher (via subprocess) and the TS CueMatcher (in-process) so the two implementations are cross-checked on identical input. Each case lists the expected detection set as {cue_id, matched_phrase} pairs.",
+  "atoms": [
+    {
+      "id": "honda.feature.honda_sensing_360plus",
+      "display_name": "Honda Sensing 360+",
+      "source": "feature",
+      "cue_phrases": ["Honda Sensing"],
+      "synonyms": ["safety suite", "driver assist"],
+      "metadata": {}
+    },
+    {
+      "id": "honda.feature.wireless_apple_carplay",
+      "display_name": "Wireless Apple CarPlay",
+      "source": "feature",
+      "cue_phrases": ["wireless apple carplay"],
+      "synonyms": ["CarPlay", "apple carplay"],
+      "metadata": {}
+    },
+    {
+      "id": "workflow.hospitality_offer",
+      "display_name": "Hospitality Offer",
+      "source": "workflow",
+      "cue_phrases": ["can I offer you", "would you like a drink"],
+      "synonyms": ["coffee", "water"],
+      "metadata": {}
+    }
+  ],
+  "cases": [
+    {
+      "name": "direct phrase",
+      "text": "Let's talk about Honda Sensing today",
+      "expected": [
+        { "cue_id": "honda.feature.honda_sensing_360plus", "matched_phrase": "Honda Sensing" }
+      ]
+    },
+    {
+      "name": "synonym",
+      "text": "Pair your phone with CarPlay",
+      "expected": [
+        { "cue_id": "honda.feature.wireless_apple_carplay", "matched_phrase": "CarPlay" }
+      ]
+    },
+    {
+      "name": "case-insensitive",
+      "text": "HONDA AND apple CARPLAY rules",
+      "expected": [
+        { "cue_id": "honda.feature.wireless_apple_carplay", "matched_phrase": "apple carplay" }
+      ]
+    },
+    {
+      "name": "no match",
+      "text": "the weather is nice",
+      "expected": []
+    },
+    {
+      "name": "multi-cue one event",
+      "text": "Honda Sensing and CarPlay — can I offer you a coffee?",
+      "expected": [
+        { "cue_id": "honda.feature.honda_sensing_360plus", "matched_phrase": "Honda Sensing" },
+        { "cue_id": "honda.feature.wireless_apple_carplay", "matched_phrase": "CarPlay" },
+        { "cue_id": "workflow.hospitality_offer", "matched_phrase": "can I offer you" }
+      ]
+    },
+    {
+      "name": "punctuation normalized",
+      "text": "Use, CarPlay!",
+      "expected": [
+        { "cue_id": "honda.feature.wireless_apple_carplay", "matched_phrase": "CarPlay" }
+      ]
+    }
+  ]
+}

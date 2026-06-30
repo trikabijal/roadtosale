@@ -3,6 +3,7 @@ import { setSmartComplyClient } from '../api/clientSingleton';
 import type { ISmartComplyClient } from '../api/ISmartComplyClient';
 import type { ChecksheetDTO, UserChecksheetDTO } from '../api/types';
 import type { SessionCustomer, SessionVehicle, CuePackEntry } from './types';
+import type { CueDetection } from '../voice/types';
 
 // ─── Test fixtures ────────────────────────────────────────────────────────────
 
@@ -51,6 +52,23 @@ function makeVehicle(): SessionVehicle {
     trimId: 'sport',
     trimName: 'Sport',
     year: 2026,
+  };
+}
+
+function makeCueDetection(cueId: string, phrase = 'hello I am Sarah'): CueDetection {
+  return {
+    cue_id: cueId,
+    matched_phrase: phrase,
+    timestamp_ms: 1000,
+    confidence: 0.9,
+    triggering_event: {
+      text: phrase,
+      stability: 'final',
+      timestamp_ms: 1000,
+      latency_ms_from_audio_start: 200,
+      confidence: 0.9,
+      engine_metadata: {},
+    },
   };
 }
 
@@ -244,6 +262,71 @@ describe('SessionEngine', () => {
 
       // After unsubscribe, count must not increase
       expect(count).toBe(countAfterStart);
+    });
+  });
+
+  // ── processCueDetection() — C-SE-5 (direct) ────────────────────────────────
+
+  describe('processCueDetection()', () => {
+    it('forwards a detection to the checklist engine; the resulting state is observable via getSession()', async () => {
+      const engine = new SessionEngine();
+      const session = await engine.startSession(
+        1, makeCustomer(), makeVehicle(), makeChecksheet(), makeCuePack(),
+      );
+
+      // Question 101 requires workflow.self_introduction → completing it.
+      engine.processCueDetection(session.id, makeCueDetection('workflow.self_introduction'));
+
+      const updated = engine.getSession(session.id)!;
+      const q101 = updated.checklist.steps
+        .flatMap((s) => s.questions)
+        .find((q) => q.question.id === 101)!;
+      expect(q101.status).toBe('complete');
+      expect(q101.detectedCues.map((c) => c.cueId)).toContain('workflow.self_introduction');
+    });
+
+    it('emits a session update when a cue advances the checklist', async () => {
+      const engine = new SessionEngine();
+      const session = await engine.startSession(
+        1, makeCustomer(), makeVehicle(), makeChecksheet(), makeCuePack(),
+      );
+
+      let emittedChecklistCompleted = -1;
+      engine.onSessionUpdate((s) => { emittedChecklistCompleted = s.checklist.completedCount; });
+
+      engine.processCueDetection(session.id, makeCueDetection('workflow.self_introduction'));
+
+      expect(emittedChecklistCompleted).toBeGreaterThanOrEqual(1);
+    });
+
+    it('is a safe no-op for an unknown sessionId', () => {
+      const engine = new SessionEngine();
+      expect(() =>
+        engine.processCueDetection('no-such-session', makeCueDetection('workflow.self_introduction')),
+      ).not.toThrow();
+    });
+  });
+
+  // ── overrideQuestion() — C-SE-6 (through the engine facade) ─────────────────
+
+  describe('overrideQuestion()', () => {
+    it('marks a question overridden through the SessionEngine facade', async () => {
+      const engine = new SessionEngine();
+      const session = await engine.startSession(
+        1, makeCustomer(), makeVehicle(), makeChecksheet(), makeCuePack(),
+      );
+
+      const state = engine.overrideQuestion(session.id, 101, 'rep confirmed in person');
+
+      expect(state).not.toBeNull();
+      const q101 = state!.steps.flatMap((s) => s.questions).find((q) => q.question.id === 101)!;
+      expect(q101.status).toBe('overridden');
+      expect(q101.overrideNote).toBe('rep confirmed in person');
+    });
+
+    it('returns null for an unknown sessionId', () => {
+      const engine = new SessionEngine();
+      expect(engine.overrideQuestion('no-such-session', 101)).toBeNull();
     });
   });
 });

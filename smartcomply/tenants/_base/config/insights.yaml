@@ -1,5 +1,0 @@
-# Default tenant — no insights defined. The National BI dashboard's AI
-# insights panel will simply render empty for unbranded builds; specific
-# tenants override by placing their own insights.yaml under
-# tenants/<id>/config/.
-correlations: []
