@@ -12,23 +12,28 @@ enum HotkeyConflict {
 
     /// `AppleFnUsageType` in `com.apple.HIToolbox`:
     /// 0 = Do Nothing · 1 = Change Input Source · 2 = Show Emoji & Symbols · 3 = Start Dictation.
-    /// Absent => 0 (treated as "no OS claim") so we don't nag on a default machine.
-    static func appleFnUsageType() -> Int {
-        UserDefaults(suiteName: "com.apple.HIToolbox")?.integer(forKey: "AppleFnUsageType") ?? 0
+    /// Returns nil when the key is ABSENT — which is the common case and does NOT mean "Do
+    /// Nothing": on hardware with a Globe/Fn key the OS default is "Show Emoji & Symbols", so an
+    /// unset value still pops the emoji picker. We read the raw object (not `.integer`, which
+    /// can't tell "set to 0" from "absent") so the caller can treat absent as "reacts".
+    static func appleFnUsageType() -> Int? {
+        UserDefaults(suiteName: "com.apple.HIToolbox")?.object(forKey: "AppleFnUsageType") as? Int
     }
 
     /// Human label for the current OS Globe behavior.
     static func appleFnUsageLabel() -> String {
         switch appleFnUsageType() {
-        case 1:  return "Change Input Source"
-        case 2:  return "Show Emoji & Symbols"
-        case 3:  return "Start Dictation"
-        default: return "Do Nothing"
+        case 0:   return "Do Nothing"
+        case 1:   return "Change Input Source"
+        case 2:   return "Show Emoji & Symbols"
+        case 3:   return "Start Dictation"
+        default:  return "Show Emoji & Symbols (system default)"   // nil / unknown → hardware default
         }
     }
 
-    /// True only when Fn is the chosen key AND the OS is set to react to it. Our event tap
-    /// usually suppresses Fn first anyway, so this is advisory, not a hard blocker.
+    /// True when Fn is the chosen key AND the OS reacts to it (opens emoji / dictation / input
+    /// switch). Absent counts as "reacts" — the Globe-key hardware default is Show Emoji, so an
+    /// unset value is exactly the case that leaks to the emoji picker. Only an explicit 0 is safe.
     static func osClaimsFn(for config: HotkeyConfig) -> Bool {
         config.isFn && appleFnUsageType() != 0
     }
