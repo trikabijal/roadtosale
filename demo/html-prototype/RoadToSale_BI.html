@@ -115,6 +115,39 @@ body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 .lf-note{font-size:11px;color:#888;margin-top:2px}
 .lf-arrow{display:flex;align-items:center;justify-content:center;font-size:20px;color:#B9A8E0;padding:0 4px;flex-shrink:0}
 
+/* COACHING SPLIT — the two on-ramps */
+.split-head{display:flex;align-items:baseline;gap:10px;margin:6px 0 2px}
+.split-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:20px}
+.split-eyebrow.on1{background:var(--grl);color:#3B6D11}
+.split-eyebrow.on2{background:var(--pul);color:#5B3B9E}
+.split-head h2{font-size:16px;font-weight:600;color:#000;font-family:'Syne',sans-serif}
+.split-sub{font-size:12px;color:#888;margin:2px 0 12px}
+.coach-divider{height:0.5px;background:#e0e0e0;margin:2rem 0 1.5rem}
+
+/* ONBOARDING HERO */
+.onbhero{background:linear-gradient(100deg,#EAF3DE,#E6F1FB);border:0.5px solid #A9C97F;border-radius:14px;padding:18px 20px;margin-bottom:1.25rem;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.onbhero .oh-num{font-size:40px;font-weight:800;font-family:'Syne',sans-serif;color:#27500A;line-height:1}
+.onbhero .oh-num span{font-size:18px;font-weight:600}
+.onbhero .oh-txt{flex:1;min-width:200px}
+.onbhero .oh-tag{font-size:14px;font-weight:700;font-family:'Syne',sans-serif;color:#173404;letter-spacing:-.2px}
+.onbhero .oh-sub{font-size:12px;color:#3B5522;margin-top:4px;line-height:1.5}
+.onbhero .oh-was{font-size:11px;color:#7a8a63;text-decoration:line-through;margin-top:2px}
+
+/* PROGRESS BAR (ramp) */
+.ramp-wrap{height:8px;background:#ececef;border-radius:4px;overflow:hidden;margin-top:4px}
+.ramp-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,#639922,#8ABE4E)}
+.ramp-txt{font-size:11px;color:#888;margin-top:3px}
+
+/* CERT PILL */
+.certpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.certpill.prog{background:var(--aml);color:#8a5a12}
+.certpill.ready{background:#E6F1FB;color:#0C447C}
+.certpill.cert{background:var(--grl);color:#27500A}
+.certpill .cp-dot{width:6px;height:6px;border-radius:50%}
+.certpill.prog .cp-dot{background:#BA7517}
+.certpill.ready .cp-dot{background:var(--br)}
+.certpill.cert .cp-dot{background:var(--grb)}
+
 @media(max-width:700px){.mrow{grid-template-columns:1fr 1fr}.pgrid{grid-template-columns:1fr}.wrap{padding:1rem}.topnav{padding:0 1rem}.obj-lbl{width:130px}.loopflow{flex-direction:column}.lf-arrow{transform:rotate(90deg);padding:2px 0}}
 </style>
 </head>
@@ -697,6 +730,94 @@ function buildSvcMatrix(){
   c.innerHTML=h+h2;
 }
 
+/* ================= ONBOARDING TRACKER (new hires) ================= */
+var onboardData={
+  sales:{
+    heroDays:6,heroWas:21,
+    modules:6,
+    curriculum:'Greet · Needs discovery · Walkaround · Test drive · Objection handling · Ask for the sale',
+    hires:[
+      {n:'T. Alvarez',start:'Started Mon · week 1',done:6,target:7,actual:6,cert:'ready'},
+      {n:'J. Okafor',start:'Started 4 days ago · week 1',done:4,target:7,actual:null,cert:'prog'},
+      {n:'B. Whitfield',start:'Started 2 weeks ago · week 2',done:6,target:7,actual:5,cert:'cert'}
+    ]
+  },
+  service:{
+    heroDays:7,heroWas:24,
+    modules:6,
+    curriculum:'Greet / write-up · Walkaround · MPI review · Recommendation w/ value · Declined-service recovery · Active delivery',
+    hires:[
+      {n:'M. Delgado',start:'Started Tue · week 1',done:5,target:8,actual:null,cert:'prog'},
+      {n:'H. Tran',start:'Started 6 days ago · week 1',done:6,target:8,actual:7,cert:'ready'},
+      {n:'C. Barnes',start:'Started 3 weeks ago · week 3',done:6,target:8,actual:6,cert:'cert'}
+    ]
+  }
+};
+
+function certMeta(c){
+  if(c==='cert') return {cls:'cert',label:'Certified'};
+  if(c==='ready') return {cls:'ready',label:'Floor-ready'};
+  return {cls:'prog',label:'In progress'};
+}
+
+function buildOnboarding(dept){
+  var d=onboardData[dept];
+  var isSvc=dept==='service';
+  var unit=isSvc?'advisor':'rep';
+  var readyOrCert=d.hires.filter(function(x){return x.cert!=='prog';}).length;
+  var h='';
+
+  /* split header — on-ramp 1 */
+  h+='<div class="split-head"><span class="split-eyebrow on1">On-ramp 1</span><h2>Onboarding &mdash; new hires</h2></div>';
+  h+='<div class="split-sub">Structured curriculum against AI customers &mdash; ramp new '+(isSvc?'advisors':'reps')+' <em>before</em> they touch the '+(isSvc?'drive':'floor')+'. Not driven by a floor gap; they have no floor history yet.</div>';
+
+  /* hero value stat — the turnover win */
+  h+='<div class="onbhero"><div class="oh-num">'+d.heroDays+'<span> days</span></div><div class="oh-txt">';
+  h+='<div class="oh-tag">New '+unit+' floor-ready in '+d.heroDays+' days</div>';
+  h+='<div class="oh-sub">'+d.modules+'-module road-to-sale curriculum, each a practice rep against an AI customer, with a floor-ready certification at the end. Fast onboarding is the answer to '+(isSvc?'service-drive':'showroom')+' turnover.</div>';
+  h+='<div class="oh-was">Was ~'+d.heroWas+' days shadowing on the '+(isSvc?'drive':'floor')+'</div>';
+  h+='</div></div>';
+
+  /* KPI row */
+  h+='<div class="mrow">';
+  h+='<div class="mc"><div class="mcl">New hires onboarding</div><div class="mcv br">'+d.hires.length+'</div><div class="mcs">active this month</div></div>';
+  h+='<div class="mc"><div class="mcl">Avg days to floor-ready</div><div class="mcv gr">'+d.heroDays+'</div><div class="mcs">vs ~'+d.heroWas+' before</div></div>';
+  h+='<div class="mc"><div class="mcl">Floor-ready or certified</div><div class="mcv am">'+readyOrCert+'/'+d.hires.length+'</div><div class="mcs">cleared the curriculum</div></div>';
+  h+='<div class="mc"><div class="mcl">Curriculum modules</div><div class="mcv">'+d.modules+'</div><div class="mcs">one practice rep each</div></div>';
+  h+='</div>';
+
+  /* new-hire table */
+  h+='<div class="sh">New hires &mdash; ramp progress &amp; certification</div>';
+  h+='<div class="shsub">Modules completed, days to floor-ready (actual vs target), and where each '+unit+' stands. Curriculum: '+d.curriculum+'.</div>';
+  h+='<div class="card"><div style="display:flex;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">';
+  h+='<div style="width:110px;flex-shrink:0">'+(isSvc?'Advisor':'Rep')+'</div><div style="flex:1.4">Ramp progress</div><div style="width:120px;text-align:right;flex-shrink:0">Days to floor-ready</div><div style="width:104px;text-align:right;flex-shrink:0">Certification</div></div>';
+  d.hires.forEach(function(x){
+    var pct=Math.round(x.done/d.modules*100);
+    var cm=certMeta(x.cert);
+    var daysCell;
+    if(x.actual===null){
+      daysCell='<span style="color:#888">'+x.done+'/'+d.modules+' modules</span> <span style="color:#bbb">·</span> <span style="color:#8a5a12">target '+x.target+'d</span>';
+    }else{
+      var beat=x.actual<=x.target;
+      daysCell='<span style="color:'+(beat?'#27500A':'#8a5a12')+';font-weight:600">'+x.actual+'d</span> <span style="color:#bbb">/</span> <span style="color:#888">'+x.target+'d target</span>';
+    }
+    h+='<div style="display:flex;align-items:center;padding:11px 16px;gap:8px;border-top:0.5px solid #f0f0f0">';
+    h+='<div style="width:110px;flex-shrink:0"><div style="font-size:13px;font-weight:500;color:#000">'+x.n+'</div><div style="font-size:10px;color:#999;margin-top:1px">'+x.start+'</div></div>';
+    h+='<div style="flex:1.4"><div class="ramp-wrap"><div class="ramp-bar" style="width:'+pct+'%"></div></div><div class="ramp-txt">'+x.done+' of '+d.modules+' modules complete</div></div>';
+    h+='<div style="width:120px;text-align:right;flex-shrink:0;font-size:11px">'+daysCell+'</div>';
+    h+='<div style="width:104px;text-align:right;flex-shrink:0"><span class="certpill '+cm.cls+'"><span class="cp-dot"></span>'+cm.label+'</span></div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  /* divider into on-ramp 2 */
+  h+='<div class="coach-divider"></div>';
+  h+='<div class="split-head"><span class="split-eyebrow on2">On-ramp 2</span><h2>Coaching loop &mdash; existing reps</h2></div>';
+  h+='<div class="split-sub">Drills auto-assigned from each '+unit+'\'s real '+(isSvc?'service-lane':'floor')+' gaps. Find the specific mistake, then fix it on specifics.</div>';
+
+  return h;
+}
+
 /* ================= COACHING LOOP ================= */
 var loopData={
   sales:{
@@ -743,6 +864,8 @@ function buildLoop(dept){
   var unit=isSvc?'advisor':'rep';
   var floorLabel=isSvc?'floor rate on this step':'floor rate on this step';
   var h='';
+  /* on-ramp 1 — onboarding tracker (rendered above the loop) */
+  h+=buildOnboarding(dept);
   /* banner */
   h+='<div class="loopbanner"><div class="lb-tag">Your floor tells you what to practice. The practice fixes your floor.</div>';
   h+='<div class="lb-sub">Every drill below was auto-assigned from a real '+(isSvc?'service-lane':'floor')+' gap. Practice against an AI customer lifts the score &mdash; and the '+unit+'\'s live '+(isSvc?'lane':'floor')+' rate on that exact step follows. No competitor closes this loop.</div></div>';

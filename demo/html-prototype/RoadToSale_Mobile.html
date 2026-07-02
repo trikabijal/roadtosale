@@ -32,6 +32,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .si{width:100%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:12px 16px;color:#fff;font-size:15px;outline:none;transition:border-color .2s;font-family:var(--f)}
 .si:focus{border-color:var(--br)}
 .si::placeholder{color:rgba(255,255,255,.18)}
+.seg{display:flex;gap:5px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:4px}
+.seg-b{flex:1;background:transparent;border:none;border-radius:9px;padding:10px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:rgba(255,255,255,.4);cursor:pointer;transition:all .18s}
+.seg-b.on{background:var(--br);color:#fff;box-shadow:0 3px 10px rgba(29,82,232,.4)}
+.seg-b.on.tr{background:#7c3aed;box-shadow:0 3px 10px rgba(124,58,237,.4)}
+.seg-note{font-size:11px;color:rgba(255,255,255,.38);line-height:1.45;margin-top:8px}
 .launch-btn{width:100%;background:var(--br);color:#fff;border:none;border-radius:13px;padding:15px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;margin-top:.75rem;box-shadow:0 6px 20px rgba(29,82,232,.4);transition:all .2s}
 .launch-btn:hover{background:var(--brd);transform:translateY(-1px)}
 
@@ -462,6 +467,136 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .mpi-find{font-size:10px;color:#888;margin-top:1px}
 .mpi-tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
 .mpi-tag.red{background:var(--rel);color:var(--re)}.mpi-tag.yel{background:#FEF6E7;color:#b7791f}.mpi-tag.grn{background:var(--grl);color:var(--gr)}
+
+/* ============ TRAINING — DEEP FLOW ============ */
+/* on-ramp tabs on training home */
+.tr-tabs{display:flex;gap:6px;background:#efe9f8;border-radius:12px;padding:4px;margin-bottom:2px}
+.tr-tab{flex:1;background:transparent;border:none;border-radius:9px;padding:9px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#8a7ba8;cursor:pointer;transition:all .18s}
+.tr-tab.on{background:#fff;color:#6d28d9;box-shadow:0 1px 5px rgba(109,40,217,.14)}
+.tr-tab-sub{font-size:9px;font-weight:600;display:block;margin-top:1px;opacity:.7}
+/* onboarding curriculum */
+.onb-hero{background:linear-gradient(135deg,#5b21b6,#7c3aed);border-radius:14px;padding:14px;color:#fff;overflow:hidden;position:relative}
+.onb-hero::after{content:'';position:absolute;right:-18px;top:-18px;width:96px;height:96px;background:rgba(255,255,255,.08);border-radius:50%}
+.onb-h-lbl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+.onb-h-t{font-family:'Syne',sans-serif;font-size:17px;font-weight:800;margin:3px 0 2px}
+.onb-h-s{font-size:11px;color:rgba(255,255,255,.78);line-height:1.4}
+.onb-prog{margin-top:10px}
+.onb-prog-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.onb-prog-l{font-size:10px;color:rgba(255,255,255,.8);font-weight:600}
+.onb-prog-bar{height:6px;background:rgba(255,255,255,.22);border-radius:10px;overflow:hidden}
+.onb-prog-fill{height:100%;background:linear-gradient(90deg,#fcd34d,#f59e0b);border-radius:10px;transition:width .5s}
+.mod-card{background:#fff;border-radius:12px;padding:11px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);display:flex;align-items:center;gap:11px;border:1.5px solid transparent;transition:all .16s}
+.mod-card.done{background:linear-gradient(135deg,#fff,#f4fbf7)}
+.mod-card.active{border-color:#7c3aed;cursor:pointer}
+.mod-card.active:hover{transform:translateY(-1px)}
+.mod-card.locked{opacity:.6}
+.mod-num{width:28px;height:28px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;font-family:'Syne',sans-serif}
+.mod-num.done{background:var(--gr);color:#fff}
+.mod-num.active{background:#7c3aed;color:#fff}
+.mod-num.locked{background:#e6e6ee;color:#a8a8b8}
+.mod-body{flex:1;min-width:0}
+.mod-name{font-size:12px;font-weight:700;color:#000}
+.mod-desc{font-size:10px;color:#888;margin-top:1px;line-height:1.35}
+.mod-tag{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.mod-tag.done{background:var(--grl);color:var(--gr)}
+.mod-tag.active{background:#F3ECFF;color:#7c3aed}
+.mod-tag.locked{background:#eee;color:#aaa}
+.cert-card{background:linear-gradient(135deg,#211B3E,#2E2352);border:1px solid rgba(196,181,253,.3);border-radius:13px;padding:13px 14px;text-align:center}
+.cert-ico{font-size:26px;margin-bottom:4px}
+.cert-t{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff}
+.cert-s{font-size:10px;color:rgba(255,255,255,.6);line-height:1.4;margin-top:3px}
+.cert-badge{display:inline-block;margin-top:8px;font-size:10px;font-weight:700;padding:4px 12px;border-radius:20px;background:linear-gradient(135deg,#fcd34d,#f59e0b);color:#3a2500}
+/* persona card */
+.persona-hero{background:linear-gradient(135deg,#5b21b6,#7c3aed);padding:14px 16px;flex-shrink:0}
+.persona-hl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.65)}
+.persona-ht{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;margin-top:2px}
+.persona-card{background:#fff;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.09);overflow:hidden;flex-shrink:0}
+.persona-top{display:flex;align-items:center;gap:12px;padding:14px;background:linear-gradient(135deg,#faf7ff,#f3ecff);border-bottom:1px solid #eee}
+.persona-av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:22px;color:#fff;flex-shrink:0;box-shadow:0 4px 12px rgba(124,58,237,.3)}
+.persona-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#000}
+.persona-type{font-size:11px;color:#7c3aed;font-weight:600;margin-top:1px}
+.persona-mood{display:inline-block;font-size:9px;font-weight:700;padding:2px 9px;border-radius:20px;background:#FEF6E7;color:#b7791f;margin-top:5px}
+.persona-rows{padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.persona-row-l{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#a8a0b8;margin-bottom:2px}
+.persona-row-v{font-size:12px;color:#2a2a3a;line-height:1.45}
+.persona-obj{background:#F3ECFF;border-radius:10px;padding:10px 12px;margin:0 14px 14px}
+.persona-obj-l{font-size:9px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7c3aed;margin-bottom:3px}
+.persona-obj-v{font-size:12px;color:#4c2889;line-height:1.45;font-weight:500}
+/* difficulty dial */
+.diff-dial{display:flex;gap:5px;margin-top:5px}
+.diff-b{flex:1;background:#f4f2fa;border:1.5px solid #e6e0f2;border-radius:9px;padding:7px;font-size:11px;font-weight:700;color:#8a7ba8;cursor:pointer;transition:all .15s;font-family:var(--f)}
+.diff-b.on{background:#7c3aed;border-color:#7c3aed;color:#fff}
+/* VOICE-CALL roleplay */
+.call-top{background:linear-gradient(160deg,#2a1a4a,#1a0f30);padding:14px 16px 12px;flex-shrink:0;display:flex;align-items:center;gap:12px;position:relative}
+.call-av{width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#a78bfa);display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;flex-shrink:0;box-shadow:0 0 0 3px rgba(124,58,237,.25)}
+.call-meta{flex:1;min-width:0}
+.call-name{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff}
+.call-status{font-size:10px;color:#c4b5fd;display:flex;align-items:center;gap:5px;margin-top:2px}
+.call-status .live-dot{width:6px;height:6px;border-radius:50%;background:#34d399;animation:ap 1.2s infinite}
+.call-diff{font-size:9px;font-weight:700;padding:3px 9px;border-radius:20px;background:rgba(245,158,11,.22);color:#fcd34d;flex-shrink:0}
+.call-wave{display:flex;align-items:center;justify-content:center;gap:3px;height:26px;background:linear-gradient(160deg,#1a0f30,#160c2a);padding:6px 0;flex-shrink:0}
+.call-wave .aw{width:3px;border-radius:2px;background:rgba(167,139,250,.55);animation:wv 1s ease-in-out infinite}
+.call-wave .aw:nth-child(1){height:6px;animation-delay:0s}.call-wave .aw:nth-child(2){height:16px;animation-delay:.1s}.call-wave .aw:nth-child(3){height:10px;animation-delay:.2s}.call-wave .aw:nth-child(4){height:22px;animation-delay:.15s}.call-wave .aw:nth-child(5){height:8px;animation-delay:.3s}.call-wave .aw:nth-child(6){height:18px;animation-delay:.05s}.call-wave .aw:nth-child(7){height:13px;animation-delay:.25s}.call-wave .aw:nth-child(8){height:20px;animation-delay:.12s}.call-wave .aw:nth-child(9){height:9px;animation-delay:.32s}.call-wave .aw:nth-child(10){height:15px;animation-delay:.18s}.call-wave .aw:nth-child(11){height:7px;animation-delay:.28s}.call-wave .aw:nth-child(12){height:17px;animation-delay:.08s}
+.call-wave.paused .aw{animation-play-state:paused;opacity:.3}
+/* step tracker strip */
+.step-track{display:flex;gap:0;background:#1a0f30;padding:8px 12px 10px;flex-shrink:0}
+.step-node{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;position:relative}
+.step-node:not(:last-child)::after{content:'';position:absolute;top:5px;left:calc(50% + 8px);right:calc(-50% + 8px);height:2px;background:rgba(255,255,255,.12)}
+.step-node.done:not(:last-child)::after{background:#7c3aed}
+.step-dot{width:11px;height:11px;border-radius:50%;background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);z-index:1;transition:all .3s}
+.step-node.done .step-dot{background:#34d399;border-color:#34d399;box-shadow:0 0 8px rgba(52,211,153,.5)}
+.step-node.active .step-dot{background:#a78bfa;border-color:#a78bfa;box-shadow:0 0 0 4px rgba(167,139,250,.25)}
+.step-lbl{font-size:8px;font-weight:700;color:rgba(255,255,255,.4);letter-spacing:.02em;text-transform:uppercase}
+.step-node.done .step-lbl,.step-node.active .step-lbl{color:#c4b5fd}
+/* transcript */
+.call-transcript{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:9px;background:linear-gradient(180deg,#f5f2fb,#efeaf7)}
+.call-transcript::-webkit-scrollbar{width:0}
+/* live coaching rail */
+.coach-rail{flex-shrink:0;background:#fff;border-top:1px solid rgba(0,0,0,.06);padding:10px 14px;display:flex;flex-direction:column;gap:8px;max-height:52%}
+.coach-live{display:flex;align-items:flex-start;gap:8px;background:linear-gradient(135deg,#FFF7E6,#FFF0D4);border:1px solid #f5d78a;border-radius:11px;padding:9px 11px;animation:bpop .3s ease}
+.coach-live.good{background:linear-gradient(135deg,#EDFAF4,#DFF7EC);border-color:#8be0b5}
+.coach-live-ico{flex-shrink:0;font-size:13px;margin-top:1px}
+.coach-live-tx{font-size:11px;line-height:1.4;color:#7a5a00}
+.coach-live.good .coach-live-tx{color:#0a6e38}
+.coach-live-tx b{font-weight:700}
+.coach-rail-lbl{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#a78bfa}
+.rp-opts-wrap{display:flex;flex-direction:column;gap:7px;overflow-y:auto}
+.rp-opts-wrap::-webkit-scrollbar{width:0}
+/* debrief scorecard skill bars */
+.skill-box{width:100%;background:#fff;border-radius:13px;padding:13px;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px}
+.skill-row{margin-bottom:11px}
+.skill-row:last-child{margin-bottom:0}
+.skill-top{display:flex;justify-content:space-between;margin-bottom:4px}
+.skill-name{font-size:11px;font-weight:600;color:#000}
+.skill-val{font-size:11px;font-weight:800;color:#7c3aed;font-family:'Syne',sans-serif}
+.skill-bar{height:7px;background:#eee;border-radius:10px;overflow:hidden}
+.skill-fill{height:100%;border-radius:10px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+.skill-fill.hi{background:linear-gradient(90deg,#15A354,#34d399)}
+.skill-fill.mid{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
+.skill-fill.lo{background:linear-gradient(90deg,#f59e0b,#fcd34d)}
+/* annotated transcript */
+.annot-box{width:100%;background:#fff;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px}
+.annot-head{padding:9px 13px;background:linear-gradient(90deg,#f7f5fc,#f0ecf8);font-size:10px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:.06em}
+.annot-line{padding:9px 13px;border-bottom:1px solid #f0f0f5}
+.annot-line:last-child{border-bottom:none}
+.annot-line.good{border-left:3px solid var(--gr)}
+.annot-line.fix{border-left:3px solid var(--re)}
+.annot-who{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#a8a0b8}
+.annot-txt{font-size:11px;color:#2a2a3a;line-height:1.4;margin:2px 0 4px;font-style:italic}
+.annot-note{font-size:10px;line-height:1.4;display:flex;gap:5px;align-items:flex-start}
+.annot-note.good{color:var(--gr)}
+.annot-note.fix{color:var(--re)}
+/* objections handled */
+.obj-box{width:100%;background:#fff;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);margin-bottom:12px}
+.obj-row{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid #f0f0f5}
+.obj-row:last-child{border-bottom:none}
+.obj-ico{font-size:14px;flex-shrink:0}
+.obj-body{flex:1;min-width:0}
+.obj-name{font-size:11px;font-weight:700;color:#000}
+.obj-how{font-size:10px;color:#888;margin-top:1px;line-height:1.35}
+.obj-res{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.obj-res.won{background:var(--grl);color:var(--gr)}
+.obj-res.weak{background:var(--rel);color:var(--re)}
 @media(max-width:920px){.lp,.rp{display:none}.app{padding:1rem}}
 </style>
 </head>
@@ -475,8 +610,15 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
     <div class="sp">Your floor tells you what to practice. The practice fixes your floor. Sales &amp; service coaching &mdash; two roles, two modes, one loop.</div>
     <div class="sf"><label class="sl">Dealership name</label><input class="si" id="iD" value="Riverside Honda" placeholder="e.g. Riverside Honda"></div>
     <div class="sf"><label class="sl">Rep / advisor name</label><input class="si" id="iR" value="Marcus Webb" placeholder="e.g. Marcus Webb"></div>
+    <div class="sf"><label class="sl">Lead with</label>
+      <div class="seg" id="segLead">
+        <button class="seg-b on" id="seg-floor" onclick="setLead('floor')">Floor-first</button>
+        <button class="seg-b" id="seg-training" onclick="setLead('training')">Training-first</button>
+      </div>
+      <div class="seg-note" id="segNote">Opens on the live floor. Both pillars stay reachable &mdash; this only sets what home leads with.</div>
+    </div>
     <button class="launch-btn" onclick="start()">Open Interactive Demo &rarr;</button>
-    <button class="launch-btn" style="margin-top:.55rem;background:#11182f" onclick="start(true)">Play Guided Sales Demo &rarr;</button>
+    <button class="launch-btn" style="margin-top:.55rem;background:#11182f" onclick="start(true)" id="guidedBtn">Play Guided Sales Demo &rarr;</button>
   </div>
 </div>
 
@@ -516,11 +658,20 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <div class="home-hd"><span class="dn">—</span> &middot; Your floor tells you what to practice. The practice fixes your floor.</div>
           </div>
           <div class="home-body">
-            <div class="loop-card" onclick="openAssigned()">
+            <!-- FLOOR-FIRST: assigned drill from a floor gap -->
+            <div class="loop-card" id="homeAssigned" onclick="openAssigned()">
               <div class="loop-top"><span class="loop-badge hot">Assigned to you</span></div>
-              <div class="loop-t">Practice the close &mdash; manager turnover</div>
-              <div class="loop-s">Manager turnover was skipped on 3 of your last 5 deals. This drill was pulled straight from your floor.</div>
+              <div class="loop-t" id="homeAssignedT">Practice the close &mdash; manager turnover</div>
+              <div class="loop-s" id="homeAssignedS">Manager turnover was skipped on 3 of your last 5 deals. This drill was pulled straight from your floor.</div>
               <div class="loop-cta">Start assigned drill &rarr;</div>
+            </div>
+            <!-- TRAINING-FIRST: onboarding progress for a new hire -->
+            <div class="loop-card" id="homeOnboard" style="display:none" onclick="startOnboarding()">
+              <div class="loop-top"><span class="loop-badge">New hire &middot; onboarding</span></div>
+              <div class="loop-t">Your first week &mdash; floor-ready in 6 days</div>
+              <div class="loop-s"><span id="homeOnbCount">3</span> of 6 modules done. Finish your curriculum and get certified before you touch a real customer.</div>
+              <div class="onb-prog" style="margin-top:9px"><div class="onb-prog-bar"><div class="onb-prog-fill" style="width:50%"></div></div></div>
+              <div class="loop-cta" style="margin-top:8px">Continue onboarding &rarr;</div>
             </div>
             <div class="home-lbl">Pick your role</div>
             <div class="role-row">
@@ -528,16 +679,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
               <div class="role-card" id="role-service" onclick="pickRole('service')"><div class="role-ico">&#128295;</div><div class="role-name">Service advisor</div><div class="role-sub">The service lane</div></div>
             </div>
             <div class="home-lbl">Choose a mode</div>
-            <div class="mode-card" onclick="startLive()">
-              <div class="mode-ico">&#127908;</div>
-              <div><div class="mode-t">Real Conversation <span style="font-weight:600;font-size:11px;color:#888">(Live)</span></div><div class="mode-s" id="liveDesc">Guided on-floor flow &mdash; captures what's said, guides the steps live.</div></div>
-              <div class="mode-arw">&rarr;</div>
-            </div>
-            <div class="mode-card" onclick="startTraining()">
-              <div class="mode-ico tr">&#127919;</div>
-              <div><div class="mode-t">Training <span style="font-weight:600;font-size:11px;color:#888">(Practice)</span></div><div class="mode-s" id="trainDesc">Practice against an AI customer before the real one walks in.</div></div>
-              <div class="mode-arw" style="color:#7c3aed">&rarr;</div>
-            </div>
+            <div id="homeModes"></div>
           </div>
         </div>
 
@@ -957,51 +1099,127 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           </div>
         </div>
 
-        <!-- ============ TRAINING: SCENARIO PICKER ============ -->
+        <!-- ============ TRAINING HOME: TWO ON-RAMPS ============ -->
         <div class="scr" id="tr0">
-          <div class="rp-hero"><div class="rp-hero-t">Training &middot; Practice with an AI customer</div><div class="rp-hero-s" id="trPickerSub">Pick a scenario. The AI plays the customer &mdash; you handle it.</div></div>
+          <div class="rp-hero"><div class="rp-hero-t">Training &middot; Practice with AI customers</div><div class="rp-hero-s">Ramp new hires and drill your gaps &mdash; one practice engine.</div></div>
           <div class="spd" style="background:linear-gradient(180deg,#f5f2fb 0%,#efeaf7 100%);overflow-y:auto">
-            <div class="loop-card" onclick="startRoleplay('assigned')">
-              <div class="loop-top"><span class="loop-badge hot">Assigned to you</span></div>
-              <div class="loop-t" id="trAssignedT">Manager turnover &mdash; the close</div>
-              <div class="loop-s" id="trAssignedS">Pulled from your floor: turnover skipped on 3 of your last 5 deals.</div>
-              <div class="loop-cta">Start assigned drill &rarr;</div>
+            <div class="tr-tabs">
+              <button class="tr-tab" id="tab-onboard" onclick="trTab('onboard')">Onboarding<span class="tr-tab-sub">New hire</span></button>
+              <button class="tr-tab on" id="tab-drills" onclick="trTab('drills')">Targeted drills<span class="tr-tab-sub">From your floor</span></button>
             </div>
-            <div class="home-lbl" id="trListLbl">Sales scenarios</div>
-            <div id="trList"></div>
+
+            <!-- DRILLS TAB -->
+            <div id="trDrills">
+              <div class="loop-card" onclick="openPersona('assigned')">
+                <div class="loop-top"><span class="loop-badge hot">Assigned to you</span></div>
+                <div class="loop-t" id="trAssignedT">Manager turnover &mdash; the close</div>
+                <div class="loop-s" id="trAssignedS">Pulled from your floor: turnover skipped on 3 of your last 5 deals.</div>
+                <div class="loop-cta">Meet the AI customer &rarr;</div>
+              </div>
+              <div class="home-lbl" id="trListLbl">Free practice scenarios</div>
+              <div id="trList"></div>
+            </div>
+
+            <!-- ONBOARDING TAB -->
+            <div id="trOnboard" style="display:none">
+              <div class="onb-hero">
+                <div class="onb-h-lbl">New hire curriculum</div>
+                <div class="onb-h-t">Your first week &mdash; floor-ready in 6 days</div>
+                <div class="onb-h-s" id="onbHeroSub">Six practice reps against AI customers cover the whole road to the sale. Finish them to get certified before your first real customer.</div>
+                <div class="onb-prog"><div class="onb-prog-row"><div class="onb-prog-l" id="onbProgL">3 of 6 modules complete</div><div class="onb-prog-l" id="onbProgDays">Day 3 of 6</div></div><div class="onb-prog-bar"><div class="onb-prog-fill" id="onbProgFill" style="width:50%"></div></div></div>
+              </div>
+              <div class="home-lbl" id="onbModLbl">Sales onboarding modules</div>
+              <div id="onbList"></div>
+              <div class="cert-card" id="onbCert">
+                <div class="cert-ico">&#127894;</div>
+                <div class="cert-t">Floor-ready certification</div>
+                <div class="cert-s">Complete all six modules to unlock. Managers see your ramp progress live.</div>
+                <div class="cert-badge" id="onbCertBadge">3 more to certify</div>
+              </div>
+            </div>
           </div>
           <div class="bnv"><button class="nb bk" onclick="goHome()">&larr; Home</button></div>
         </div>
 
-        <!-- ============ TRAINING: ROLEPLAY ============ -->
+        <!-- ============ TRAINING: PERSONA SETUP ============ -->
+        <div class="scr" id="tr3">
+          <div class="persona-hero"><div class="persona-hl">Meet your AI customer</div><div class="persona-ht">This is who you'll practice with</div></div>
+          <div class="spd" style="background:linear-gradient(180deg,#f5f2fb 0%,#efeaf7 100%);overflow-y:auto">
+            <div class="persona-card">
+              <div class="persona-top">
+                <div class="persona-av" id="pAv">&#128100;</div>
+                <div style="flex:1;min-width:0">
+                  <div class="persona-name" id="pName">Denise</div>
+                  <div class="persona-type" id="pType">Price-driven &middot; guarded</div>
+                  <span class="persona-mood" id="pMood">Mood: skeptical</span>
+                </div>
+              </div>
+              <div class="persona-rows">
+                <div><div class="persona-row-l">Situation</div><div class="persona-row-v" id="pSit">Trading a high-mileage RAV4. Has a competing quote from the store down the street.</div></div>
+                <div><div class="persona-row-l">What she'll do</div><div class="persona-row-v" id="pBehav">Leads with the competitor's price and pushes back if you fold. Warms up when you tie value to what she said.</div></div>
+                <div><div class="persona-row-l">Difficulty</div>
+                  <div class="diff-dial">
+                    <button class="diff-b" id="diff-easy" onclick="setDiff('easy')">Easy</button>
+                    <button class="diff-b on" id="diff-med" onclick="setDiff('med')">Medium</button>
+                    <button class="diff-b" id="diff-hard" onclick="setDiff('hard')">Hard</button>
+                  </div>
+                </div>
+              </div>
+              <div class="persona-obj">
+                <div class="persona-obj-l">&#127919; Your objective</div>
+                <div class="persona-obj-v" id="pObj">Run discovery, handle the trade + competitor objection, and ask for the sale.</div>
+              </div>
+            </div>
+            <div class="coach-box"><div class="coach-title">Not a chatbot</div><div class="coach-copy">The AI customer holds a real position and reacts to how you handle it &mdash; the same objection plays differently depending on your answers.</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="backToTraining()">&larr; Back</button><button class="nb nx" style="background:linear-gradient(135deg,#7c3aed,#8b5cf6)" onclick="beginCall()">&#128222; Start the call &rarr;</button></div>
+        </div>
+
+        <!-- ============ TRAINING: VOICE-CALL ROLEPLAY ============ -->
         <div class="scr" id="tr1">
-          <div class="rp-hero"><div class="rp-hero-t" id="rpTitle">Roleplay</div><div class="rp-hero-s" id="rpSub">AI customer &middot; live coaching on</div></div>
-          <div class="chat-wrap" id="chatWrap"></div>
-          <div class="rp-mic" id="rpMic">
-            <div class="rp-mic-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
-            <div id="rpOpts"></div>
+          <div class="call-top">
+            <div class="call-av" id="callAv">&#128100;</div>
+            <div class="call-meta">
+              <div class="call-name" id="callName">Denise</div>
+              <div class="call-status"><span class="live-dot"></span><span id="callStatus">On call &middot; 0:00</span></div>
+            </div>
+            <div class="call-diff" id="callDiff">Medium</div>
+          </div>
+          <div class="call-wave" id="callWave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+          <div class="step-track" id="stepTrack">
+            <div class="step-node" id="st-discovery"><div class="step-dot"></div><div class="step-lbl">Discovery</div></div>
+            <div class="step-node" id="st-present"><div class="step-dot"></div><div class="step-lbl">Present</div></div>
+            <div class="step-node" id="st-objection"><div class="step-dot"></div><div class="step-lbl">Objection</div></div>
+            <div class="step-node" id="st-close"><div class="step-dot"></div><div class="step-lbl">Close</div></div>
+          </div>
+          <div class="call-transcript" id="chatWrap"></div>
+          <div class="coach-rail" id="rpMic">
+            <div class="coach-rail-lbl">Live coaching &middot; your response</div>
+            <div id="coachLive"></div>
+            <div class="rp-opts-wrap" id="rpOpts"></div>
           </div>
         </div>
 
-        <!-- ============ TRAINING: SCORE RECAP ============ -->
+        <!-- ============ TRAINING: DEBRIEF SCORECARD ============ -->
         <div class="scr" id="tr2">
           <div class="acw">
             <div class="asc tr"><div class="asn" id="trScore">78%</div><div class="asl">Score</div></div>
-            <div class="act">Practice Score</div>
+            <div class="act">Debrief</div>
             <div class="acs" id="trScenName">Price objection &middot; AI customer</div>
-            <div class="art">
-              <div class="arr"><div class="ars">Acknowledged the concern</div><div class="arp">&#10003; Strong</div></div>
-              <div class="arr"><div class="ars">Reframed to value</div><div class="arp">&#10003; Good</div></div>
-              <div class="arr"><div class="ars">Brought in the manager</div><div class="arf">&#9873; Waited too long</div></div>
-              <div class="arr"><div class="ars">Asked for the sale</div><div class="arp">&#10003; Clear ask</div></div>
+            <div class="skill-box">
+              <div class="skill-row"><div class="skill-top"><div class="skill-name">Discovery</div><div class="skill-val" id="sk-disc-v">—</div></div><div class="skill-bar"><div class="skill-fill hi" id="sk-disc-f" style="width:0%"></div></div></div>
+              <div class="skill-row"><div class="skill-top"><div class="skill-name">Objection handling</div><div class="skill-val" id="sk-obj-v">—</div></div><div class="skill-bar"><div class="skill-fill mid" id="sk-obj-f" style="width:0%"></div></div></div>
+              <div class="skill-row"><div class="skill-top"><div class="skill-name">Close</div><div class="skill-val" id="sk-close-v">—</div></div><div class="skill-bar"><div class="skill-fill lo" id="sk-close-f" style="width:0%"></div></div></div>
             </div>
-            <div class="coach-box" style="margin:12px 16px 0"><div class="coach-title">What went well</div><div class="coach-copy" id="trGood">You stayed calm and reframed price into monthly value without discounting first &mdash; exactly right.</div></div>
-            <div class="coach-box" style="margin:10px 16px 0"><div class="coach-title" style="color:#b7791f">What to fix</div><div class="coach-copy" id="trFix">Bring the manager in earlier. You held the objection alone for three turns before turning over.</div></div>
-            <div class="wtn" style="margin:10px 16px 0">
+            <div class="annot-box" id="annotBox"><div class="annot-head">Annotated transcript</div></div>
+            <div class="obj-box" id="objBox"><div class="annot-head">Objections that came up</div></div>
+            <div class="coach-box" style="margin-bottom:12px"><div class="coach-title">What went well</div><div class="coach-copy" id="trGood">—</div></div>
+            <div class="coach-box" style="margin-bottom:12px"><div class="coach-title" style="color:#b7791f">What to fix</div><div class="coach-copy" id="trFix">—</div></div>
+            <div class="wtn" style="width:100%;margin-bottom:12px">
               <div class="wtn-t">The loop</div>
-              <div class="wtn-c" id="trLoop">Assigned because your floor rate on <b>manager turnover</b> is low &mdash; skipped on 3 of your last 5 deals. Two more reps and your close rate should move.</div>
+              <div class="wtn-c" id="trLoop">—</div>
             </div>
-            <button class="bdb tr" onclick="startRoleplay(rpKey)">&#8635; Practice Again</button>
+            <button class="bdb tr" onclick="openPersona(rpKey)">&#8635; Try again</button>
             <button class="bdb" style="background:#e9e4f2;color:#5b21b6;box-shadow:none;margin-top:8px" onclick="goHome()">&larr; Back to Home</button>
           </div>
         </div>
@@ -1045,11 +1263,12 @@ const SVSTEPS={
   107:{l:'Service recap',p:100,rp:{t:'Service Recap',b:'Recommended vs approved dollars, recoverable amount, and a "what to practice next" link into Training.',tags:[]}}
 };
 
-// TRAINING screens (index 200 picker, 201 roleplay, 202 score; 300 = replay)
+// TRAINING screens (200 home, 203 persona, 201 roleplay, 202 debrief)
 const TRSTEPS={
-  200:{l:'Training &middot; Scenarios',p:0,rp:{t:'Training',b:'Practice against an AI customer before the real one walks in. Drills assigned from your floor gaps close the loop.',tags:[]}},
-  201:{l:'Training &middot; Roleplay',p:50,rp:{t:'Roleplay',b:'The AI plays the customer and raises the objection; you respond. Live coaching hints appear as you go.',tags:['a']}},
-  202:{l:'Training &middot; Score',p:100,rp:{t:'Practice Score',b:'Score, what went well, what to fix — plus the loop line tying this drill to your low floor rate on a step.',tags:[]}}
+  200:{l:'Training &middot; Home',p:0,rp:{t:'Training',b:'Two on-ramps into one practice engine: onboarding for new hires, and targeted drills assigned from your floor gaps. Both close the loop.',tags:[]}},
+  203:{l:'Training &middot; Persona',p:30,rp:{t:'Meet the AI customer',b:'A simulated buyer with a name, situation, mood, and a difficulty dial — plus your objective. Proves it is a person to handle, not a chatbot.',tags:[]}},
+  201:{l:'Training &middot; Roleplay',p:65,rp:{t:'Live roleplay',b:'A voice call with the AI customer. Live two-way transcript, a coaching rail, and a step tracker lighting up discovery → present → objection → close. Weak answers worsen the outcome.',tags:['a']}},
+  202:{l:'Training &middot; Debrief',p:100,rp:{t:'Debrief',b:'Overall score, skill breakdown, an annotated transcript, which objections came up, and the loop line tying this drill to your floor rate.',tags:[]}}
 };
 
 const AUDIO={
@@ -1163,6 +1382,7 @@ const PHOTO_ASSETS = {
 let cur=0,timers=[],autoTimers=[],autoMode=false,tradePhotoCount=0;
 let preloadedPhotoUrls = new Set();
 let role='sales';        // 'sales' | 'service'
+let lead='floor';        // 'floor' | 'training'
 
 // Screen registry: index -> DOM element id
 function scrId(n){
@@ -1170,7 +1390,22 @@ function scrId(n){
   if(n===200) return 'tr0';
   if(n===201) return 'tr1';
   if(n===202) return 'tr2';
+  if(n===203) return 'tr3';                  // persona setup
   return 's'+n;                              // sales 0..11
+}
+function setLead(m){
+  lead=m;
+  document.getElementById('seg-floor').className='seg-b'+(m==='floor'?' on':'');
+  document.getElementById('seg-training').className='seg-b'+(m==='training'?' on tr':'');
+  const note=document.getElementById('segNote');
+  const gb=document.getElementById('guidedBtn');
+  if(m==='training'){
+    note.innerHTML='Opens on Training. Both pillars stay reachable &mdash; this only sets what home leads with.';
+    if(gb)gb.innerHTML='Play Guided Training Demo &rarr;';
+  }else{
+    note.innerHTML='Opens on the live floor. Both pillars stay reachable &mdash; this only sets what home leads with.';
+    if(gb)gb.innerHTML='Play Guided Sales Demo &rarr;';
+  }
 }
 // Audio key for a screen index
 const AUDKEY={1:1,2:2,3:3,4:4,5:5,6:6,7:7,9:9,101:'sv1',102:'sv2',104:'sv4',105:'sv5'};
@@ -1188,12 +1423,16 @@ function start(playAuto){
   document.getElementById('setup').style.display='none';
   document.getElementById('app').classList.add('on');
   buildNav();
-  if(playAuto){                       // "Play Guided Sales Demo" jumps straight into the sales live flow
+  if(playAuto){                       // Guided demo — floor-first plays the sales live flow; training-first plays a roleplay
     showHome(false);
     role='sales';pickRole('sales');
     autoMode=true;
-    startLive();
-    queueAutoDemo();
+    if(lead==='training'){
+      queueAutoTraining();
+    }else{
+      startLive();
+      queueAutoDemo();
+    }
   }else{
     showHome(true);
     autoMode=false;
@@ -1201,10 +1440,21 @@ function start(playAuto){
 }
 
 // ----- HOME / ROLE / MODE -----
+const MODE_LIVE='<div class="mode-card" onclick="startLive()"><div class="mode-ico">&#127908;</div><div><div class="mode-t">Real Conversation <span style="font-weight:600;font-size:11px;color:#888">(Live)</span></div><div class="mode-s" id="liveDesc">Guided on-floor flow &mdash; captures what\'s said, guides the steps live.</div></div><div class="mode-arw">&rarr;</div></div>';
+const MODE_TRAIN='<div class="mode-card" onclick="startTraining()"><div class="mode-ico tr">&#127919;</div><div><div class="mode-t">Training <span style="font-weight:600;font-size:11px;color:#888">(Practice)</span></div><div class="mode-s" id="trainDesc">Practice against an AI customer before the real one walks in.</div></div><div class="mode-arw" style="color:#7c3aed">&rarr;</div></div>';
+function renderHomeModes(){
+  const box=document.getElementById('homeModes');
+  box.innerHTML=(lead==='training')?(MODE_TRAIN+MODE_LIVE):(MODE_LIVE+MODE_TRAIN);
+  // training-first surfaces the onboarding ramp; floor-first surfaces the assigned drill
+  document.getElementById('homeOnboard').style.display=(lead==='training')?'block':'none';
+  document.getElementById('homeAssigned').style.display=(lead==='training')?'none':'block';
+  pickRole(role); // re-bind the mode descriptions for the current role
+}
 function showHome(reset){
   clearAll();
   document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
   document.getElementById('home').classList.add('on');
+  renderHomeModes();
   document.querySelector('.pscr').scrollTop=0;
   document.getElementById('pLbl').textContent='Home';
   document.getElementById('pPct').textContent='';
@@ -1219,15 +1469,20 @@ function pickRole(r){
   role=r;
   document.getElementById('role-sales').classList.toggle('sel',r==='sales');
   document.getElementById('role-service').classList.toggle('sel',r==='service');
+  const ld=document.getElementById('liveDesc'),td=document.getElementById('trainDesc');
   if(r==='service'){
-    document.getElementById('liveDesc').textContent='Guided service-lane flow — captures the write-up, MPI, and the recommendation live.';
-    document.getElementById('trainDesc').textContent='Practice declined-service recovery against an AI customer.';
+    if(ld)ld.textContent='Guided service-lane flow — captures the write-up, MPI, and the recommendation live.';
+    if(td)td.textContent='Practice declined-service recovery against an AI customer.';
   }else{
-    document.getElementById('liveDesc').textContent='Guided on-floor flow — captures what\'s said, guides the steps live.';
-    document.getElementById('trainDesc').textContent='Practice objections against an AI customer before the real one walks in.';
+    if(ld)ld.textContent='Guided on-floor flow — captures what\'s said, guides the steps live.';
+    if(td)td.textContent='Practice objections against an AI customer before the real one walks in.';
   }
+  // sync the home assigned-drill card to the role's floor gap
+  const a=ASSIGNED[r];
+  const at=document.getElementById('homeAssignedT'),as=document.getElementById('homeAssignedS');
+  if(a&&at){at.textContent=a.name;as.textContent=a.sub;}
 }
-function openAssigned(){startTraining();startRoleplay('assigned');}
+function openAssigned(){startTraining();trTab('drills');openPersona('assigned');}
 
 function startLive(){
   document.getElementById('home').classList.remove('on');
@@ -1320,7 +1575,7 @@ function runAudio(key){
 function updateUI(n){
   let s;
   if(n>=101&&n<=107) s=SVSTEPS[n];
-  else if(n>=200&&n<=202) s=TRSTEPS[n];
+  else if(n>=200&&n<=203) s=TRSTEPS[n];
   else s=STEPS[n];
   if(!s) return;
   document.getElementById('pFill').style.width=s.p+'%';
@@ -1553,74 +1808,235 @@ const RP_SCRIPTS={
     ]}
 };
 
-let rpKey=null,rpTurn=0,rpMissed=false;
+// AI-customer personas per scenario (§5.3 B)
+const PERSONAS={
+  turnover:{name:'Sarah Mitchell',av:'&#128105;',type:'Family buyer · analytical',mood:'Mood: interested but cautious',sit:'Loves the CR-V but the payment came in higher than she pictured. Wants to run it past her husband.',behav:'Stalls with "I need to think about it." Folds toward a walk-off if you don\'t bring help in; commits when a manager adds options.',obj:'Reframe the payment to value, bring the manager in at the right moment, and ask for the sale today.'},
+  price:{name:'Marcus Bell',av:'&#128104;',type:'Comparison shopper · price-driven',mood:'Mood: skeptical',sit:'Has a written quote $1,200 cheaper from the store across town on the same trim.',behav:'Leads with the competitor number and pushes harder if you discount blindly. Warms when you separate price from value.',obj:'Separate price from value, defend gross without discounting first, then ask for the commitment.'},
+  trade:{name:'Denise Alvarez',av:'&#128105;',type:'Trade-in focused · guarded',mood:'Mood: defensive',sit:'Trading a high-mileage RAV4. Saw a $21,000 KBB number and thinks your $18,500 offer is low.',behav:'Digs in on the KBB figure. Softens only when you show real data and the tax advantage.',obj:'Respect the number, explain the appraisal honestly, use the tax angle, and lock the trade.'},
+  looking:{name:'Kevin Park',av:'&#128104;',type:'Walk-in browser',mood:'Mood: guarded',sit:'Wandered in "just looking." Current car is getting old; commutes a lot.',behav:'Deflects a hard pitch. Opens up to one light, genuine discovery question.',obj:'Disarm the "just looking," open discovery, and bridge to a specific vehicle.'},
+  declined:{name:'Dan Rivera',av:'&#128104;',type:'Value-conscious owner',mood:'Mood: hesitant',sit:'In for an oil change; the MPI turned up worn brakes and a due 45k service he wasn\'t expecting.',behav:'Wants to defer everything to "next time." Acts on safety when it\'s made concrete; needs a follow-up for true declines.',obj:'Separate safety from maintenance, recover the brakes today, and schedule a follow-up on the rest.'},
+  expensive:{name:'Linda Cho',av:'&#128105;',type:'Budget-minded',mood:'Mood: sticker-shocked',sit:'Sees a $1,000+ recommendation and reacts to the total, not the line items.',behav:'Balks at the number. Calms when you break it down and show what the service prevents.',obj:'Break the total into the "why," justify each item, and confirm the approved work.'},
+  ownshop:{name:'Tony Russo',av:'&#128104;',type:'DIY-adjacent',mood:'Mood: friendly but firm',sit:'Has a buddy with a shop who quoted half your brake price.',behav:'Not hostile, just cost-driven. Responds to warranty, OEM parts, and convenience — not shop-bashing.',obj:'Differentiate on warranty and convenience without knocking the other shop, then win the work.'}
+};
+// Onboarding curriculum — new-hire ramp (§5.3 A, not floor-driven)
+const ONBOARD={
+  sales:[
+    {id:'looking',name:'Greet & open',desc:'Turn "just looking" into a conversation.',state:'done'},
+    {id:'price',name:'Needs discovery',desc:'Draw out use case, must-haves, and budget.',state:'done'},
+    {id:'trade',name:'Walkaround & presentation',desc:'Tie features back to what they told you.',state:'done'},
+    {id:'turnover',name:'Objection handling',desc:'Hold value, know when to bring the manager in.',state:'active'},
+    {id:'price',name:'Trade & figures',desc:'Defend the appraisal and present the pencil.',state:'locked'},
+    {id:'turnover',name:'The close',desc:'Ask for the sale with confidence.',state:'locked'}
+  ],
+  service:[
+    {id:'declined',name:'Greet & write-up',desc:'Confirm the concern and set expectations.',state:'done'},
+    {id:'declined',name:'Walkaround & MPI',desc:'Document condition, read the inspection.',state:'done'},
+    {id:'expensive',name:'Recommendation',desc:'Present findings with the why and the dollars.',state:'done'},
+    {id:'declined',name:'Declined-service recovery',desc:'Recover deferred work, schedule follow-ups.',state:'active'},
+    {id:'expensive',name:'Price objections',desc:'Justify value when the total lands hard.',state:'locked'},
+    {id:'ownshop',name:'Winning back the work',desc:'Compete with the indie shop on value.',state:'locked'}
+  ]
+};
+// Debrief detail per scenario: skill bars, annotated transcript, objections
+const RP_DETAIL={
+  turnover:{skills:{disc:82,obj:74,close:88},
+    annot:[
+      {who:'You',good:true,txt:'"Let\'s look at what that payment gets you versus your RAV4 — the hybrid saves about $180/mo in gas."',note:'Reframed price to value without discounting. Textbook.'},
+      {who:'You',fix:true,txt:'"Totally understand. Let me grab James, our manager..."',note:'Right move — but you held the objection alone for three turns before turning over.'},
+      {who:'You',good:true,txt:'"If the numbers work, are you good to take it home today?"',note:'Clear, direct ask for the sale. Nice.'}
+    ],
+    objs:[{name:'"The payment is higher than I wanted"',how:'Reframed to monthly fuel savings vs the RAV4',won:true},{name:'"I need to think about it"',how:'Brought the manager in — a little late',won:true}]},
+  price:{skills:{disc:78,obj:80,close:72},
+    annot:[
+      {who:'You',good:true,txt:'"Let\'s make sure we\'re comparing the same car — what did their out-the-door number include?"',note:'Separated price from value instead of matching blindly.'},
+      {who:'You',good:true,txt:'"You told me reliability and easy service matter — that\'s the part that isn\'t on the sticker."',note:'Tied value to what he actually said.'},
+      {who:'You',fix:true,txt:'"Then let\'s get you in it today."',note:'Good ask, but one more value pass before the close would have held more gross.'}
+    ],
+    objs:[{name:'"$1,200 cheaper across town"',how:'Reframed on warranty, service, front-line readiness',won:true}]},
+  trade:{skills:{disc:75,obj:76,close:70},
+    annot:[
+      {who:'You',good:true,txt:'"That KBB number\'s a private-party sale — trade accounts for reconditioning. Let me show you the auction data."',note:'Explained the gap with real data, not a brush-off.'},
+      {who:'You',good:true,txt:'"Trading here saves you about $1,500 in sales tax — that closes most of the gap."',note:'The tax angle is the winner. Well used.'},
+      {who:'You',fix:true,txt:'(waited two turns before showing data)',note:'Show the market data sooner — you let tension build.'}
+    ],
+    objs:[{name:'"KBB says $21,000, you offered $18,500"',how:'Explained trade vs private-party + tax savings',won:true}]},
+  looking:{skills:{disc:86,obj:70,close:80},
+    annot:[
+      {who:'You',good:true,txt:'"Absolutely, look all you want. Are you replacing something or just seeing what\'s new?"',note:'Disarmed without pitching. Perfect open.'},
+      {who:'You',good:true,txt:'"What\'s the one thing your current car doesn\'t do that you wish it did?"',note:'One great discovery question opened the whole conversation.'}
+    ],
+    objs:[{name:'"I\'m just looking"',how:'Gave space, opened with a light discovery question',won:true}]},
+  declined:{skills:{disc:80,obj:76,close:78},
+    annot:[
+      {who:'You',good:true,txt:'"The one I\'d ask you not to wait on is the brakes — they\'re metal-on-metal, a safety thing."',note:'Separated safety from maintenance. Exactly right.'},
+      {who:'You',good:true,txt:'"At 2mm, that grinding is the wear indicator. I can have it done by 2 today."',note:'Made it concrete and offered to fix it now.'},
+      {who:'You',fix:true,txt:'"Filter can absolutely wait."',note:'Good instinct — but set the follow-up reminder every time, don\'t just close.'}
+    ],
+    objs:[{name:'"I\'ll handle the rest next time"',how:'Recovered the brakes on safety; scheduled the filter',won:true}]},
+  expensive:{skills:{disc:74,obj:78,close:72},
+    annot:[
+      {who:'You',good:true,txt:'"$689 is the brakes — safety. $329 is your 45k service. Which part feels off?"',note:'Broke the scary total into line items with the why.'},
+      {who:'You',fix:true,txt:'(left the maintenance package on the table)',note:'Offer the bundle earlier — it often recovers the decline.'}
+    ],
+    objs:[{name:'"A thousand dollars is too expensive"',how:'Line-itemed the value; showed what the 45k prevents',won:true}]},
+  ownshop:{skills:{disc:72,obj:75,close:70},
+    annot:[
+      {who:'You',good:true,txt:'"OEM pads, the warranty, and it\'s logged to your VIN for resale. What\'s he quoting?"',note:'Differentiated on value and asked for the number — good.'},
+      {who:'You',fix:true,txt:'(assumed the shop\'s price)',note:'Ask what their shop charges before you position — you guessed.'}
+    ],
+    objs:[{name:'"My buddy\'s shop does it for half"',how:'Positioned OEM parts, warranty, no second trip',won:true}]}
+};
 
+let rpKey=null,rpTurn=0,rpMissed=false,diff='med';
+
+let trView='drills';
 function startTraining(forceRole){
   if(forceRole)pickRole(forceRole);
   document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
   document.getElementById('ibTitle').textContent='Training';
   document.getElementById('ibMode').textContent='Practice';
   cur=200;
-  // build scenario list
+  // ---- drills tab: assigned drill + free-practice scenarios ----
   const list=document.getElementById('trList');list.innerHTML='';
-  document.getElementById('trListLbl').textContent=(role==='service'?'Service scenarios':'Sales scenarios');
   const a=ASSIGNED[role];
   document.getElementById('trAssignedT').textContent=a.name;
   document.getElementById('trAssignedS').textContent=a.sub;
   SCENARIOS[role].forEach(sc=>{
     const el=document.createElement('div');el.className='scn-card';
-    el.onclick=()=>startRoleplay(sc.id);
+    el.onclick=()=>openPersona(sc.id);
     el.innerHTML='<div class="scn-top"><div class="scn-name">'+sc.name+'</div><div class="scn-lvl">'+sc.lvl+'</div></div><div class="scn-desc">'+sc.desc+'</div><div class="scn-meta">&#128200; From your floor: '+sc.floor+'</div>';
     list.appendChild(el);
   });
+  // ---- onboarding tab: curriculum ----
+  buildOnboarding();
+  // lead into whichever on-ramp fits the buyer
+  trTab(lead==='training'?'onboard':'drills');
   document.getElementById('tr0').classList.add('on');
   updateUI(200);
   document.querySelector('.pscr').scrollTop=0;
 }
-
-function startRoleplay(id){
-  rpKey=(id==='assigned')?ASSIGNED[role].id:id;
-  if(!RP_SCRIPTS[rpKey])rpKey='price';
-  rpTurn=0;rpMissed=false;
-  const sc=RP_SCRIPTS[rpKey];
+function trTab(v){
+  trView=v;
+  document.getElementById('tab-onboard').className='tr-tab'+(v==='onboard'?' on':'');
+  document.getElementById('tab-drills').className='tr-tab'+(v==='drills'?' on':'');
+  document.getElementById('trOnboard').style.display=(v==='onboard')?'block':'none';
+  document.getElementById('trDrills').style.display=(v==='drills')?'block':'none';
+}
+function startOnboarding(){startTraining();trTab('onboard');}
+function backToTraining(){
   document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
-  document.getElementById('rpTitle').textContent=sc.title+' — AI customer';
-  document.getElementById('rpSub').textContent='Goal: '+sc.goal+' · live coaching on';
+  cur=200;
+  document.getElementById('tr0').classList.add('on');
+  updateUI(200);
+  document.querySelector('.pscr').scrollTop=0;
+}
+function buildOnboarding(){
+  const mods=ONBOARD[role];
+  const done=mods.filter(m=>m.state==='done').length;
+  document.getElementById('onbModLbl').textContent=(role==='service'?'Service onboarding modules':'Sales onboarding modules');
+  document.getElementById('onbProgL').textContent=done+' of '+mods.length+' modules complete';
+  document.getElementById('onbProgDays').textContent='Day '+done+' of '+mods.length;
+  document.getElementById('onbProgFill').style.width=Math.round(done/mods.length*100)+'%';
+  const left=mods.length-done;
+  document.getElementById('onbCertBadge').textContent=left>0?(left+' more to certify'):'Floor-ready ✓';
+  const list=document.getElementById('onbList');list.innerHTML='';
+  mods.forEach((m,i)=>{
+    const el=document.createElement('div');el.className='mod-card '+m.state;
+    const tag=m.state==='done'?'<span class="mod-tag done">Done ✓</span>':m.state==='active'?'<span class="mod-tag active">Start &rarr;</span>':'<span class="mod-tag locked">Locked</span>';
+    el.innerHTML='<div class="mod-num '+m.state+'">'+(m.state==='done'?'✓':(i+1))+'</div><div class="mod-body"><div class="mod-name">'+m.name+'</div><div class="mod-desc">'+m.desc+'</div></div>'+tag;
+    if(m.state==='active')el.onclick=()=>openPersona(m.id);
+    list.appendChild(el);
+  });
+}
+
+// ---- PERSONA SETUP (§5.3 B) ----
+function openPersona(id){
+  rpKey=(id==='assigned')?ASSIGNED[role].id:id;
+  if(!RP_SCRIPTS[rpKey])rpKey=(role==='service'?'declined':'price');
+  const p=PERSONAS[rpKey]||PERSONAS.price;
+  document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('pAv').innerHTML=p.av;
+  document.getElementById('pName').textContent=p.name;
+  document.getElementById('pType').textContent=p.type;
+  document.getElementById('pMood').textContent=p.mood;
+  document.getElementById('pSit').textContent=p.sit;
+  document.getElementById('pBehav').textContent=p.behav;
+  document.getElementById('pObj').textContent=p.obj;
+  cur=203;
+  document.getElementById('tr3').classList.add('on');
+  updateUI(203);
+  document.querySelector('.pscr').scrollTop=0;
+}
+function setDiff(d){
+  diff=d;
+  ['easy','med','hard'].forEach(x=>document.getElementById('diff-'+x).className='diff-b'+(x===d?' on':''));
+}
+
+// ---- VOICE-CALL ROLEPLAY (§5.3 C) ----
+const RP_STAGES=['discovery','present','objection','close'];
+let rpOptIndex=0,rpTimer=null;
+function beginCall(){
+  const sc=RP_SCRIPTS[rpKey];
+  const p=PERSONAS[rpKey]||PERSONAS.price;
+  rpTurn=0;rpMissed=false;rpOptIndex=0;
+  document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('callAv').innerHTML=p.av;
+  document.getElementById('callName').textContent=p.name;
+  document.getElementById('callStatus').textContent='On call · 0:00';
+  document.getElementById('callDiff').textContent=({easy:'Easy',med:'Medium',hard:'Hard'})[diff];
   document.getElementById('chatWrap').innerHTML='';
   document.getElementById('rpOpts').innerHTML='';
+  document.getElementById('coachLive').innerHTML='';
+  RP_STAGES.forEach(s=>document.getElementById('st-'+s).className='step-node');
+  document.getElementById('callWave').classList.remove('paused');
   cur=201;
   document.getElementById('tr1').classList.add('on');
   updateUI(201);
   document.querySelector('.pscr').scrollTop=0;
+  startCallTimer();
   rpAdvance();
 }
-
+function startCallTimer(){
+  if(rpTimer)clearInterval(rpTimer);
+  let s=0;const el=document.getElementById('callStatus');
+  rpTimer=setInterval(()=>{
+    if(cur!==201){clearInterval(rpTimer);return;}
+    s++;el.textContent='On call · '+Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+  },1000);
+}
+function lightStage(){
+  // light the tracker based on how many opts-turns have been answered (0..3)
+  RP_STAGES.forEach((s,i)=>{
+    const n=document.getElementById('st-'+s);
+    if(i<rpOptIndex)n.className='step-node done';
+    else if(i===rpOptIndex)n.className='step-node active';
+    else n.className='step-node';
+  });
+}
 function rpAddBubble(who,txt){
   const w=document.getElementById('chatWrap');
   const b=document.createElement('div');
   b.className='bubble '+(who==='cust'?'cust':'rep');
-  b.innerHTML='<div class="bubble-who">'+(who==='cust'?'AI customer':'You')+'</div>'+txt;
+  b.innerHTML='<div class="bubble-who">'+(who==='cust'?(PERSONAS[rpKey]?PERSONAS[rpKey].name:'AI customer'):'You')+'</div>'+txt;
   w.appendChild(b);w.scrollTop=w.scrollHeight;
 }
-function rpAddHint(txt){
-  const w=document.getElementById('chatWrap');
-  const h=document.createElement('div');h.className='hint-chip';
-  h.innerHTML='<span class="hi">&#128161;</span><span>'+txt+'</span>';
-  w.appendChild(h);w.scrollTop=w.scrollHeight;
+function setCoach(txt,good){
+  const box=document.getElementById('coachLive');
+  box.innerHTML='<div class="coach-live'+(good?' good':'')+'"><span class="coach-live-ico">'+(good?'&#9989;':'&#128161;')+'</span><span class="coach-live-tx">'+txt+'</span></div>';
 }
 function rpAdvance(){
   const sc=RP_SCRIPTS[rpKey];
   document.getElementById('rpOpts').innerHTML='';
-  // play through customer/hint lines until we hit an opts line
+  lightStage();
   while(rpTurn<sc.turns.length){
     const step=sc.turns[rpTurn];
     if(step.cust){rpAddBubble('cust',step.cust);rpTurn++;continue;}
-    if(step.hint){rpAddHint(step.hint);rpTurn++;continue;}
+    if(step.hint){setCoach(step.hint,false);rpTurn++;continue;}
     if(step.opts){renderOpts(step.opts);return;}
     rpTurn++;
   }
-  // no more turns -> finish
-  setTimeout(()=>finishRoleplay(),600);
+  document.getElementById('callWave').classList.add('paused');
+  setTimeout(()=>finishRoleplay(),700);
 }
 function renderOpts(opts){
   const box=document.getElementById('rpOpts');box.innerHTML='';
@@ -1630,27 +2046,61 @@ function renderOpts(opts){
     btn.innerHTML=o.t;
     btn.onclick=()=>{
       rpAddBubble('rep',o.t);
-      if(!o.best)rpMissed=true;
+      const p=PERSONAS[rpKey]?PERSONAS[rpKey].name:'The customer';
+      if(o.best){
+        setCoach('<b>Good.</b> '+p.split(' ')[0]+' warmed up — you kept control of the conversation.',true);
+      }else{
+        rpMissed=true;
+        setCoach('<b>That folded.</b> The shortcut just cost you ground with '+p.split(' ')[0]+' — and points on the scorecard.',false);
+      }
+      rpOptIndex++;
       rpTurn++;
       box.innerHTML='';
-      setTimeout(()=>rpAdvance(),700);
+      setTimeout(()=>rpAdvance(),900);
     };
     box.appendChild(btn);
   });
 }
 function finishRoleplay(){
+  if(rpTimer)clearInterval(rpTimer);
   const sc=RP_SCRIPTS[rpKey];
+  const det=RP_DETAIL[rpKey]||{skills:{disc:75,obj:72,close:74},annot:[],objs:[]};
   document.querySelectorAll('.scr.on').forEach(e=>e.classList.remove('on'));
-  const score=rpMissed?Math.max(55,sc.score-14):sc.score;
+  const pen=rpMissed?14:0;
+  const score=Math.max(55,sc.score-pen);
   document.getElementById('trScore').textContent=score+'%';
-  document.getElementById('trScenName').textContent=sc.title+' · AI customer';
+  document.getElementById('trScenName').textContent=sc.title+' · '+(PERSONAS[rpKey]?PERSONAS[rpKey].name:'AI customer');
+  // skill bars
+  const clamp=v=>Math.max(45,v-pen);
+  const sk=det.skills;
+  setSkill('disc',clamp(sk.disc));setSkill('obj',clamp(sk.obj));setSkill('close',clamp(sk.close));
+  // annotated transcript
+  const ab=document.getElementById('annotBox');
+  ab.innerHTML='<div class="annot-head">Annotated transcript</div>';
+  det.annot.forEach(a=>{
+    const cls=a.good?'good':'fix';const ico=a.good?'&#9989;':'&#128308;';
+    ab.insertAdjacentHTML('beforeend','<div class="annot-line '+cls+'"><div class="annot-who">'+a.who+'</div><div class="annot-txt">'+a.txt+'</div><div class="annot-note '+cls+'"><span>'+ico+'</span><span>'+a.note+'</span></div></div>');
+  });
+  // objections
+  const ob=document.getElementById('objBox');
+  ob.innerHTML='<div class="annot-head">Objections that came up</div>';
+  det.objs.forEach(o=>{
+    const won=o.won&&!rpMissed;
+    ob.insertAdjacentHTML('beforeend','<div class="obj-row"><div class="obj-ico">'+(won?'&#128170;':'&#9888;&#65039;')+'</div><div class="obj-body"><div class="obj-name">'+o.name+'</div><div class="obj-how">'+o.how+'</div></div><span class="obj-res '+(won?'won':'weak')+'">'+(won?'Handled':'Shaky')+'</span></div>');
+  });
   document.getElementById('trGood').textContent=sc.good;
   document.getElementById('trFix').innerHTML=rpMissed?'You chose the shortcut on at least one turn — that\'s where the points went. '+sc.fix:sc.fix;
-  document.getElementById('trLoop').innerHTML=sc.loop;
+  document.getElementById('trLoop').innerHTML=sc.loop+' <br><br><b>You\'ve drilled this 3× this week: 61 → '+score+'.</b> We\'re watching your floor rate on it.';
   cur=202;
   document.getElementById('tr2').classList.add('on');
   updateUI(202);
   document.querySelector('.pscr').scrollTop=0;
+}
+function setSkill(k,v){
+  document.getElementById('sk-'+k+'-v').textContent=v+'%';
+  const f=document.getElementById('sk-'+k+'-f');
+  f.style.width='0%';
+  setTimeout(()=>f.style.width=v+'%',60);
 }
 
 function maybeRevealTradeCv(){
@@ -1699,6 +2149,27 @@ function queueAutoDemo(){
   scheduleAuto(80000, ()=>captureBO());
   scheduleAuto(83000, ()=>yn('cl1','y'));
   scheduleAuto(86000, ()=>go(11));
+}
+
+// Guided TRAINING demo — walks the deep arc: home → persona → voice call → debrief
+function queueAutoTraining(){
+  autoTimers.forEach(t=>clearTimeout(t));
+  autoTimers=[];
+  scheduleAuto(600, ()=>startTraining('sales'));
+  scheduleAuto(1600, ()=>trTab('onboard'));       // show the onboarding on-ramp
+  scheduleAuto(4200, ()=>trTab('drills'));         // then the targeted-drill on-ramp
+  scheduleAuto(6200, ()=>openPersona('assigned')); // meet the AI customer
+  scheduleAuto(9200, ()=>beginCall());             // start the voice call
+  scheduleAuto(11500, ()=>clickBestOpt());         // strong answer 1
+  scheduleAuto(14800, ()=>clickBestOpt());         // strong answer 2
+  scheduleAuto(18100, ()=>clickBestOpt());         // strong answer 3 -> debrief
+}
+function clickBestOpt(){
+  const btns=document.querySelectorAll('#rpOpts .rp-opt');
+  if(!btns.length)return;
+  let target=btns[0];
+  btns.forEach(b=>{if(b.classList.contains('best'))target=b;});
+  target.click();
 }
 </script>
 </body>
