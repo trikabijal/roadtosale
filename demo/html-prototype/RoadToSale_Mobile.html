@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>AuditPro — Sales Process Demo</title>
+<title>Road to Sale — Sales & Service Coaching Demo</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -320,7 +320,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .sbni{width:22px;height:22px;background:var(--gr);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:10px;flex-shrink:0;font-weight:800}
 .sbnt{font-size:11px;font-weight:500;color:#0a6e38;line-height:1.35}
 
-/* F&I */
+/* OBJECTION / PROMPT CARD */
 .hhc{background:linear-gradient(135deg,var(--br),#3B72F8);border-radius:13px;padding:14px;text-align:center;flex-shrink:0}
 .hhi{font-size:28px;margin-bottom:6px}
 .hht{font-size:15px;font-weight:800;color:#fff;font-family:'Syne',sans-serif;margin-bottom:5px}
@@ -336,7 +336,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .fic2s{font-size:11px;color:#636370}
 .fic2b{display:inline-block;font-size:10px;padding:2px 7px;border-radius:20px;background:#DFF7EC;color:var(--gr);font-weight:600;margin-top:4px}
 
-/* AUDIT COMPLETE */
+/* RECAP */
 .acw{flex:1;display:flex;flex-direction:column;align-items:center;padding:16px;overflow-y:auto}
 .acw::-webkit-scrollbar{width:0}
 .asc{width:86px;height:86px;border-radius:50%;background:linear-gradient(135deg,var(--br),#3B72F8);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 8px 24px rgba(29,82,232,.4)}
@@ -373,6 +373,95 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .tag.p{background:rgba(139,92,246,.2);color:#c4b5fd}
 .tag.t{background:rgba(245,158,11,.2);color:#fcd34d}
 
+/* HOME / ROLE + MODE */
+.home-scr{display:none;flex-direction:column;flex:1;overflow-y:auto;background:linear-gradient(180deg,#f3f3f8 0%,#efeff6 100%)}
+.home-scr.on{display:flex}
+.home-scr::-webkit-scrollbar{width:0}
+.home-hero{background:linear-gradient(135deg,var(--br),#3B72F8);padding:18px 16px 16px;position:relative;overflow:hidden;flex-shrink:0}
+.home-hero::after{content:'';position:absolute;right:-20px;top:-20px;width:120px;height:120px;background:rgba(255,255,255,.07);border-radius:50%}
+.home-hg{font-size:11px;color:rgba(255,255,255,.72);margin-bottom:3px}
+.home-hn{font-family:'Syne',sans-serif;font-size:21px;font-weight:800;color:#fff;letter-spacing:-.3px;margin-bottom:2px}
+.home-hd{font-size:11px;color:rgba(255,255,255,.68);line-height:1.4}
+.home-body{padding:14px 16px;display:flex;flex-direction:column;gap:9px}
+.role-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.role-card{background:#fff;border-radius:13px;padding:12px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid transparent;cursor:pointer;transition:all .18s;text-align:center}
+.role-card.sel{border-color:var(--br);background:linear-gradient(135deg,#fff,#f4f8ff)}
+.role-card:hover{border-color:var(--br)}
+.role-ico{font-size:26px;margin-bottom:5px}
+.role-name{font-size:13px;font-weight:700;color:#000;font-family:'Syne',sans-serif}
+.role-sub{font-size:10px;color:#888;margin-top:2px;line-height:1.3}
+.mode-card{background:#fff;border-radius:13px;padding:13px 14px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid transparent;cursor:pointer;transition:all .18s;display:flex;align-items:center;gap:12px}
+.mode-card:hover{border-color:var(--br);transform:translateY(-1px)}
+.mode-ico{width:42px;height:42px;border-radius:11px;background:var(--brl);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.mode-ico.tr{background:#F3ECFF}
+.mode-t{font-size:14px;font-weight:700;color:#000;font-family:'Syne',sans-serif}
+.mode-s{font-size:11px;color:#636370;line-height:1.35;margin-top:1px}
+.mode-arw{margin-left:auto;font-size:16px;color:var(--br);flex-shrink:0}
+/* ASSIGNED / LOOP CARD */
+.loop-card{background:linear-gradient(135deg,#211B3E,#2E2352);border-radius:13px;padding:13px 14px;box-shadow:0 4px 16px rgba(45,30,90,.35);cursor:pointer;border:1px solid rgba(196,181,253,.25);transition:transform .18s}
+.loop-card:hover{transform:translateY(-1px)}
+.loop-top{display:flex;align-items:center;gap:7px;margin-bottom:6px}
+.loop-badge{font-size:9px;font-weight:700;color:#0a0a14;background:linear-gradient(135deg,#c4b5fd,#a78bfa);padding:2px 9px;border-radius:20px;letter-spacing:.04em}
+.loop-badge.hot{background:linear-gradient(135deg,#fcd34d,#f59e0b);color:#3a2500}
+.loop-t{font-size:13px;font-weight:700;color:#fff;font-family:'Syne',sans-serif;margin-bottom:3px}
+.loop-s{font-size:11px;color:rgba(255,255,255,.62);line-height:1.4}
+.loop-cta{margin-top:8px;font-size:11px;font-weight:700;color:#c4b5fd;display:flex;align-items:center;gap:5px}
+/* SECTION LABEL for home */
+.home-lbl{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.08em;margin:5px 0 -2px}
+/* TRAINING scenario cards */
+.scn-card{background:#fff;border-radius:13px;padding:12px 13px;box-shadow:0 1px 5px rgba(0,0,0,.08);border:1.5px solid transparent;cursor:pointer;transition:all .18s}
+.scn-card:hover{border-color:#a78bfa;transform:translateY(-1px)}
+.scn-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.scn-name{font-size:13px;font-weight:700;color:#000}
+.scn-lvl{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;background:#F3ECFF;color:#7c3aed}
+.scn-lvl.assigned{background:linear-gradient(135deg,#fcd34d,#f59e0b);color:#3a2500}
+.scn-desc{font-size:11px;color:#636370;line-height:1.4}
+.scn-meta{font-size:10px;color:#a78bfa;font-weight:600;margin-top:6px}
+/* ROLEPLAY chat */
+.rp-hero{background:linear-gradient(135deg,#5b21b6,#7c3aed);padding:13px 16px;flex-shrink:0}
+.rp-hero-t{font-size:14px;font-weight:800;color:#fff;font-family:'Syne',sans-serif}
+.rp-hero-s{font-size:10px;color:rgba(255,255,255,.72);margin-top:1px}
+.chat-wrap{flex:1;overflow-y:auto;padding:13px 14px;display:flex;flex-direction:column;gap:9px}
+.chat-wrap::-webkit-scrollbar{width:0}
+.bubble{max-width:82%;padding:9px 12px;border-radius:14px;font-size:12px;line-height:1.45;animation:bpop .28s ease}
+@keyframes bpop{0%{opacity:0;transform:translateY(6px)}100%{opacity:1;transform:translateY(0)}}
+.bubble.cust{align-self:flex-start;background:#fff;color:#1a1a2e;border-bottom-left-radius:4px;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.bubble.rep{align-self:flex-end;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:#fff;border-bottom-right-radius:4px}
+.bubble-who{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px;opacity:.6}
+.hint-chip{align-self:center;background:#FFF7E6;border:1px solid #f5d78a;border-radius:11px;padding:7px 11px;font-size:10px;color:#8a6100;line-height:1.4;max-width:88%;display:flex;gap:6px;align-items:flex-start}
+.hint-chip .hi{flex-shrink:0}
+.rp-mic{flex-shrink:0;background:rgba(248,248,252,.96);backdrop-filter:blur(12px);border-top:.5px solid rgba(0,0,0,.08);padding:11px 14px 16px;display:flex;flex-direction:column;gap:8px}
+.rp-mic-wave{display:flex;align-items:center;justify-content:center;gap:3px;height:22px}
+.rp-mic-wave .aw{background:rgba(124,58,237,.45)}
+.rp-opt{background:#fff;border:1.5px solid #e0e0e8;border-radius:11px;padding:10px 12px;font-size:12px;color:#1a1a2e;cursor:pointer;text-align:left;transition:all .15s;font-family:var(--f);line-height:1.4}
+.rp-opt:hover{border-color:#7c3aed;background:#faf7ff}
+.rp-opt.best{border-color:#7c3aed}
+/* SCORE recap ring purple variant */
+.asc.tr{background:linear-gradient(135deg,#7c3aed,#a78bfa);box-shadow:0 8px 24px rgba(124,58,237,.4)}
+.bdb.tr{background:linear-gradient(135deg,#7c3aed,#8b5cf6);box-shadow:0 5px 16px rgba(124,58,237,.3)}
+.wtn{background:linear-gradient(135deg,#211B3E,#2E2352);border-radius:12px;padding:11px 13px;border:1px solid rgba(196,181,253,.25)}
+.wtn-t{font-size:10px;font-weight:700;color:#c4b5fd;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.wtn-c{font-size:11px;color:rgba(255,255,255,.82);line-height:1.45}
+.wtn-c b{color:#fff}
+/* recommended service $ card */
+.rec-card{background:#fff;border-radius:13px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.07);flex-shrink:0}
+.rec-line{display:flex;align-items:center;justify-content:space-between;padding:9px 13px;border-bottom:.5px solid #f0f0f5;gap:8px}
+.rec-line:last-child{border-bottom:none}
+.rec-line.tot{background:linear-gradient(90deg,var(--grl),#DFF7EC)}
+.rec-l{font-size:12px;color:#000;line-height:1.3}
+.rec-l .rec-why{font-size:10px;color:#888;display:block;margin-top:1px}
+.rec-sev{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;flex-shrink:0}
+.rec-sev.red{background:var(--re)}.rec-sev.yel{background:#f59e0b}.rec-sev.grn{background:var(--gr)}
+.rec-v{font-size:12px;font-weight:700;color:#000;white-space:nowrap}
+.rec-v.tot{font-size:14px;font-weight:800;color:var(--gr);font-family:'Syne',sans-serif}
+/* MPI findings */
+.mpi-row{display:flex;align-items:center;gap:9px;background:#fff;border-radius:10px;padding:9px 12px;box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.mpi-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.mpi-dot.red{background:var(--re)}.mpi-dot.yel{background:#f59e0b}.mpi-dot.grn{background:var(--gr)}
+.mpi-name{font-size:12px;font-weight:600;color:#000}
+.mpi-find{font-size:10px;color:#888;margin-top:1px}
+.mpi-tag{margin-left:auto;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0}
+.mpi-tag.red{background:var(--rel);color:var(--re)}.mpi-tag.yel{background:#FEF6E7;color:#b7791f}.mpi-tag.grn{background:var(--grl);color:var(--gr)}
 @media(max-width:920px){.lp,.rp{display:none}.app{padding:1rem}}
 </style>
 </head>
@@ -383,11 +472,11 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="scard">
     <div class="slogo"><div class="lm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><div class="logotext">Road to Sale</div><div class="logosub">by AuditPro</div></div></div>
     <div class="sh">Launch guided demo</div>
-    <div class="sp">Use the CRM-fed appointment flow and optional autoplay to record a consistent click-through demo.</div>
+    <div class="sp">Your floor tells you what to practice. The practice fixes your floor. Sales &amp; service coaching &mdash; two roles, two modes, one loop.</div>
     <div class="sf"><label class="sl">Dealership name</label><input class="si" id="iD" value="Riverside Honda" placeholder="e.g. Riverside Honda"></div>
-    <div class="sf"><label class="sl">Sales rep name</label><input class="si" id="iR" value="Marcus Webb" placeholder="e.g. Marcus Webb"></div>
+    <div class="sf"><label class="sl">Rep / advisor name</label><input class="si" id="iR" value="Marcus Webb" placeholder="e.g. Marcus Webb"></div>
     <button class="launch-btn" onclick="start()">Open Interactive Demo &rarr;</button>
-    <button class="launch-btn" style="margin-top:.55rem;background:#11182f" onclick="start(true)">Play Guided Demo &rarr;</button>
+    <button class="launch-btn" style="margin-top:.55rem;background:#11182f" onclick="start(true)">Play Guided Sales Demo &rarr;</button>
   </div>
 </div>
 
@@ -397,11 +486,10 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <div class="lp">
     <div class="lpl"><div class="lplm"><svg viewBox="0 0 20 20" fill="none"><path d="M4 10l4 4 8-8" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><span class="lplt">Road to Sale</span></div>
     <div class="ib">
-      <div class="ibt">Active Deal</div>
+      <div class="ibt" id="ibTitle">Session</div>
       <div class="ibr"><div class="ibl">Dealership</div><div class="ibv dn">—</div></div>
-      <div class="ibr"><div class="ibl">Rep</div><div class="ibv rn">—</div></div>
-      <div class="ibr"><div class="ibl">Customer</div><div class="ibv cn">Sarah Mitchell</div></div>
-      <div class="ibr"><div class="ibl">Vehicle</div><div class="ibv vn">Honda CR-V Hybrid AWD</div></div>
+      <div class="ibr"><div class="ibl">Rep / advisor</div><div class="ibv rn">—</div></div>
+      <div class="ibr"><div class="ibl">Mode</div><div class="ibv" id="ibMode">—</div></div>
     </div>
     <div class="snv" id="snv"></div>
   </div>
@@ -420,10 +508,43 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
           <div class="prw"><div class="prm"><div class="prl" id="pLbl">Dashboard</div><div class="prp" id="pPct">0%</div></div><div class="prb"><div class="prf" id="pFill" style="width:0%"></div></div></div>
         </div>
 
+        <!-- HOME: ROLE + MODE + LOOP -->
+        <div class="home-scr on" id="home">
+          <div class="home-hero">
+            <div class="home-hg">Good morning &#128075;</div>
+            <div class="home-hn rn">—</div>
+            <div class="home-hd"><span class="dn">—</span> &middot; Your floor tells you what to practice. The practice fixes your floor.</div>
+          </div>
+          <div class="home-body">
+            <div class="loop-card" onclick="openAssigned()">
+              <div class="loop-top"><span class="loop-badge hot">Assigned to you</span></div>
+              <div class="loop-t">Practice the close &mdash; manager turnover</div>
+              <div class="loop-s">Manager turnover was skipped on 3 of your last 5 deals. This drill was pulled straight from your floor.</div>
+              <div class="loop-cta">Start assigned drill &rarr;</div>
+            </div>
+            <div class="home-lbl">Pick your role</div>
+            <div class="role-row">
+              <div class="role-card sel" id="role-sales" onclick="pickRole('sales')"><div class="role-ico">&#127978;</div><div class="role-name">Sales rep</div><div class="role-sub">Showroom road to the sale</div></div>
+              <div class="role-card" id="role-service" onclick="pickRole('service')"><div class="role-ico">&#128295;</div><div class="role-name">Service advisor</div><div class="role-sub">The service lane</div></div>
+            </div>
+            <div class="home-lbl">Choose a mode</div>
+            <div class="mode-card" onclick="startLive()">
+              <div class="mode-ico">&#127908;</div>
+              <div><div class="mode-t">Real Conversation <span style="font-weight:600;font-size:11px;color:#888">(Live)</span></div><div class="mode-s" id="liveDesc">Guided on-floor flow &mdash; captures what's said, guides the steps live.</div></div>
+              <div class="mode-arw">&rarr;</div>
+            </div>
+            <div class="mode-card" onclick="startTraining()">
+              <div class="mode-ico tr">&#127919;</div>
+              <div><div class="mode-t">Training <span style="font-weight:600;font-size:11px;color:#888">(Practice)</span></div><div class="mode-s" id="trainDesc">Practice against an AI customer before the real one walks in.</div></div>
+              <div class="mode-arw" style="color:#7c3aed">&rarr;</div>
+            </div>
+          </div>
+        </div>
+
         <!-- S0: DASHBOARD -->
-        <div class="scr on" id="s0">
-          <div class="dhero"><div class="dhg">Good morning &#128075;</div><div class="dhn rn">—</div><div class="dhd dn">— &middot; CRM connected</div></div>
-          <div class="dstg"><div class="dsc"><div class="dsl">Deals Today</div><div class="dsv bl">3</div></div><div class="dsc"><div class="dsl">Compliance</div><div class="dsv gr">87%</div></div><div class="dsc"><div class="dsl">Steps Done</div><div class="dsv">21</div></div><div class="dsc"><div class="dsl">Flags</div><div class="dsv rd">2</div></div></div>
+        <div class="scr" id="s0">
+          <div class="dhero"><div class="dhg">Sales &middot; Real Conversation</div><div class="dhn rn">—</div><div class="dhd dn">— &middot; CRM connected</div></div>
+          <div class="dstg"><div class="dsc"><div class="dsl">Deals Today</div><div class="dsv bl">3</div></div><div class="dsc"><div class="dsl">Process Followed</div><div class="dsv gr">87%</div></div><div class="dsc"><div class="dsl">Steps Done</div><div class="dsv">21</div></div><div class="dsc"><div class="dsl">Gaps</div><div class="dsv rd">2</div></div></div>
           <div class="secl">Today’s Appointments</div>
           <div class="qcard sel" onclick="go(1)"><div class="qtop"><div class="qname">Sarah Mitchell</div><div class="qtime">9:00 AM</div></div><div class="qmeta">CR-V shopper &middot; Trade: 2019 RAV4</div><div class="qtagrow"><span class="qtag">Family</span><span class="qtag">Hybrid curious</span><span class="qtag">AWD preferred</span></div></div>
           <div class="qcard"><div class="qtop"><div class="qname">Robert Danes</div><div class="qtime">11:00 AM</div></div><div class="qmeta">Pilot / 3-row family &middot; Trade: 2020 Highlander</div></div>
@@ -532,7 +653,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <div class="fi" id="fi-tail" onclick="tFeat(this,'fi-tail')"><div class="fii">&#128717;</div><div><div class="fin">Power Tailgate</div><div class="fid">Show cargo access and convenience</div></div><div class="fic" id="fic-tail"></div></div>
             <div class="fi" id="fi-cargo" onclick="tFeat(this,'fi-cargo')"><div class="fii">&#128230;</div><div><div class="fin">Cargo Flexibility</div><div class="fid">Tie back to school runs and groceries</div></div><div class="fic" id="fic-cargo"></div></div>
             <div class="fi" id="fi-heat" onclick="tFeat(this,'fi-heat')"><div class="fii">&#10052;</div><div><div class="fin">Heated Seats</div><div class="fid">Missed in this demo to show coaching value</div></div><div class="fic" id="fic-heat"></div></div>
-            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">If a comfort feature is skipped, AuditPro leaves it red and nudges the rep before the drive starts.</div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">If a comfort feature is skipped, Road to Sale leaves it red and nudges the rep before the drive starts.</div></div>
             <div class="ync"><div class="ynq">4.1 &mdash; Was the full 6-position walkaround completed?</div><div class="ynr"><button class="ynb" id="w1y" onclick="yn('w1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="w1n" onclick="yn('w1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-5" style="display:none">Auto-detected &middot; tap to override</div></div>
           </div>
           <div class="bnv"><button class="nb bk" onclick="go(4)">&larr; Back</button><button class="nb nx" onclick="go(6)">Test Drive &rarr;</button></div>
@@ -554,7 +675,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             <div class="fi" id="fi-drive-lane" onclick="tFeat(this,'fi-drive-lane')"><div class="fii">&#128737;</div><div><div class="fin">Lane Assist</div><div class="fid">Explain while active in lane</div></div><div class="fic" id="fic-drive-lane"></div></div>
             <div class="fi" id="fi-drive-blind" onclick="tFeat(this,'fi-drive-blind')"><div class="fii">&#128065;</div><div><div class="fin">Blind Spot Warning</div><div class="fid">Point out mirror indicator live</div></div><div class="fic" id="fic-drive-blind"></div></div>
             <div class="fi" id="fi-drive-cruise" onclick="tFeat(this,'fi-drive-cruise')"><div class="fii">&#128663;</div><div><div class="fin">Adaptive Cruise</div><div class="fid">Not demonstrated in this drive</div></div><div class="fic" id="fic-drive-cruise"></div></div>
-            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">Drive-time features should be demonstrated while the vehicle is active. If the rep skips one, AuditPro leaves it red so the gap is obvious before the next sale.</div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">Drive-time features should be demonstrated while the vehicle is active. If the rep skips one, Road to Sale leaves it red so the gap is obvious before the next sale.</div></div>
             <div class="ync"><div class="ynq">5.2 &mdash; Did you explain a feature while it was active?</div><div class="ynr"><button class="ynb" id="dr1y" onclick="yn('dr1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="dr1n" onclick="yn('dr1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-6" style="display:none">Auto-detected &middot; tap to override</div></div>
           </div>
           <div class="bnv"><button class="nb bk" onclick="go(5)">&larr; Back</button><button class="nb nx" onclick="go(7)">Trade-In &rarr;</button></div>
@@ -601,7 +722,7 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
             </div>
             <div id="pPre"><button class="mkb" onclick="markPencil()">&#10002; &nbsp;Mark First Pencil Presented</button></div>
             <div id="pDone" style="display:none"><div class="pcc"><div class="pci">&#10003;</div><div class="pct">First Pencil Presented</div><div class="pcm">Logged 2:14 PM &middot; Today</div></div></div>
-            <div class="coach-box"><div class="coach-title">Manager T.O.</div><div class="coach-copy">This screen is a natural place for a manager touchpoint. The button stays visible so the demo can show the handoff being logged instead of implied.</div></div>
+            <div class="coach-box"><div class="coach-title">Manager turnover</div><div class="coach-copy">This is the natural place for a manager touchpoint before the close. The button stays visible so the demo shows the turnover being logged instead of implied &mdash; it's the step most often skipped.</div></div>
           </div>
           <!-- Floating Manager TO button -->
           <button class="mgr-float" id="mgrBtn" onclick="openMgr()">&#129309; Manager T.O.</button>
@@ -619,80 +740,269 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
               </div>
             </div>
           </div>
-          <div class="bnv"><button class="nb bk" onclick="go(7)">&larr; Back</button><button class="nb nx" onclick="go(9)">Buyer's Order &rarr;</button></div>
+          <div class="bnv"><button class="nb bk" onclick="go(7)">&larr; Back</button><button class="nb nx" onclick="go(9)">Close &rarr;</button></div>
         </div>
 
-        <!-- S9: BUYER'S ORDER -->
+        <!-- S9: CLOSE -->
         <div class="scr" id="s9">
           <div class="spd">
-            <div class="stl">Step 7.2 &middot; OTD Transparency</div>
-            <div class="sth">Buyer's Order</div>
-            <div class="sts">Photograph the signed order to confirm OTD figures and start the F&amp;I timer</div>
+            <div class="stl">Step 8 &middot; The Close</div>
+            <div class="sth">Ask for the Sale</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"These are the out-the-door figures, <span class="cn">—</span>. The <span class="vn">—</span> checks every box you gave me this morning &mdash; want me to get the keys ready so you can take it home today?"</div></div>
             <div class="bo-prompt" id="boPrompt" onclick="captureBO()">
               <div class="cam-flash" id="cf-bo" style="border-radius:13px"></div>
               <div class="bo-prompt-ico">&#128196;&#128247;</div>
-              <div class="bo-prompt-title">Tap to photograph buyer's order</div>
-              <div class="bo-prompt-sub">Computer vision will confirm signature and line items</div>
+              <div class="bo-prompt-title">Tap to photograph signed order</div>
+              <div class="bo-prompt-sub">Confirms the close and locks the agreed figures</div>
             </div>
             <div class="bo-reveal" id="boReveal">
-              <div class="boh"><div class="boi">&#128196;</div><div class="bot">Buyer's Order &middot; <span class="cn">—</span></div></div>
+              <div class="boh"><div class="boi">&#128196;</div><div class="bot">Agreed Figures &middot; <span class="cn">—</span></div></div>
               <div class="bol"><div class="boll">Vehicle</div><div class="bolv vn">—</div></div>
               <div class="bol"><div class="boll">Selling Price</div><div class="bolv">$41,250</div></div>
               <div class="bol"><div class="boll">Trade Allowance</div><div class="bolv">&minus;$18,500</div></div>
               <div class="bol"><div class="boll">Tax + Fees</div><div class="bolv">$2,918</div></div>
               <div class="bol" style="background:var(--grl)"><div class="boll" style="font-weight:700;color:#000;font-size:12px">Total OTD</div><div class="bolv" style="font-weight:800;color:var(--br);font-size:13px">$25,668</div></div>
-              <div class="bo-sig">&#10003; Signed &middot; Captured 2:31 PM &middot; Signature confirmed by CV</div>
+              <div class="bo-sig">&#10003; Signed &middot; Deal closed 2:31 PM &middot; Confirmed by photo</div>
             </div>
-            <div class="sbn" id="boBanner" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Buyer's order captured &middot; F&amp;I 20-min timer started 2:31 PM</div></div>
+            <div class="sbn" id="boBanner" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Sale closed &middot; <span class="cn">—</span> is taking home the <span class="vn">—</span> &#127881;</div></div>
+            <div class="ync"><div class="ynq">8.1 &mdash; Did you directly ask for the sale?</div><div class="ynr"><button class="ynb" id="cl1y" onclick="yn('cl1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="cl1n" onclick="yn('cl1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-9" style="display:none">Auto-detected via audio &middot; tap to override</div></div>
           </div>
-          <div class="bnv"><button class="nb bk" onclick="go(8)">&larr; Back</button><button class="nb nx" onclick="go(10)">F&amp;I Handoff &rarr;</button></div>
+          <div class="bnv"><button class="nb bk" onclick="go(8)">&larr; Back</button><button class="nb nx" onclick="go(11)">Sale Recap &rarr;</button></div>
         </div>
 
-        <!-- S10: F&I HANDOFF -->
-        <div class="scr" id="s10">
-          <div class="spd">
-            <div class="stl">Step 9 &middot; F&amp;I Handover</div>
-            <div class="sth">Warm Hand-off</div>
-            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"<span class="cn">—</span>, let me introduce you to David Chen, our Finance Manager. David, this is <span class="cn">—</span> &mdash; taking home the <span class="vn">—</span>."</div></div>
-            <div class="aud" id="aud-10">
-              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; detecting three-way intro</div></div>
-              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
-              <div class="aud-tx" id="at-10">Listening...</div>
-              <div class="aud-det" id="ad-10"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Three-way intro confirmed &mdash; 9.1 logged</div></div>
-            </div>
-            <div class="tmb"><div class="tml">Time since buyer's order signed</div><div class="tmv">00:07</div><div class="tmo">&#10003; Within 20-minute window</div></div>
-            <div class="fic2"><div class="fic2t"><div class="fic2n">David Chen &mdash; F&amp;I Manager</div><div class="fic2m">2:31 PM</div></div><div class="fic2s">Deal picked up &middot; <span class="cn">—</span></div><div class="fic2b" id="fi-badge" style="display:none">In F&amp;I Office &#10003;</div></div>
-            <div class="sbn" id="fi-confirm" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Warm hand-off confirmed &mdash; both devices timestamped within 2 minutes</div></div>
-            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">The F&amp;I handoff is a relationship moment, not a routing moment. AuditPro keeps the introduction visible and ties the timestamp back to the deal audit.</div></div>
-          </div>
-          <div class="bnv"><button class="nb bk" onclick="go(9)">&larr; Back</button><button class="nb nx" onclick="go(11)">Audit Complete &rarr;</button></div>
-        </div>
-
-        <!-- S11: AUDIT COMPLETE -->
+        <!-- S11: SALE RECAP -->
         <div class="scr" id="s11">
           <div class="acw">
-            <div class="asc"><div class="asn">84%</div><div class="asl">Score</div></div>
-            <div class="act">Rep Coaching Summary</div>
-            <div class="acs"><span class="cn">—</span> &middot; <span class="vn">—</span></div>
+            <div class="asc"><div class="asn">84%</div><div class="asl">Followed</div></div>
+            <div class="act">Sale Recap</div>
+            <div class="acs"><span class="cn">—</span> &middot; <span class="vn">—</span> &middot; deal closed</div>
             <div class="art">
-              <div class="arr"><div class="ars">1.1 Meet &amp; Greet</div><div class="arp">&#10003; Pass</div></div>
-              <div class="arr"><div class="ars">1.2 Refreshment</div><div class="arp">&#10003; Auto</div></div>
-              <div class="arr"><div class="ars">2.1 Discovery Sheet</div><div class="arp">&#10003; Complete</div></div>
-              <div class="arr"><div class="ars">3.1 Vehicle Logic</div><div class="arp">&#10003; Auto</div></div>
-              <div class="arr"><div class="ars">3.2 Front-Line Ready</div><div class="arp">&#10003; Auto</div></div>
-              <div class="arr"><div class="ars">4.1 Walkaround</div><div class="arp">&#10003; Auto</div></div>
-              <div class="arr"><div class="ars">4.2 Static Features</div><div class="arf">&#9873; Heated Seats missed</div></div>
-              <div class="arr"><div class="ars">5.1 Demo Route</div><div class="arp">&#10003; GPS</div></div>
-              <div class="arr"><div class="ars">5.2 In-drive Feature Coaching</div><div class="arf">&#9873; Adaptive Cruise missed</div></div>
-              <div class="arr"><div class="ars">6.1 Trade-In Walk</div><div class="arp">&#10003; Photo</div></div>
-              <div class="arr"><div class="ars">7.1 Time to Pencil</div><div class="arp">&#10003; 11 mins</div></div>
-              <div class="arr"><div class="ars">7.2 OTD Transparency</div><div class="arp">&#10003; Photo+CV</div></div>
-              <div class="arr"><div class="ars">8.1 Manager T.O.</div><div class="arf">&#9873; Opportunity to improve</div></div>
-              <div class="arr"><div class="ars">9.1 F&amp;I Hand-off</div><div class="arp">&#10003; Auto</div></div>
-              <div class="arr"><div class="ars">9.2 F&amp;I Wait Time</div><div class="arp">&#10003; 7 mins</div></div>
+              <div class="arr"><div class="ars">Greet &amp; refreshment</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Needs discovery</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Vehicle match</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Front-line ready</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Walkaround features</div><div class="arf">&#9873; Heated seats skipped</div></div>
+              <div class="arr"><div class="ars">Test drive coaching</div><div class="arf">&#9873; Adaptive cruise skipped</div></div>
+              <div class="arr"><div class="ars">Trade-in walk</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Figures / pencil</div><div class="arp">&#10003; 11 mins</div></div>
+              <div class="arr"><div class="ars">Manager turnover</div><div class="arf">&#9873; Skipped</div></div>
+              <div class="arr"><div class="ars">The close</div><div class="arp">&#10003; Followed</div></div>
             </div>
-            <div class="coach-box" style="margin:12px 16px 0"><div class="coach-title">Self-coaching takeaway</div><div class="coach-copy">Next time, complete all comfort features before the drive and finish the manager touchpoint earlier. Saved to manager dashboard for trend tracking.</div></div>
-            <button class="bdb" onclick="go(0)">&larr; Back to Dashboard</button>
+            <div class="wtn" style="margin:12px 16px 0" onclick="startTraining('sales')">
+              <div class="wtn-t">What to practice next</div>
+              <div class="wtn-c">Your weakest step this week is <b>manager turnover</b> &mdash; skipped on 3 of your last 5 deals. <b>Tap to run the assigned drill</b> in Training and lift your close rate. &rarr;</div>
+            </div>
+            <div class="coach-box" style="margin:10px 16px 0"><div class="coach-title">Self-coaching takeaway</div><div class="coach-copy">Show every comfort feature before the drive and bring a manager in before figures. These are the steps where deals leak &mdash; and they roll up to your manager's coaching view.</div></div>
+            <button class="bdb" onclick="goHome()">&larr; Back to Home</button>
+          </div>
+        </div>
+
+        <!-- ============ SERVICE LIVE FLOW ============ -->
+        <!-- SV1: GREET / WRITE-UP -->
+        <div class="scr" id="sv1">
+          <div class="spd">
+            <div class="stl">Step 1 &middot; Greet / Write-up</div>
+            <div class="sth">Confirm the Concern</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"Morning <span class="svcn">—</span>, thanks for coming in. So we're here for a <span style="font-style:normal;font-weight:600">brake noise</span> on the front end and the <span style="font-style:normal;font-weight:600">45k mile</span> service &mdash; did I get that right?"</div></div>
+            <div class="aud" id="aud-sv1">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio detection active</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-sv1">Listening for concern confirmation...</div>
+              <div class="aud-det" id="ad-sv1"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Concern read back &amp; confirmed &mdash; write-up auto-logged</div></div>
+            </div>
+            <div class="disc-grid">
+              <div class="dfd full"><div class="dfl">Customer / RO</div><div class="dfv"><span class="svcn">—</span> &middot; RO #48210 &middot; Appointment</div></div>
+              <div class="dfd full"><div class="dfl">Vehicle</div><div class="dfv svvn">—</div></div>
+              <div class="dfd"><div class="dfl">Mileage</div><div class="dfv">44,910 mi</div></div>
+              <div class="dfd"><div class="dfl">Type</div><div class="dfv">Appointment</div></div>
+              <div class="dfd full"><div class="dfl">Stated concern</div><div class="dfv">Grinding brake noise, front &middot; due for 45k service</div></div>
+            </div>
+            <div class="ync"><div class="ynq">1.1 &mdash; Did you read the concern back to confirm?</div><div class="ynr"><button class="ynb" id="sg1y" onclick="yn('sg1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="sg1n" onclick="yn('sg1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-sv1" style="display:none">Auto-detected via audio &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="goHome()">&larr; Home</button><button class="nb nx" onclick="go(102)">Walkaround &rarr;</button></div>
+        </div>
+
+        <!-- SV2: WALKAROUND INSPECTION + PHOTOS -->
+        <div class="scr" id="sv2">
+          <div class="spd">
+            <div class="stl">Step 2 &middot; Walkaround Inspection</div>
+            <div class="sth">Note Existing Condition</div>
+            <div class="aud" id="aud-sv2">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; auto-noting existing damage</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-sv2">Listening for existing-damage notes...</div>
+              <div class="aud-det" id="ad-sv2"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Pre-existing scuff noted with customer present &mdash; protects the store</div></div>
+            </div>
+            <div style="font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Walkaround Photos</div>
+            <div class="pg">
+              <div class="pp" id="pp-sv-f" onclick="takePhoto(this,'pp-sv-f','svf')"><div class="ppi">&#128247;</div><div class="ppl">Front</div><div class="cam-flash" id="cf-sv-f"></div></div>
+              <div class="pp" id="pp-sv-r" onclick="takePhoto(this,'pp-sv-r','svr')"><div class="ppi">&#128247;</div><div class="ppl">Rear</div><div class="cam-flash" id="cf-sv-r"></div></div>
+              <div class="pp" id="pp-sv-l" onclick="takePhoto(this,'pp-sv-l','svl')"><div class="ppi">&#128247;</div><div class="ppl">Driver side</div><div class="cam-flash" id="cf-sv-l"></div></div>
+              <div class="pp" id="pp-sv-p" onclick="takePhoto(this,'pp-sv-p','svp')"><div class="ppi">&#128247;</div><div class="ppl">Pass. side</div><div class="cam-flash" id="cf-sv-p"></div></div>
+            </div>
+            <div class="coach-box"><div class="coach-title">Why it matters</div><div class="coach-copy">Photographing existing damage with the customer present protects the store and builds trust before you recommend a dollar of work.</div></div>
+            <div class="ync"><div class="ynq">2.1 &mdash; Walkaround photos captured with customer present?</div><div class="ynr"><button class="ynb" id="sw1y" onclick="yn('sw1','y')">&#10003; Yes</button><button class="ynb" id="sw1n" onclick="yn('sw1','n')">&#10007; No</button></div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(101)">&larr; Back</button><button class="nb nx" onclick="go(103)">MPI Review &rarr;</button></div>
+        </div>
+
+        <!-- SV3: MULTI-POINT INSPECTION REVIEW -->
+        <div class="scr scroll" id="sv3">
+          <div class="spd">
+            <div class="stl">Step 3 &middot; Multi-Point Inspection</div>
+            <div class="sth">MPI Findings</div>
+            <div class="sts">Technician results &mdash; red needs attention now, yellow soon, green is good.</div>
+            <div class="mpi-row"><div class="mpi-dot red"></div><div><div class="mpi-name">Front brake pads</div><div class="mpi-find">2mm remaining &middot; grinding on rotor</div></div><div class="mpi-tag red">Red</div></div>
+            <div class="mpi-row"><div class="mpi-dot red"></div><div><div class="mpi-name">Front rotors</div><div class="mpi-find">Scored past minimum spec</div></div><div class="mpi-tag red">Red</div></div>
+            <div class="mpi-row"><div class="mpi-dot yel"></div><div><div class="mpi-name">Cabin air filter</div><div class="mpi-find">Dirty &middot; restricting airflow</div></div><div class="mpi-tag yel">Yellow</div></div>
+            <div class="mpi-row"><div class="mpi-dot yel"></div><div><div class="mpi-name">Front tires</div><div class="mpi-find">4/32" &middot; monitor for next visit</div></div><div class="mpi-tag yel">Yellow</div></div>
+            <div class="mpi-row"><div class="mpi-dot grn"></div><div><div class="mpi-name">Battery</div><div class="mpi-find">Tested good &middot; 620 CCA</div></div><div class="mpi-tag grn">Green</div></div>
+            <div class="mpi-row"><div class="mpi-dot grn"></div><div><div class="mpi-name">Fluids &amp; belts</div><div class="mpi-find">Within spec</div></div><div class="mpi-tag grn">Green</div></div>
+            <div class="coach-box"><div class="coach-title">Coaching cue</div><div class="coach-copy">Walk the customer through every color, not just the reds. Naming the greens earns trust for when you present the reds.</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(102)">&larr; Back</button><button class="nb nx" onclick="go(104)">Recommendations &rarr;</button></div>
+        </div>
+
+        <!-- SV4: RECOMMENDED-SERVICE PRESENTATION ($) -->
+        <div class="scr scroll" id="sv4">
+          <div class="spd">
+            <div class="stl">Step 4 &middot; Recommended Service</div>
+            <div class="sth">Present With the Why</div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Script</span>"The grinding you heard is metal on metal &mdash; the pads are done and the rotors are scored. Here's what I'd recommend today so you're safe, plus the maintenance you're due for."</div></div>
+            <div class="aud" id="aud-sv4">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; detecting the "why" behind each item</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-sv4">Listening for the value explanation...</div>
+              <div class="aud-det" id="ad-sv4"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Safety "why" tied to each red item &mdash; presentation confirmed</div></div>
+            </div>
+            <div class="rec-card">
+              <div class="rec-line"><div class="rec-l"><span class="rec-sev red"></span>Front brakes: pads + rotors<span class="rec-why">Safety &middot; metal-on-metal grinding</span></div><div class="rec-v">$689</div></div>
+              <div class="rec-line"><div class="rec-l"><span class="rec-sev grn"></span>45k mile service<span class="rec-why">Due now &middot; oil, inspection, rotation</span></div><div class="rec-v">$329</div></div>
+              <div class="rec-line"><div class="rec-l"><span class="rec-sev yel"></span>Cabin air filter<span class="rec-why">Restricted airflow &middot; easy add-on</span></div><div class="rec-v">$79</div></div>
+              <div class="rec-line tot"><div class="rec-l" style="font-weight:700">Recommended today</div><div class="rec-v tot">$1,097</div></div>
+            </div>
+            <div class="coach-box"><div class="coach-title">The profit moment</div><div class="coach-copy">Presenting the full recommendation with the "why" is where service revenue is won or lost. Skip the presentation and you leave dollars &mdash; and a safety risk &mdash; on the table.</div></div>
+            <div class="ync"><div class="ynq">4.1 &mdash; Did you present all findings with a dollar value?</div><div class="ynr"><button class="ynb" id="sr1y" onclick="yn('sr1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="sr1n" onclick="yn('sr1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-sv4" style="display:none">Auto-detected via audio &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(103)">&larr; Back</button><button class="nb nx" onclick="go(105)">Handle Objection &rarr;</button></div>
+        </div>
+
+        <!-- SV5: OBJECTION / DECLINED SERVICE -->
+        <div class="scr scroll" id="sv5">
+          <div class="spd">
+            <div class="stl">Step 5 &middot; Declined-Service Handling</div>
+            <div class="sth">"Not today..."</div>
+            <div class="hhc"><div class="hhi">&#128184;</div><div class="hht">"That's more than I planned to spend"</div><div class="hhq">The customer wants to do the brakes but wait on the maintenance. This is the recovery moment.</div></div>
+            <div class="aud" id="aud-sv5">
+              <div class="aud-hdr"><div class="aud-dot"></div><div class="aud-lbl">Audio active &middot; detecting objection + response</div></div>
+              <div class="aud-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+              <div class="aud-tx" id="at-sv5">Listening...</div>
+              <div class="aud-det" id="ad-sv5"><div class="aud-det-ico">&#10003;</div><div class="aud-det-tx">Objection handled + follow-up scheduled &mdash; recovery logged</div></div>
+            </div>
+            <div class="script"><div class="script-ico">&#128172;</div><div class="script-body"><span class="script-label">Handle it</span>"Totally fair. The brakes are safety, so let's take care of those today. For the filter, I'll set a reminder and text you when you're next due &mdash; no pressure."</div></div>
+            <div class="cv-box"><div class="cv-head"><div class="cv-title">Declined-service recovery</div><div class="cv-state">Scheduled</div></div><div class="cv-line warn">&#9873; Cabin air filter declined today ($79)</div><div class="cv-line info">&#128276; Follow-up reminder set &mdash; text in 30 days</div><div class="cv-line ok">&#10003; Brakes + 45k service approved</div></div>
+            <div class="ync"><div class="ynq">5.1 &mdash; Was declined work handled + a follow-up scheduled?</div><div class="ynr"><button class="ynb" id="so1y" onclick="yn('so1','y')">&#10003; Yes<span class="atag">Auto</span></button><button class="ynb" id="so1n" onclick="yn('so1','n')">&#10007; No</button></div><div class="aud-ov" id="ao-sv5" style="display:none">Auto-detected via audio &middot; tap to override</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(104)">&larr; Back</button><button class="nb nx" onclick="go(106)">Approval &rarr;</button></div>
+        </div>
+
+        <!-- SV6: APPROVAL & ACTIVE DELIVERY -->
+        <div class="scr" id="sv6">
+          <div class="spd">
+            <div class="stl">Step 6 &middot; Approval &amp; Delivery</div>
+            <div class="sth">Confirm &amp; Deliver</div>
+            <div class="bo-prompt" id="svApprovePrompt" onclick="captureApprove()">
+              <div class="cam-flash" id="cf-svapp" style="border-radius:13px"></div>
+              <div class="bo-prompt-ico">&#128241;&#10003;</div>
+              <div class="bo-prompt-title">Tap for customer approval</div>
+              <div class="bo-prompt-sub">Digital sign-off on approved work</div>
+            </div>
+            <div class="bo-reveal" id="svApproveReveal">
+              <div class="boh"><div class="boi">&#10003;</div><div class="bot">Approved Work &middot; <span class="svcn">—</span></div></div>
+              <div class="bol"><div class="boll">Front brakes (pads + rotors)</div><div class="bolv">$689</div></div>
+              <div class="bol"><div class="boll">45k mile service</div><div class="bolv">$329</div></div>
+              <div class="bol" style="background:var(--grl)"><div class="boll" style="font-weight:700;color:#000;font-size:12px">Approved total</div><div class="bolv" style="font-weight:800;color:var(--gr);font-size:13px">$1,018</div></div>
+              <div class="bo-sig">&#10003; Approved 9:48 AM &middot; Promised by 2:00 PM &middot; Filter follow-up set</div>
+            </div>
+            <div class="sbn" id="svApproveBanner" style="display:none"><div class="sbni">&#10003;</div><div class="sbnt">Work approved &middot; active delivery scheduled &middot; next visit reminder set</div></div>
+            <div class="coach-box"><div class="coach-title">Active delivery</div><div class="coach-copy">Confirm what's being done, when it'll be ready, and the follow-up you set. That's what turns a one-time RO into a returning customer.</div></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="go(105)">&larr; Back</button><button class="nb nx" onclick="go(107)">Service Recap &rarr;</button></div>
+        </div>
+
+        <!-- SV7: SERVICE RECAP -->
+        <div class="scr" id="sv7">
+          <div class="acw">
+            <div class="asc"><div class="asn">83%</div><div class="asl">Followed</div></div>
+            <div class="act">Service Recap</div>
+            <div class="acs"><span class="svcn">—</span> &middot; RO #48210 &middot; <span class="svvn">—</span></div>
+            <div class="art">
+              <div class="arr"><div class="ars">Greet / write-up</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Walkaround + photos</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">MPI review</div><div class="arp">&#10003; Followed</div></div>
+              <div class="arr"><div class="ars">Recommended service presented</div><div class="arp">&#10003; $1,097 shown</div></div>
+              <div class="arr"><div class="ars">Objection handling</div><div class="arf">&#9873; Rushed the filter decline</div></div>
+              <div class="arr"><div class="ars">Approval &amp; delivery</div><div class="arp">&#10003; Followed</div></div>
+            </div>
+            <div class="art" style="margin-top:-4px">
+              <div class="arr"><div class="ars" style="font-weight:600">Recommended</div><div class="arp" style="color:#000">$1,097</div></div>
+              <div class="arr"><div class="ars" style="font-weight:600">Approved</div><div class="arp">$1,018 &middot; 93%</div></div>
+              <div class="arr"><div class="ars" style="font-weight:600">Recoverable</div><div class="arf">$79 &middot; follow-up set</div></div>
+            </div>
+            <div class="wtn" style="margin:12px 16px 0" onclick="startTraining('service')">
+              <div class="wtn-t">What to practice next</div>
+              <div class="wtn-c">You captured 93% of recommended dollars, but the <b>"too expensive" objection</b> got rushed. <b>Tap to run the declined-service drill</b> and recover more per RO. &rarr;</div>
+            </div>
+            <button class="bdb" onclick="goHome()">&larr; Back to Home</button>
+          </div>
+        </div>
+
+        <!-- ============ TRAINING: SCENARIO PICKER ============ -->
+        <div class="scr" id="tr0">
+          <div class="rp-hero"><div class="rp-hero-t">Training &middot; Practice with an AI customer</div><div class="rp-hero-s" id="trPickerSub">Pick a scenario. The AI plays the customer &mdash; you handle it.</div></div>
+          <div class="spd" style="background:linear-gradient(180deg,#f5f2fb 0%,#efeaf7 100%);overflow-y:auto">
+            <div class="loop-card" onclick="startRoleplay('assigned')">
+              <div class="loop-top"><span class="loop-badge hot">Assigned to you</span></div>
+              <div class="loop-t" id="trAssignedT">Manager turnover &mdash; the close</div>
+              <div class="loop-s" id="trAssignedS">Pulled from your floor: turnover skipped on 3 of your last 5 deals.</div>
+              <div class="loop-cta">Start assigned drill &rarr;</div>
+            </div>
+            <div class="home-lbl" id="trListLbl">Sales scenarios</div>
+            <div id="trList"></div>
+          </div>
+          <div class="bnv"><button class="nb bk" onclick="goHome()">&larr; Home</button></div>
+        </div>
+
+        <!-- ============ TRAINING: ROLEPLAY ============ -->
+        <div class="scr" id="tr1">
+          <div class="rp-hero"><div class="rp-hero-t" id="rpTitle">Roleplay</div><div class="rp-hero-s" id="rpSub">AI customer &middot; live coaching on</div></div>
+          <div class="chat-wrap" id="chatWrap"></div>
+          <div class="rp-mic" id="rpMic">
+            <div class="rp-mic-wave"><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div><div class="aw"></div></div>
+            <div id="rpOpts"></div>
+          </div>
+        </div>
+
+        <!-- ============ TRAINING: SCORE RECAP ============ -->
+        <div class="scr" id="tr2">
+          <div class="acw">
+            <div class="asc tr"><div class="asn" id="trScore">78%</div><div class="asl">Score</div></div>
+            <div class="act">Practice Score</div>
+            <div class="acs" id="trScenName">Price objection &middot; AI customer</div>
+            <div class="art">
+              <div class="arr"><div class="ars">Acknowledged the concern</div><div class="arp">&#10003; Strong</div></div>
+              <div class="arr"><div class="ars">Reframed to value</div><div class="arp">&#10003; Good</div></div>
+              <div class="arr"><div class="ars">Brought in the manager</div><div class="arf">&#9873; Waited too long</div></div>
+              <div class="arr"><div class="ars">Asked for the sale</div><div class="arp">&#10003; Clear ask</div></div>
+            </div>
+            <div class="coach-box" style="margin:12px 16px 0"><div class="coach-title">What went well</div><div class="coach-copy" id="trGood">You stayed calm and reframed price into monthly value without discounting first &mdash; exactly right.</div></div>
+            <div class="coach-box" style="margin:10px 16px 0"><div class="coach-title" style="color:#b7791f">What to fix</div><div class="coach-copy" id="trFix">Bring the manager in earlier. You held the objection alone for three turns before turning over.</div></div>
+            <div class="wtn" style="margin:10px 16px 0">
+              <div class="wtn-t">The loop</div>
+              <div class="wtn-c" id="trLoop">Assigned because your floor rate on <b>manager turnover</b> is low &mdash; skipped on 3 of your last 5 deals. Two more reps and your close rate should move.</div>
+            </div>
+            <button class="bdb tr" onclick="startRoleplay(rpKey)">&#8635; Practice Again</button>
+            <button class="bdb" style="background:#e9e4f2;color:#5b21b6;box-shadow:none;margin-top:8px" onclick="goHome()">&larr; Back to Home</button>
           </div>
         </div>
 
@@ -703,25 +1013,44 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
   <!-- RIGHT -->
   <div class="rp">
     <div class="rpt">How it's captured</div>
-    <div id="rpC"><div class="rpc"><div class="rpct">Dashboard</div><div class="rpcb">Active deals, compliance score, new walk-in flow.</div></div></div>
+    <div id="rpC"><div class="rpc"><div class="rpct">Home</div><div class="rpcb">Pick a role and a mode. Your floor gaps become assigned practice drills &mdash; that's the loop.</div></div></div>
   </div>
 </div>
 
 <script>
+// SALES real-conversation flow (screen index 0..11, mapped to #s0..#s11)
 const STEPS=[
-  {l:'Dashboard',p:0,rp:{t:'Dashboard',b:'Active deals, compliance score, new walk-in flow.',tags:[]}},
-  {l:'1.1&ndash;1.2 &middot; Greet',p:8,rp:{t:'Steps 1.1 &amp; 1.2',b:'1.1 self-reported. 1.2 auto-detected via audio — refreshment offer phrase triggers Y button.',tags:['a','m']}},
-  {l:'2.1 &middot; Discovery',p:16,rp:{t:'Step 2.1 &amp; 2.2',b:'A dealership-style discovery sheet captures replacement vehicle, use case, passengers, drive type, and must-have needs while audio confirms the key lifestyle cues.',tags:['a','m']}},
-  {l:'3.1 &middot; Vehicle Match',p:24,rp:{t:'Step 3.1 — Vehicle Logic',b:'AuditPro loads Honda digital feature libraries, matches customer needs to live inventory, and listens for phrases like “because you mentioned” and “that’s why I picked this one.”',tags:['a','m']}},
-  {l:'3.2 &middot; Front-Line Ready',p:33,rp:{t:'Step 3.2 — Readiness',b:'Audio detects key handover and measures time gap. Photos confirm vehicle condition.',tags:['a','p']}},
-  {l:'4.1 &middot; Walkaround',p:41,rp:{t:'Steps 4.1 &amp; 4.2',b:'Static features are coached separately from in-drive features. Demonstrated items turn green, while missed features stay red to coach the rep in the moment.',tags:['a','m']}},
-  {l:'5.1 &middot; Test Drive',p:50,rp:{t:'Steps 5.1 &amp; 5.2',b:'GPS tracks the demo route while in-vehicle audio listens for live explanation language like “right now” and “notice how” tied to safety tech.',tags:['g','a']}},
-  {l:'6.1 &middot; Trade-In',p:58,rp:{t:'Steps 6.1 &amp; 6.2',b:'Four required trade photos unlock condition analysis. Audio and image cues populate defects like scratches and tire wear into the appraisal notes.',tags:['a','p']}},
-  {l:'7.1 &middot; First Pencil',p:66,rp:{t:'Steps 7.1 &amp; 8.1',b:'Timestamp on mark. Manager T.O. is a floating button — triggers anytime. Audio detects new voice + intro.',tags:['t','a']}},
-  {l:'7.2 &middot; Buyer\'s Order',p:75,rp:{t:'Steps 7.2 &amp; 9.2',b:'Photo prompt first, then order reveals. CV confirms signature and OTD items. Timestamp starts F&amp;I window.',tags:['p','t']}},
-  {l:'9.1 &middot; F&amp;I Handoff',p:83,rp:{t:'Steps 9.1 &amp; 9.2',b:'Script card + audio detects three-way intro. Dual-device timestamps confirm timing of hand-off.',tags:['a','t']}},
-  {l:'Audit Complete',p:100,rp:{t:'Rep Coaching Summary',b:'The rep sees strengths, misses, and self-coaching cues immediately. The same signals roll into the manager BI dashboard for intervention tracking.',tags:[]}}
+  {l:'Dashboard',p:0,rp:{t:'Dashboard',b:'Today\'s appointments and your process-followed rate. Pick a customer to start the guided flow.',tags:[]}},
+  {l:'1 &middot; Greet',p:10,rp:{t:'Step 1 — Greet',b:'1.1 self-reported. 1.2 auto-detected via audio — the refreshment-offer phrase confirms the step.',tags:['a','m']}},
+  {l:'2 &middot; Discovery',p:20,rp:{t:'Step 2 — Discovery',b:'A discovery sheet captures the current vehicle, use case, passengers, and must-have needs while audio confirms the lifestyle cues.',tags:['a','m']}},
+  {l:'3 &middot; Vehicle Match',p:30,rp:{t:'Step 3 — Vehicle Match',b:'Honda feature libraries load and match needs to live inventory. Audio listens for “because you mentioned” language that ties features to needs.',tags:['a','m']}},
+  {l:'4 &middot; Front-Line Ready',p:38,rp:{t:'Step 4 — Readiness',b:'Audio detects the key handover and measures the time gap. Photos confirm the vehicle was staged and clean.',tags:['a','p']}},
+  {l:'5 &middot; Walkaround',p:48,rp:{t:'Step 5 — Walkaround',b:'Demonstrated features turn green; a skipped comfort feature stays red so the gap is obvious before the drive.',tags:['a','m']}},
+  {l:'6 &middot; Test Drive',p:58,rp:{t:'Step 6 — Test Drive',b:'GPS tracks the route while in-vehicle audio listens for live “notice how / right now” feature language.',tags:['g','a']}},
+  {l:'7 &middot; Trade-In',p:68,rp:{t:'Step 7 — Trade-In',b:'Four trade photos unlock condition analysis. Audio and image cues populate defects into the appraisal notes.',tags:['a','p']}},
+  {l:'8 &middot; Figures',p:78,rp:{t:'Step 8 — Figures',b:'Timestamp on the first pencil. Manager turnover is a floating button — the step most often skipped. Audio detects the new voice + intro.',tags:['t','a']}},
+  {l:'9 &middot; Close',p:90,rp:{t:'Step 9 — Close',b:'Photo confirms the agreed figures and the close. Audio detects whether the rep actually asked for the sale.',tags:['p','t','a']}},
+  {l:'—',p:90,rp:{t:'',b:'',tags:[]}},
+  {l:'Sale recap',p:100,rp:{t:'Sale Recap',b:'The rep sees steps followed vs skipped and a "what to practice next" link into Training. The same signals roll up to the manager\'s coaching view.',tags:[]}}
 ];
+
+// SERVICE real-conversation flow (screen index 101..107, mapped to #sv1..#sv7)
+const SVSTEPS={
+  101:{l:'1 &middot; Greet / Write-up',p:14,rp:{t:'Step 1 — Write-up',b:'Audio confirms the advisor read the concern back. The RO and stated concern are logged so nothing gets lost.',tags:['a','m']}},
+  102:{l:'2 &middot; Walkaround',p:28,rp:{t:'Step 2 — Walkaround',b:'Photos of existing condition with the customer present protect the store and build trust before any recommendation.',tags:['p','a']}},
+  103:{l:'3 &middot; MPI Review',p:43,rp:{t:'Step 3 — MPI',b:'Technician red/yellow/green findings. Coaching cue: name the greens to earn trust for the reds.',tags:['m']}},
+  104:{l:'4 &middot; Recommended',p:60,rp:{t:'Step 4 — Recommendation',b:'The profit moment. Present every finding with the "why" and a dollar value. Audio ties safety language to each red item.',tags:['a','m']}},
+  105:{l:'5 &middot; Objection',p:78,rp:{t:'Step 5 — Declined-service',b:'Handle "too expensive / I\'ll wait" and schedule a follow-up so declined dollars stay recoverable.',tags:['a','m']}},
+  106:{l:'6 &middot; Approval',p:90,rp:{t:'Step 6 — Approval & delivery',b:'Digital approval on the accepted work, promised time, and the follow-up reminder that drives the next visit.',tags:['p','t']}},
+  107:{l:'Service recap',p:100,rp:{t:'Service Recap',b:'Recommended vs approved dollars, recoverable amount, and a "what to practice next" link into Training.',tags:[]}}
+};
+
+// TRAINING screens (index 200 picker, 201 roleplay, 202 score; 300 = replay)
+const TRSTEPS={
+  200:{l:'Training &middot; Scenarios',p:0,rp:{t:'Training',b:'Practice against an AI customer before the real one walks in. Drills assigned from your floor gaps close the loop.',tags:[]}},
+  201:{l:'Training &middot; Roleplay',p:50,rp:{t:'Roleplay',b:'The AI plays the customer and raises the objection; you respond. Live coaching hints appear as you go.',tags:['a']}},
+  202:{l:'Training &middot; Score',p:100,rp:{t:'Practice Score',b:'Score, what went well, what to fix — plus the loop line tying this drill to your low floor rate on a step.',tags:[]}}
+};
 
 const AUDIO={
   1:{delay:2500,lines:[
@@ -778,14 +1107,35 @@ const AUDIO={
     {t:2600,txt:'"...<span class=trig>James</span> — this is <span class=trig>Sarah</span>. [New voice detected]"'},
     {t:3600,det:'ad-mgr'}
   ]},
-  10:{delay:2500,lines:[
+  9:{delay:2500,lines:[
     {t:0,txt:'Listening...'},
-    {t:1200,txt:'"...<span class=trig>Sarah</span>, let me introduce you to..."'},
-    {t:2400,txt:'"...this is <span class=trig>David Chen</span>, our Finance Manager..."'},
-    {t:3400,txt:'"...<span class=trig>David</span> — <span class=trig>Sarah</span> is taking home the CR-V today..."'},
-    {t:4300,det:'ad-10'},
-    {t:4600,showEl:'fi-badge'},
-    {t:4700,showEl:'fi-confirm'}
+    {t:1200,txt:'"...these are the out-the-door figures, <span class=trig>Sarah</span>..."'},
+    {t:2400,txt:'"...<span class=trig>want me to get the keys ready</span> so you can take it home today?"'},
+    {t:3400,btn:'cl1',det:null,ov:'ao-9'}
+  ]},
+  // SERVICE audio blocks
+  sv1:{delay:2200,lines:[
+    {t:0,txt:'Listening for concern confirmation...'},
+    {t:1200,txt:'"...so we\'re here for a <span class=trig>brake noise</span> on the front end..."'},
+    {t:2400,txt:'"...and the <span class=trig>45k mile service</span> — did I get that right?"'},
+    {t:3400,btn:'sg1',det:'ad-sv1',ov:'ao-sv1'}
+  ]},
+  sv2:{delay:2200,lines:[
+    {t:0,txt:'Listening for existing-damage notes...'},
+    {t:1500,txt:'"...I see a <span class=trig>small scuff</span> on the rear bumper already — let\'s get that on camera..."'},
+    {t:3000,det:'ad-sv2'}
+  ]},
+  sv4:{delay:2200,lines:[
+    {t:0,txt:'Listening for the value explanation...'},
+    {t:1200,txt:'"...the grinding is <span class=trig>metal on metal</span> — pads are done, rotors scored..."'},
+    {t:2400,txt:'"...so I\'d recommend the <span class=trig>brakes today</span> plus your 45k service..."'},
+    {t:3400,btn:'sr1',det:'ad-sv4',ov:'ao-sv4'}
+  ]},
+  sv5:{delay:2200,lines:[
+    {t:0,txt:'Listening...'},
+    {t:1200,txt:'"...that\'s more than I planned to spend today..." [objection detected]'},
+    {t:2400,txt:'"...totally fair — brakes are safety, let\'s do those. I\'ll <span class=trig>set a reminder</span> for the filter..."'},
+    {t:3600,btn:'so1',det:'ad-sv5',ov:'ao-sv5'}
   ]}
 };
 
@@ -793,6 +1143,8 @@ const DEMO = {
   customer: 'Sarah Mitchell',
   vehicle: 'Honda CR-V Hybrid AWD',
   firstName: 'Sarah',
+  svCustomer: 'Dan Rivera',
+  svVehicle: '2021 Honda Accord Sport',
 };
 
 const PHOTO_ASSETS = {
@@ -802,55 +1154,121 @@ const PHOTO_ASSETS = {
   t2: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-02-RUGGED-1140-2x.jpg?hash=F821BB638DC8C61FD5724F326F4E8E79&w=900',
   t3: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-03-profile-1140-2x.jpg?hash=11D33F7D54B433E0A0E7072414185FC1&w=900',
   t4: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2019/CR-V/00-NEW-VLP/Exterior/1-Styling/MY19-CRV-transfer-Exterior-Styling-04-LED-tail-1140-2x.jpg?hash=242A48C3719850F8B029BA251C2298E7&w=900',
+  svf: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2021/accord-sedan/Feature-Blades/Exterior/Design/2021-Accord-Exterior-Design-01-1400-2x.jpg?w=900',
+  svr: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2021/accord-sedan/Feature-Blades/Exterior/Design/2021-Accord-Exterior-Design-02-1400-2x.jpg?w=900',
+  svl: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2021/accord-sedan/Feature-Blades/Exterior/Performance/2021-Accord-Exterior-Performance-01-1400-2x.jpg?w=900',
+  svp: 'https://automobiles.honda.com/-/media/Honda-Automobiles/Vehicles/2021/accord-sedan/Feature-Blades/Exterior/Performance/2021-Accord-Exterior-Performance-02-1400-2x.jpg?w=900',
 };
 
 let cur=0,timers=[],autoTimers=[],autoMode=false,tradePhotoCount=0;
 let preloadedPhotoUrls = new Set();
+let role='sales';        // 'sales' | 'service'
+
+// Screen registry: index -> DOM element id
+function scrId(n){
+  if(n>=101&&n<=107) return 'sv'+(n-100);   // 101->sv1 ... 107->sv7
+  if(n===200) return 'tr0';
+  if(n===201) return 'tr1';
+  if(n===202) return 'tr2';
+  return 's'+n;                              // sales 0..11
+}
+// Audio key for a screen index
+const AUDKEY={1:1,2:2,3:3,4:4,5:5,6:6,7:7,9:9,101:'sv1',102:'sv2',104:'sv4',105:'sv5'};
 
 function start(playAuto){
   const d=document.getElementById('iD').value||'Riverside Honda';
   const r=document.getElementById('iR').value||'Marcus Webb';
-  const c=DEMO.customer;
-  const v=DEMO.vehicle;
   document.querySelectorAll('.dn').forEach(e=>e.textContent=d);
   document.querySelectorAll('.rn').forEach(e=>e.textContent=r.split(' ')[0]);
-  document.querySelectorAll('.cn').forEach(e=>e.textContent=c);
-  document.querySelectorAll('.vn').forEach(e=>e.textContent=v);
+  document.querySelectorAll('.cn').forEach(e=>e.textContent=DEMO.customer);
+  document.querySelectorAll('.vn').forEach(e=>e.textContent=DEMO.vehicle);
+  document.querySelectorAll('.svcn').forEach(e=>e.textContent=DEMO.svCustomer);
+  document.querySelectorAll('.svvn').forEach(e=>e.textContent=DEMO.svVehicle);
   preloadPhotoAssets();
   document.getElementById('setup').style.display='none';
   document.getElementById('app').classList.add('on');
-  buildNav();updateUI(0);
-  autoMode=Boolean(playAuto);
-  if(autoMode) queueAutoDemo();
+  buildNav();
+  if(playAuto){                       // "Play Guided Sales Demo" jumps straight into the sales live flow
+    showHome(false);
+    role='sales';pickRole('sales');
+    autoMode=true;
+    startLive();
+    queueAutoDemo();
+  }else{
+    showHome(true);
+    autoMode=false;
+  }
+}
+
+// ----- HOME / ROLE / MODE -----
+function showHome(reset){
+  clearAll();
+  document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('home').classList.add('on');
+  document.querySelector('.pscr').scrollTop=0;
+  document.getElementById('pLbl').textContent='Home';
+  document.getElementById('pPct').textContent='';
+  document.getElementById('pFill').style.width='0%';
+  document.getElementById('ibTitle').textContent='Session';
+  document.getElementById('ibMode').textContent='—';
+  document.querySelectorAll('.sni').forEach(e=>e.classList.remove('on','dn'));
+  document.getElementById('rpC').innerHTML='<div class="rpc"><div class="rpct">Home</div><div class="rpcb">Pick a role and a mode. Your floor gaps become assigned practice drills &mdash; that\'s the loop.</div></div>';
+}
+function goHome(){showHome(true);}
+function pickRole(r){
+  role=r;
+  document.getElementById('role-sales').classList.toggle('sel',r==='sales');
+  document.getElementById('role-service').classList.toggle('sel',r==='service');
+  if(r==='service'){
+    document.getElementById('liveDesc').textContent='Guided service-lane flow — captures the write-up, MPI, and the recommendation live.';
+    document.getElementById('trainDesc').textContent='Practice declined-service recovery against an AI customer.';
+  }else{
+    document.getElementById('liveDesc').textContent='Guided on-floor flow — captures what\'s said, guides the steps live.';
+    document.getElementById('trainDesc').textContent='Practice objections against an AI customer before the real one walks in.';
+  }
+}
+function openAssigned(){startTraining();startRoleplay('assigned');}
+
+function startLive(){
+  document.getElementById('home').classList.remove('on');
+  document.getElementById('ibTitle').textContent=(role==='service'?'Service RO':'Active Deal');
+  document.getElementById('ibMode').textContent='Real Conversation';
+  cur=(role==='service')?100:0;   // will be advanced by go()
+  buildNav();
+  if(role==='service'){ go(101); }
+  else { go(0); }
 }
 
 function buildNav(){
   const nav=document.getElementById('snv');nav.innerHTML='';
-  STEPS.forEach((s,i)=>{
+  let entries;
+  if(role==='service'){
+    entries=Object.keys(SVSTEPS).map(k=>({i:+k,l:SVSTEPS[k].l}));
+  }else{
+    entries=STEPS.map((s,i)=>({i,l:s.l})).filter(e=>e.l!=='—');
+  }
+  entries.forEach(e=>{
     const el=document.createElement('div');
-    el.className='sni'+(i===0?' on':'');el.id='n'+i;
-    el.innerHTML='<div class="snid"></div><div class="snil">'+s.l+'</div>';
-    el.onclick=()=>go(i);nav.appendChild(el);
+    el.className='sni';el.id='n'+e.i;
+    el.innerHTML='<div class="snid"></div><div class="snil">'+e.l+'</div>';
+    el.onclick=()=>go(e.i);nav.appendChild(el);
   });
 }
 
 function go(n){
   clearAll();
-  document.getElementById('s'+cur).classList.remove('on');
-  const old=document.getElementById('n'+cur);
-  old.classList.remove('on');
-  if(cur<n)old.classList.add('dn');
+  // hide current
+  const curEl=document.getElementById(scrId(cur));
+  if(curEl)curEl.classList.remove('on');
+  const oldNav=document.getElementById('n'+cur);
+  if(oldNav){oldNav.classList.remove('on');if(cur<n)oldNav.classList.add('dn');}
   cur=n;
-  document.getElementById('s'+n).classList.add('on');
+  const el=document.getElementById(scrId(n));
+  if(el)el.classList.add('on');
   updateUI(n);
   document.querySelector('.pscr').scrollTop=0;
-  // Map screen index to audio key
-  const keys={1:1,2:2,3:3,4:4,5:5,6:6,7:7,10:10};
-  if(keys[n]!==undefined){
-    const k=keys[n];
-    const cfg=AUDIO[k];
-    if(cfg)setTimeout(()=>runAudio(k),cfg.delay);
-  }
+  const k=AUDKEY[n];
+  if(k!==undefined){const cfg=AUDIO[k];if(cfg)setTimeout(()=>runAudio(k),cfg.delay);}
 }
 
 function clearAll(){timers.forEach(t=>clearTimeout(t));timers=[];}
@@ -900,13 +1318,19 @@ function runAudio(key){
 }
 
 function updateUI(n){
-  const s=STEPS[n];
+  let s;
+  if(n>=101&&n<=107) s=SVSTEPS[n];
+  else if(n>=200&&n<=202) s=TRSTEPS[n];
+  else s=STEPS[n];
+  if(!s) return;
   document.getElementById('pFill').style.width=s.p+'%';
   document.getElementById('pLbl').innerHTML=s.l;
-  document.getElementById('pPct').textContent=s.p+'%';
-  document.querySelectorAll('.sni').forEach((el,i)=>{el.classList.remove('on');if(i===n)el.classList.add('on');});
+  document.getElementById('pPct').textContent=(s.p||s.p===0)?s.p+'%':'';
+  document.querySelectorAll('.sni').forEach(el=>el.classList.remove('on'));
+  const navEl=document.getElementById('n'+n);
+  if(navEl)navEl.classList.add('on');
   const tagMap={a:'&#127908; Audio',m:'&#9997; Manual',g:'&#128205; GPS',p:'&#128247; Photo',t:'&#128336; Timestamp'};
-  const tags=s.rp.tags.map(t=>`<span class="tag ${t}">${tagMap[t]}</span>`).join('');
+  const tags=(s.rp.tags||[]).map(t=>`<span class="tag ${t}">${tagMap[t]}</span>`).join('');
   document.getElementById('rpC').innerHTML=`<div class="rpc"><div class="rpct">${s.rp.t}</div><div class="rpcb">${s.rp.b}</div><div style="margin-top:4px">${tags}</div></div>`;
 }
 
@@ -990,6 +1414,245 @@ function captureBO(){
   },350);
 }
 
+function captureApprove(){
+  const prompt=document.getElementById('svApprovePrompt');
+  const flash=document.getElementById('cf-svapp');
+  flash.classList.add('go');
+  setTimeout(()=>flash.classList.remove('go'),400);
+  setTimeout(()=>{
+    prompt.style.display='none';
+    document.getElementById('svApproveReveal').classList.add('on');
+    document.getElementById('svApproveBanner').style.display='flex';
+  },350);
+}
+
+// ===================== TRAINING =====================
+const SCENARIOS={
+  sales:[
+    {id:'price',name:'Price objection',lvl:'Core',desc:'"I saw it cheaper online" — hold gross without discounting first.',floor:'21% of your sales objections'},
+    {id:'trade',name:'Trade-in fight',lvl:'Core',desc:'"My car is worth way more than that" — defend the appraisal.',floor:'trade pushback on 4 of 9 deals'},
+    {id:'looking',name:'"Just looking"',lvl:'Warm-up',desc:'Turn a browser into a discovery conversation.',floor:'early walk-offs this week'}
+  ],
+  service:[
+    {id:'declined',name:'Declined maintenance',lvl:'Core',desc:'"I\'ll do it next time" — recover the recommended work.',floor:'38% declined-service rate'},
+    {id:'expensive',name:'"Too expensive"',lvl:'Core',desc:'"That\'s a lot for a filter" — justify the value.',floor:'price objections on 5 ROs'},
+    {id:'ownshop',name:'"I\'ll go to my own shop"',lvl:'Tough',desc:'"My guy does it cheaper" — win the work back.',floor:'indie-shop mentions rising'}
+  ]
+};
+// Assigned drills per role (the loop)
+const ASSIGNED={
+  sales:{id:'turnover',name:'Manager turnover — the close',sub:'Pulled from your floor: turnover skipped on 3 of your last 5 deals.',step:'manager turnover',rate:'skipped on 3 of your last 5 deals'},
+  service:{id:'declined',name:'Declined-service recovery',sub:'Pulled from your floor: 38% of recommended work is walking out the door.',step:'declined-service recovery',rate:'a 38% declined rate this month'}
+};
+// Roleplay scripts: alternating customer / hint / rep-options
+const RP_SCRIPTS={
+  turnover:{title:'Manager turnover',score:78,goal:'the close',
+    good:'You reframed price into monthly value without discounting first — exactly right.',
+    fix:'Bring the manager in earlier. You held the objection alone for three turns before turning over.',
+    loop:'Assigned because your floor rate on <b>manager turnover</b> is low — skipped on 3 of your last 5 deals. Two more reps and your close rate should move.',
+    turns:[
+      {cust:'I like the CR-V, but that payment is higher than I wanted.'},
+      {hint:'Acknowledge, then reframe to value — don\'t discount yet.'},
+      {opts:[{t:'"I hear you. Let\'s look at what that payment gets you versus your RAV4 — the hybrid alone saves you about $180 a month in gas."',best:true},{t:'"I can probably knock a bit off the price for you."'}]},
+      {cust:'That\'s fair, but I still need to think about it and talk to my wife.'},
+      {hint:'This is the moment to bring your manager in — not to push, to help.'},
+      {opts:[{t:'"Totally understand. Let me grab James, our manager — he can walk through a couple of options so you have everything you need to decide."',best:true},{t:'"Okay, take your time — here\'s my card, call me when you\'re ready."'}]},
+      {cust:'Alright, I can talk to him for a minute.'},
+      {hint:'Close the loop: confirm the next step clearly.'},
+      {opts:[{t:'"Great — and if the numbers work, are you good to take it home today?"',best:true},{t:'"No pressure at all, just have a look around."'}]}
+    ]},
+  price:{title:'Price objection',score:74,goal:'holding gross',
+    good:'You anchored on value and total cost, not sticker — solid.',
+    fix:'You dropped to a discount one turn too early. Try one more value pass first.',
+    loop:'Assigned because <b>price objections</b> show up on 21% of your floor conversations and your hold rate is below team average.',
+    turns:[
+      {cust:'I found the same trim $1,200 cheaper at the store across town.'},
+      {hint:'Don\'t match blindly — separate price from value.'},
+      {opts:[{t:'"Let\'s make sure we\'re comparing the same car — mine\'s front-line ready with the full warranty and our service team. What did their out-the-door number include?"',best:true},{t:'"I can match that price, no problem."'}]},
+      {cust:'It\'s the same car though. Why would I pay more?'},
+      {hint:'Tie value to what they told you they care about.'},
+      {opts:[{t:'"Because you told me reliability and easy service matter — we\'ll have you in and out, loaner included, for the life of the car. That\'s the part that isn\'t on the sticker."',best:true},{t:'"Fair point. Let me see what I can do on the price."'}]},
+      {cust:'Okay, that actually does matter to me.'},
+      {hint:'Ask for the commitment.'},
+      {opts:[{t:'"Then let\'s get you in it today — want me to start the paperwork?"',best:true},{t:'"Take your time thinking it over."'}]}
+    ]},
+  trade:{title:'Trade-in fight',score:71,goal:'defending the appraisal',
+    good:'You explained the reconditioning line-by-line instead of just naming a number.',
+    fix:'Show the market data sooner — you let the tension build for two turns.',
+    loop:'Assigned because <b>trade pushback</b> came up on 4 of your last 9 deals and cost you two closes.',
+    turns:[
+      {cust:'Kelley Blue Book says my RAV4 is worth $21,000. You\'re offering $18,500?'},
+      {hint:'Respect the number, then explain the difference honestly.'},
+      {opts:[{t:'"KBB is a great starting point. That number\'s a private-party sale — trade-in accounts for our reconditioning and the two front tires we flagged. Let me show you the actual auction data."',best:true},{t:'"KBB isn\'t always accurate, honestly."'}]},
+      {cust:'So you\'re saying my car isn\'t worth what they say?'},
+      {hint:'Reframe: they get convenience and instant tax savings.'},
+      {opts:[{t:'"It\'s worth every bit of it to the right private buyer. Trading it here saves you the hassle and about $1,500 in sales tax on the new one — that closes most of the gap right there."',best:true},{t:'"Basically, yeah."'}]},
+      {cust:'The tax savings I hadn\'t thought about. That helps.'},
+      {hint:'Lock it in.'},
+      {opts:[{t:'"So with the tax credit you\'re effectively at $20,000 for the trade — fair enough to move forward?"',best:true},{t:'"Anyway, it\'s up to you."'}]}
+    ]},
+  looking:{title:'"Just looking"',score:82,goal:'starting discovery',
+    good:'You gave them space and asked an open question instead of pitching.',
+    fix:'You could have tied the question to a specific model sooner.',
+    loop:'Assigned because early walk-offs are up on your floor — turning "just looking" into discovery is the fix.',
+    turns:[
+      {cust:'I\'m just looking, thanks.'},
+      {hint:'Disarm — don\'t sell. Give them a reason to talk.'},
+      {opts:[{t:'"Absolutely, look all you want. Are you replacing something or just seeing what\'s new this year?"',best:true},{t:'"Sure, let me know if you have any questions."'}]},
+      {cust:'Just seeing what\'s out there. My current car is getting old.'},
+      {hint:'One light discovery question opens the door.'},
+      {opts:[{t:'"Makes sense. What\'s the one thing your current car doesn\'t do that you wish it did?"',best:true},{t:'"We\'ve got great deals this month."'}]},
+      {cust:'Honestly, better gas mileage. I commute a lot now.'},
+      {hint:'Bridge to a specific vehicle.'},
+      {opts:[{t:'"Then let me show you the CR-V Hybrid — no pressure, just so you know what\'s possible. Two minutes?"',best:true},{t:'"We have a few options, take a brochure."'}]}
+    ]},
+  declined:{title:'Declined maintenance',score:76,goal:'recovering declined work',
+    good:'You led with safety and gave a clear reason to act now.',
+    fix:'You accepted the "next time" too quickly — offer a follow-up, don\'t just close.',
+    loop:'Assigned because your <b>declined-service recovery</b> rate is low — 38% of recommended work is walking out the door.',
+    turns:[
+      {cust:'Let\'s just do the oil change today. I\'ll handle the rest next time.'},
+      {hint:'Separate safety from maintenance — some things can\'t wait.'},
+      {opts:[{t:'"Oil change for sure. The one I\'d ask you not to wait on is the brakes — they\'re metal-on-metal, so it\'s a safety thing, not a maintenance thing."',best:true},{t:'"No problem, we\'ll get the oil done."'}]},
+      {cust:'Brakes are that bad? I figured I had a few months.'},
+      {hint:'Make it concrete and offer to fix it now.'},
+      {opts:[{t:'"At 2mm, the grinding you\'re hearing is the wear indicator on the rotor. We have the parts here — I can have it done by 2 today so you\'re safe leaving the lot."',best:true},{t:'"It\'s up to you, but I\'d get to it eventually."'}]},
+      {cust:'Okay, do the brakes too. What about the filter?'},
+      {hint:'For the true decline, schedule a follow-up.'},
+      {opts:[{t:'"Filter can absolutely wait. I\'ll set a reminder and text you when you\'re due so it\'s not forgotten."',best:true},{t:'"Skip it then, no big deal."'}]}
+    ]},
+  expensive:{title:'"Too expensive"',score:73,goal:'justifying value',
+    good:'You broke the price into the "why" instead of defending the total.',
+    fix:'Offer the bundle earlier — you left the maintenance package on the table.',
+    loop:'Assigned because <b>price objections</b> hit 5 of your recent ROs and your presentation rate dipped.',
+    turns:[
+      {cust:'A thousand dollars? That\'s way too expensive for a service.'},
+      {hint:'Break it down — total sounds scary, line items don\'t.'},
+      {opts:[{t:'"I get it — let\'s break it down. $689 is the brakes, which is safety. The $329 is your 45k service you\'re already due for. Which part feels off?"',best:true},{t:'"I can take some off if that helps."'}]},
+      {cust:'The brakes I get. The service just feels like a lot.'},
+      {hint:'Show what the service prevents.'},
+      {opts:[{t:'"That 45k keeps the powertrain warranty intact and catches the small stuff before it\'s a $2,000 repair. It\'s the cheapest insurance on the car."',best:true},{t:'"Yeah, dealer service is pricey, I know."'}]},
+      {cust:'When you put it that way, okay.'},
+      {hint:'Confirm and set expectations.'},
+      {opts:[{t:'"Great — brakes and the 45k, ready by 2 today. I\'ll text you the second it\'s done."',best:true},{t:'"Cool, we\'ll get to it."'}]}
+    ]},
+  ownshop:{title:'"I\'ll go to my own shop"',score:70,goal:'winning the work back',
+    good:'You stayed friendly and led with warranty, not fear.',
+    fix:'Ask what their shop charges — you assumed instead of finding out.',
+    loop:'Assigned because <b>indie-shop mentions</b> are rising on your ROs and they\'re your biggest source of walked work.',
+    turns:[
+      {cust:'My buddy has a shop, he\'ll do the brakes for half that.'},
+      {hint:'Don\'t knock the shop — differentiate on what you offer.'},
+      {opts:[{t:'"He probably can — a lot of guys do. The difference here is OEM pads, the warranty on the work, and it\'s all logged to your VIN for resale. What\'s he quoting?"',best:true},{t:'"Those shops cut corners, though."'}]},
+      {cust:'He said around $350 for the brakes.'},
+      {hint:'Bridge the gap with value they can\'t get elsewhere.'},
+      {opts:[{t:'"That\'s a fair price for aftermarket. For $689 you get factory parts, a 2-year warranty, and it\'s done while your car\'s already here on the lift. No second trip."',best:true},{t:'"Ours is just better, trust me."'}]},
+      {cust:'The warranty and not making a second trip does matter.'},
+      {hint:'Close it.'},
+      {opts:[{t:'"Then let\'s knock it out now — ready by 2, warrantied, and I\'ll note it for your next service. Sound good?"',best:true},{t:'"Whatever works for you."'}]}
+    ]}
+};
+
+let rpKey=null,rpTurn=0,rpMissed=false;
+
+function startTraining(forceRole){
+  if(forceRole)pickRole(forceRole);
+  document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('ibTitle').textContent='Training';
+  document.getElementById('ibMode').textContent='Practice';
+  cur=200;
+  // build scenario list
+  const list=document.getElementById('trList');list.innerHTML='';
+  document.getElementById('trListLbl').textContent=(role==='service'?'Service scenarios':'Sales scenarios');
+  const a=ASSIGNED[role];
+  document.getElementById('trAssignedT').textContent=a.name;
+  document.getElementById('trAssignedS').textContent=a.sub;
+  SCENARIOS[role].forEach(sc=>{
+    const el=document.createElement('div');el.className='scn-card';
+    el.onclick=()=>startRoleplay(sc.id);
+    el.innerHTML='<div class="scn-top"><div class="scn-name">'+sc.name+'</div><div class="scn-lvl">'+sc.lvl+'</div></div><div class="scn-desc">'+sc.desc+'</div><div class="scn-meta">&#128200; From your floor: '+sc.floor+'</div>';
+    list.appendChild(el);
+  });
+  document.getElementById('tr0').classList.add('on');
+  updateUI(200);
+  document.querySelector('.pscr').scrollTop=0;
+}
+
+function startRoleplay(id){
+  rpKey=(id==='assigned')?ASSIGNED[role].id:id;
+  if(!RP_SCRIPTS[rpKey])rpKey='price';
+  rpTurn=0;rpMissed=false;
+  const sc=RP_SCRIPTS[rpKey];
+  document.querySelectorAll('.scr.on,.home-scr.on').forEach(e=>e.classList.remove('on'));
+  document.getElementById('rpTitle').textContent=sc.title+' — AI customer';
+  document.getElementById('rpSub').textContent='Goal: '+sc.goal+' · live coaching on';
+  document.getElementById('chatWrap').innerHTML='';
+  document.getElementById('rpOpts').innerHTML='';
+  cur=201;
+  document.getElementById('tr1').classList.add('on');
+  updateUI(201);
+  document.querySelector('.pscr').scrollTop=0;
+  rpAdvance();
+}
+
+function rpAddBubble(who,txt){
+  const w=document.getElementById('chatWrap');
+  const b=document.createElement('div');
+  b.className='bubble '+(who==='cust'?'cust':'rep');
+  b.innerHTML='<div class="bubble-who">'+(who==='cust'?'AI customer':'You')+'</div>'+txt;
+  w.appendChild(b);w.scrollTop=w.scrollHeight;
+}
+function rpAddHint(txt){
+  const w=document.getElementById('chatWrap');
+  const h=document.createElement('div');h.className='hint-chip';
+  h.innerHTML='<span class="hi">&#128161;</span><span>'+txt+'</span>';
+  w.appendChild(h);w.scrollTop=w.scrollHeight;
+}
+function rpAdvance(){
+  const sc=RP_SCRIPTS[rpKey];
+  document.getElementById('rpOpts').innerHTML='';
+  // play through customer/hint lines until we hit an opts line
+  while(rpTurn<sc.turns.length){
+    const step=sc.turns[rpTurn];
+    if(step.cust){rpAddBubble('cust',step.cust);rpTurn++;continue;}
+    if(step.hint){rpAddHint(step.hint);rpTurn++;continue;}
+    if(step.opts){renderOpts(step.opts);return;}
+    rpTurn++;
+  }
+  // no more turns -> finish
+  setTimeout(()=>finishRoleplay(),600);
+}
+function renderOpts(opts){
+  const box=document.getElementById('rpOpts');box.innerHTML='';
+  opts.forEach(o=>{
+    const btn=document.createElement('button');
+    btn.className='rp-opt'+(o.best?' best':'');
+    btn.innerHTML=o.t;
+    btn.onclick=()=>{
+      rpAddBubble('rep',o.t);
+      if(!o.best)rpMissed=true;
+      rpTurn++;
+      box.innerHTML='';
+      setTimeout(()=>rpAdvance(),700);
+    };
+    box.appendChild(btn);
+  });
+}
+function finishRoleplay(){
+  const sc=RP_SCRIPTS[rpKey];
+  document.querySelectorAll('.scr.on').forEach(e=>e.classList.remove('on'));
+  const score=rpMissed?Math.max(55,sc.score-14):sc.score;
+  document.getElementById('trScore').textContent=score+'%';
+  document.getElementById('trScenName').textContent=sc.title+' · AI customer';
+  document.getElementById('trGood').textContent=sc.good;
+  document.getElementById('trFix').innerHTML=rpMissed?'You chose the shortcut on at least one turn — that\'s where the points went. '+sc.fix:sc.fix;
+  document.getElementById('trLoop').innerHTML=sc.loop;
+  cur=202;
+  document.getElementById('tr2').classList.add('on');
+  updateUI(202);
+  document.querySelector('.pscr').scrollTop=0;
+}
+
 function maybeRevealTradeCv(){
   if(tradePhotoCount < 4) return;
   const box=document.getElementById('tradeCv');
@@ -1014,6 +1677,7 @@ function preloadPhotoAssets(){
 function queueAutoDemo(){
   autoTimers.forEach(t=>clearTimeout(t));
   autoTimers=[];
+  // start() has already run startLive() -> go(0). Autoplay the sales real-conversation flow.
   scheduleAuto(1400, ()=>go(1));
   scheduleAuto(9800, ()=>yn('g1','y'));
   scheduleAuto(11200, ()=>go(2));
@@ -1030,10 +1694,11 @@ function queueAutoDemo(){
   scheduleAuto(60800, ()=>takePhoto(document.getElementById('pp-t4'),'pp-t4','&#129309;'));
   scheduleAuto(63600, ()=>go(8));
   scheduleAuto(68400, ()=>markPencil());
-  scheduleAuto(70600, ()=>go(9));
-  scheduleAuto(74800, ()=>captureBO());
-  scheduleAuto(77600, ()=>go(10));
-  scheduleAuto(85800, ()=>go(11));
+  scheduleAuto(70600, ()=>{openMgr();});
+  scheduleAuto(75600, ()=>{closeMgr();go(9);});
+  scheduleAuto(80000, ()=>captureBO());
+  scheduleAuto(83000, ()=>yn('cl1','y'));
+  scheduleAuto(86000, ()=>go(11));
 }
 </script>
 </body>
