@@ -27,6 +27,23 @@ your floor."*
   practice drill → practice lifts the score → the floor rate improves. **No competitor
   closes this loop.** This is the thing the demo must make obvious.
 
+### Both pillars are required (not either/or)
+Dealership sales/service has **high turnover** — new people arrive constantly, so
+*everyone* needs training at some point. That makes Training two things at once, and
+the demo must show **both on-ramps into one practice engine**:
+
+1. **Onboarding (new hire).** Ramp a new rep fast against AI customers **before** they
+   touch the floor and burn real customers. Quick onboarding is a **major** selling
+   point given the churn. This path is a structured curriculum, not driven by a floor
+   gap (they have no floor history yet).
+2. **Targeted remediation (existing rep).** The floor finds the rep's *specific*
+   mistake → we assign a drill on exactly that. "**Find it, then fix it on specifics**"
+   is the differentiator.
+
+Both ship. "Lead with Training" vs "lead with the floor" is only a **demo-sequencing**
+choice for a given buyer — never a suggestion that you get one and not the other. Every
+path lands on the loop.
+
 ### Two roles (decided)
 - **Sales** — the showroom road to the sale (greet → close).
 - **Service** — the service lane. **Featured prominently**: service is a larger profit
@@ -97,10 +114,13 @@ keeps coming up."
 
 Keep the phone-in-frame layout, side panels, setup screen, and guided autoplay engine.
 
-**Entry:** after the setup card, land on a **role picker** (Sales rep / Service advisor)
-or a home that offers two modes:
+**Entry:** the setup card gains a **"Lead with…" demo toggle** — *Training-first* or
+*Floor-first* — so the presenter opens on whichever pillar fits the buyer (both are
+still reachable; see §1 "both required"). After setup, land on a **home** with a
+**role picker** (Sales rep / Service advisor) and two modes:
 - **Real Conversation (Live)** — the guided on-floor / in-lane flow.
-- **Training (Practice)** — practice against an AI customer.
+- **Training (Practice)** — practice against an AI customer (this must be a *deep*,
+  first-class flow — equal weight to the floor flow, not an add-on).
 
 ### 5.1 Real Conversation — Sales
 Reframe the existing sales flow: drop "Compliance"/"Audit Complete"; rename the tail to a
@@ -113,17 +133,45 @@ yes/no auto-confirm, photos for the walkaround, a recommended-service card showi
 **$ value**, and an objection-handling card for declined service). End on a **"Service
 recap"** with the recommended vs approved dollars and "what to practice next."
 
-### 5.3 Training — practice with an AI customer (NEW)
-- **Scenario picker** — a few cards per role (Sales: "Price objection," "Trade-in fight,"
-  "Just looking"; Service: "Declined maintenance," "Too expensive," "I'll go to my shop").
-- **Roleplay screen** — a chat/voice-style exchange with an **AI customer**: the AI raises
-  the objection, the rep responds (canned/scripted for the demo), live coaching hints.
-- **Score/feedback recap** — a score, what went well, what to fix, and a **"this drill was
-  assigned because your floor rate on [step] is low"** line — this makes the loop explicit.
+### 5.3 Training — the deep, first-class experience (this is the main fix)
+Training is NOT a bolt-on scripted chat. Build the **full arc of a practice session** so a
+training-first buyer sees exactly *how training happens*. Two on-ramps (§1), one engine.
+
+**A. Training home — two on-ramps:**
+- **Onboarding path (new hire):** a structured curriculum — "Your first week / floor-ready
+  in N days" — a sequence of modules covering the whole road-to-sale (greet, discovery,
+  walkaround, objection handling, close for Sales; write-up → recommendation → declined-
+  service for Service), each a practice rep against an AI customer, with progress and a
+  **"floor-ready" certification**. This is the fast-onboarding win. NOT driven by a floor gap.
+- **Targeted drills (existing rep):** cards **assigned from real floor gaps** (e.g.,
+  "Trade-in objection — assigned: you lost the trade-in fight on 3 of 5 deals"), plus free
+  practice. This is the find→fix-on-specifics differentiator.
+
+**B. Meet the AI customer (persona setup) — makes it not a chatbot:** before starting, a
+persona card — name, buyer type, situation, mood, difficulty dial — plus the rep's
+objective. e.g., *"Denise, 38, trading a high-mileage RAV4, has a competing quote from the
+store down the street, price-driven, guarded. Objective: run discovery, handle the trade +
+competitor objection, ask for the sale."*
+
+**C. The live roleplay (the core — must feel real):** a **voice-call-style** screen
+(waveform + live two-way transcript) with the AI customer. The customer talks like a real
+person — raises objections, pushes back when the rep folds, warms when handled well. A
+**live coaching rail** nudges in real time ("she gave a buying signal — ask for the sale";
+"you dropped price before she objected — hold it") and a **step tracker** lights up as the
+rep hits discovery / presentation / objection / close. Scripted/canned for the demo (§8),
+but it must *read* as adaptive. A shortcut/weak answer visibly lowers the outcome.
+
+**D. The debrief scorecard (the payoff):** overall score + skill breakdown (discovery /
+objection handling / close), an **annotated transcript** flagging the key moments with
+specific coaching, which objections came up and how each was handled, and **"try again."**
+
+**E. Loop back:** the debrief closes the loop from the training side — "you've drilled this
+3× this week, 61→84; we're watching your floor rate on it" — mirroring the manager's BI view.
 
 ### 5.4 The loop in mobile
-On the rep home / recap, show a **"Assigned to you"** practice card that came from a real
-floor gap (e.g., "Manager turnover skipped on 3 of your last 5 deals → practice the close").
+On the rep home / recap, show an **"Assigned to you"** practice card from a real floor gap
+(e.g., "Manager turnover skipped on 3 of your last 5 deals → practice the close") that
+deep-links into the roleplay. New hires instead see their **onboarding progress** card.
 
 ---
 
@@ -148,10 +196,15 @@ Service-specific KPIs and matrix:
 - A **declined-service** breakdown (top decline reasons = the objection view).
 
 ### 6.4 Training + the loop (NEW tab — the differentiator)
-A tab (e.g., "Coaching loop") that shows, for both departments:
-- **Who practiced** this week, drills completed, average practice score.
-- **Drills auto-assigned from floor gaps** — a table linking a rep's weak floor step →
-  the drill assigned → practice score → **before/after floor rate** (the loop, closing).
+A tab (e.g., "Coaching") that shows, for both departments, BOTH training on-ramps (§1):
+
+- **Onboarding tracker (new hires — the turnover win):** list of new hires with **ramp
+  progress**, **days-to-floor-ready** (vs a target), modules completed, and certification
+  status. Headline a value stat like "new hire floor-ready in X days vs Y before." This
+  addresses the high-turnover pain directly.
+- **The loop (existing reps):** **who practiced** this week + avg practice score, and a
+  table that **closes the loop** — rep's weak floor step → drill auto-assigned → practice
+  score → **before/after floor rate**.
 - One clear "this is the loop" visual: floor gap → practice → floor improvement.
 
 ### 6.5 Objections & competitors (surface)
