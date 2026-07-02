@@ -171,11 +171,13 @@ final class HotkeyManager {
         }
     }
 
-    /// Switch to a new activation key and reinstall the listener live.
-    func setConfig(_ newConfig: HotkeyConfig) {
-        guard newConfig != config else { return }
+    /// Switch to a new activation key and reinstall the listener live. Returns whether the
+    /// suppressing tap installed (so the caller can warn when a suppressing key is on fallback).
+    @discardableResult
+    func setConfig(_ newConfig: HotkeyConfig) -> Bool {
+        guard newConfig != config else { return eventTap != nil }
         config = newConfig
-        start()
+        return start()
     }
 
     // MARK: - CGEventTap (requires Accessibility + Input Monitoring — suppresses the event)

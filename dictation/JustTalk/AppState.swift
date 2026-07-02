@@ -72,6 +72,9 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var usageTotals: UsageTotals = .empty
     @Published public var engineLoaded: Bool = false
     @Published public var statusMessage: String = "Ready"
+    /// Non-nil when the activation key is likely to misbehave — shown persistently in the menu
+    /// (not just onboarding) so the user isn't left guessing why Fn opens the emoji picker.
+    @Published public private(set) var hotkeyWarning: String?
     @Published public var autoPaste: Bool = true
     @Published public private(set) var sttConfig: STTConfig = .default
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
@@ -128,6 +131,10 @@ public final class AppState: NSObject, ObservableObject {
     private let recordingStore: RecordingStore? = try? FileRecordingStore.macOS(maxRecordings: 5)
     private var telemetryStore: TelemetryStore?
     private var hotkeyManager: HotkeyManager?
+    /// Whether a real CGEventTap installed on the last start(). For a suppressing key (Fn /
+    /// function keys) this must be true, or the key leaks to the OS (Fn → emoji picker) because
+    /// the app is on the observe-only NSEvent fallback. False until proven otherwise.
+    private var suppressingTapActive = false
 
     // Audio buffer accumulation — order-preserving + thread-safe (see BufferAccumulator).
     // nonisolated so the audio-thread delegate can append without an actor hop.
@@ -229,7 +236,7 @@ public final class AppState: NSObject, ObservableObject {
         // 2. Build the hotkey listener; only install the event tap once Accessibility is
         //    granted (refreshPermissions starts it on the grant transition).
         hotkeyManager = HotkeyManager(delegate: self, config: hotkeyConfig)
-        if accessibilityGranted && inputMonitoringGranted { hotkeyManager?.start() }
+        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
 
         // 3. Poll permissions so the wizard's ticks update live as the user grants them in
         //    System Settings, and so a later revoke is noticed. Also re-check on activation.
@@ -306,11 +313,49 @@ public final class AppState: NSObject, ObservableObject {
         accessibilityGranted = permissions.accessibilityGranted
         inputMonitoringGranted = permissions.inputMonitoringGranted
         if accessibilityGranted && inputMonitoringGranted && !couldInstall {
-            hotkeyManager?.start()
+            startHotkeyListener()
         }
     }
 
-    @objc private func appDidBecomeActive() { refreshPermissions() }
+    @objc private func appDidBecomeActive() {
+        refreshPermissions()
+        // Re-check the Globe setting / competitors so the warning clears once the user fixes it.
+        recomputeHotkeyWarning()
+    }
+
+    /// Start the hotkey listener and record whether the suppressing tap actually installed, then
+    /// recompute the activation-key warning. Centralized so every start path (setup, permission
+    /// grant, test) tracks the same state instead of firing start() and discarding the result.
+    private func startHotkeyListener() {
+        suppressingTapActive = hotkeyManager?.start() ?? false
+        recomputeHotkeyWarning()
+    }
+
+    /// Diagnose the activation key. The Fn/emoji bug has two independent causes; surface whichever
+    /// applies with the guaranteed remedy first (the Globe setting works regardless of our tap).
+    func recomputeHotkeyWarning() {
+        guard hotkeyConfig.suppresses else { hotkeyWarning = nil; return }
+        if !suppressingTapActive {
+            // On the observe-only fallback: the key fires recording but is NOT swallowed, so Fn
+            // reaches macOS and opens the emoji picker; a later paste can land in that panel.
+            let others = HotkeyConflict.runningCompetitors().compactMap { $0.localizedName }
+            var msg = "\(hotkeyConfig.shortName) is leaking to macOS (opens the emoji picker). "
+                + "Fix: System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing, and confirm "
+                + "Just Talk has Input Monitoring + Accessibility."
+            if !others.isEmpty {
+                msg += " Also quit other Fn dictation apps (\(others.joined(separator: ", ")))."
+            }
+            hotkeyWarning = msg
+            return
+        }
+        if HotkeyConflict.osClaimsFn(for: hotkeyConfig) {
+            // Tap is active (usually masks it), but the OS Globe setting still competes — belt.
+            hotkeyWarning = "macOS Globe key is set to “\(HotkeyConflict.appleFnUsageLabel())”. "
+                + "Set it to “Do Nothing” (System Settings ▸ Keyboard) so Fn never opens the emoji picker."
+            return
+        }
+        hotkeyWarning = nil
+    }
 
     func showOnboardingWindow() {
         refreshPermissions()
@@ -353,7 +398,7 @@ public final class AppState: NSObject, ObservableObject {
     func beginHotkeyTest() {
         hotkeyTestPassed = false
         hotkeyManager?.isTesting = true
-        if accessibilityGranted && inputMonitoringGranted { hotkeyManager?.start() }
+        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
     }
 
     func endHotkeyTest() {
@@ -851,7 +896,8 @@ public final class AppState: NSObject, ObservableObject {
         guard config != hotkeyConfig else { return }
         hotkeyConfig = config
         config.save()
-        hotkeyManager?.setConfig(config)
+        suppressingTapActive = hotkeyManager?.setConfig(config) ?? false
+        recomputeHotkeyWarning()
         hotkeyTestPassed = false
         if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
     }

@@ -27,6 +27,20 @@ struct MenuBarView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
 
+            // Activation-key warning (e.g. Fn leaking to the emoji picker) — persistent, actionable.
+            if let warning = appState.hotkeyWarning {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(warning)
+                        .font(.caption)
+                        .foregroundStyle(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 10)
+            }
+
             Divider()
 
             // Recent transcripts
