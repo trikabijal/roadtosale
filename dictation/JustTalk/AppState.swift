@@ -103,6 +103,9 @@ public final class AppState: NSObject, ObservableObject {
     // menu-bar popover — which is hosted outside the SwiftUI scene graph via NSStatusItem — can
     // open it directly. `openWindow(id:)` does not reach an NSPopover's hosting controller.
     private let historyWindow = HistoryWindow()
+    // Settings is likewise an AppKit-managed window, not the SwiftUI `Settings` scene — the
+    // scene + `showSettingsWindow:` selector don't work reliably from the status-item popover.
+    private let settingsWindow = SettingsWindow()
     private var permissionTimer: Timer?
 
     /// The permissions Just Talk genuinely needs to function: mic to hear you, plus
@@ -345,30 +348,23 @@ public final class AppState: NSObject, ObservableObject {
         recomputeHotkeyWarning()
     }
 
-    /// Diagnose the activation key. The Fn/emoji bug has two independent causes; surface whichever
-    /// applies with the guaranteed remedy first (the Globe setting works regardless of our tap).
+    /// Diagnose the activation key. We warn ONLY when the key is genuinely leaking — i.e. the
+    /// suppressing CGEventTap failed to install and we're on the observe-only fallback, so Fn
+    /// reaches macOS and opens the emoji picker. When the tap IS active it swallows Fn before the
+    /// OS sees it, so the Globe/"Show Emoji" setting is irrelevant and no advisory is shown (that
+    /// belt-and-suspenders nag was pure noise in the common, working case).
     func recomputeHotkeyWarning() {
-        guard hotkeyConfig.suppresses else { hotkeyWarning = nil; return }
-        if !suppressingTapActive {
-            // On the observe-only fallback: the key fires recording but is NOT swallowed, so Fn
-            // reaches macOS and opens the emoji picker; a later paste can land in that panel.
-            let others = HotkeyConflict.runningCompetitors().compactMap { $0.localizedName }
-            var msg = "\(hotkeyConfig.shortName) is leaking to macOS (opens the emoji picker). "
-                + "Fix: System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing, and confirm "
-                + "Just Talk has Input Monitoring + Accessibility."
-            if !others.isEmpty {
-                msg += " Also quit other Fn dictation apps (\(others.joined(separator: ", ")))."
-            }
-            hotkeyWarning = msg
-            return
+        guard hotkeyConfig.suppresses, !suppressingTapActive else { hotkeyWarning = nil; return }
+        // On the observe-only fallback: the key fires recording but is NOT swallowed, so Fn
+        // reaches macOS and opens the emoji picker; a later paste can land in that panel.
+        let others = HotkeyConflict.runningCompetitors().compactMap { $0.localizedName }
+        var msg = "\(hotkeyConfig.shortName) is leaking to macOS (opens the emoji picker). "
+            + "Fix: System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing, and confirm "
+            + "Just Talk has Input Monitoring + Accessibility."
+        if !others.isEmpty {
+            msg += " Also quit other Fn dictation apps (\(others.joined(separator: ", ")))."
         }
-        if HotkeyConflict.osClaimsFn(for: hotkeyConfig) {
-            // Tap is active (usually masks it), but the OS Globe setting still competes — belt.
-            hotkeyWarning = "macOS Globe key is set to “\(HotkeyConflict.appleFnUsageLabel())”. "
-                + "Set it to “Do Nothing” (System Settings ▸ Keyboard) so Fn never opens the emoji picker."
-            return
-        }
-        hotkeyWarning = nil
+        hotkeyWarning = msg
     }
 
     func showOnboardingWindow() {
@@ -380,6 +376,12 @@ public final class AppState: NSObject, ObservableObject {
     /// from the status-item popover.
     func showHistoryWindow() {
         historyWindow.show(appState: self)
+    }
+
+    /// Open the Settings window (menu-bar "Settings" button). AppKit-managed for the same reason
+    /// as History — the SwiftUI `Settings` scene doesn't open reliably from the popover.
+    func showSettingsWindow() {
+        settingsWindow.show(appState: self)
     }
 
     /// Trigger the system mic prompt (only on a wizard button tap). Guarded so rapid taps

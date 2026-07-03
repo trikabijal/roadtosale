@@ -1,5 +1,36 @@
+import AppKit
 import SwiftUI
 import DictationCore
+
+// MARK: - SettingsWindow
+
+/// Hosts Settings in a normal titled AppKit window, managed exactly like `HistoryWindow`.
+/// The SwiftUI `Settings` scene + the `showSettingsWindow:` selector are unreliable for a
+/// menu-bar (`LSUIElement`) app hosted in an NSPopover outside the scene graph — clicking
+/// Settings would open nothing (or focus whatever window was last shown). An explicit
+/// NSWindow, opened the same way History is, is the reliable path.
+@MainActor
+final class SettingsWindow {
+    private var window: NSWindow?
+
+    func show(appState: AppState) {
+        if window == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 420, height: 560),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            w.title = "Just Talk Settings"
+            w.isReleasedWhenClosed = false
+            w.center()
+            w.contentView = NSHostingView(rootView: SettingsView().environmentObject(appState))
+            window = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+    }
+}
 
 // MARK: - SettingsView
 

@@ -1,31 +1,6 @@
 import SwiftUI
 import DictationCore
 
-// MARK: - SettingsLauncher
-
-/// Opens the SwiftUI `Settings` scene from AppKit context (the status-item popover is outside the
-/// SwiftUI scene graph, so `@Environment(\.openSettings)` isn't available there). Uses the system
-/// selector — renamed in macOS 14 from the older `showPreferencesWindow:`, so try both.
-enum SettingsLauncher {
-    static func open() {
-        // An `.accessory` (LSUIElement) app can't reliably own a key window, so the Settings
-        // scene often opens behind everything or not at all. Switch to `.regular` for the moment
-        // the window opens, activate, then fire the selector on the next runloop tick so the
-        // policy change has taken effect. (The Dock icon that appears is acceptable while the
-        // Settings window is up.)
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        DispatchQueue.main.async {
-            if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
-                NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-            }
-            // Bring the freshly-opened Settings window to the front.
-            NSApp.windows.first { $0.title == "Settings" || $0.styleMask.contains(.titled) }?
-                .makeKeyAndOrderFront(nil)
-        }
-    }
-}
-
 // MARK: - MenuBarView
 
 struct MenuBarView: View {
@@ -63,8 +38,13 @@ struct MenuBarView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else {
-                ForEach(appState.recentTranscripts) { record in
-                    TranscriptRow(record: record)
+                ForEach(Array(appState.recentTranscripts.enumerated()), id: \.element.id) { index, record in
+                    // Re-transcribe acts on the most recent recording, so its control lives on the
+                    // top (most-recent) row instead of a standalone menu button.
+                    TranscriptRow(
+                        record: record,
+                        onReTranscribe: index == 0 ? { appState.reTranscribeLastRecording() } : nil
+                    )
                     Divider()
                 }
             }
@@ -79,7 +59,7 @@ struct MenuBarView: View {
             // Bottom action buttons
             HStack {
                 Button("Settings") {
-                    SettingsLauncher.open()
+                    appState.showSettingsWindow()
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
@@ -93,11 +73,6 @@ struct MenuBarView: View {
                 Button("Setup") { appState.showOnboardingWindow() }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
-
-                Button("Re-transcribe last") { appState.reTranscribeLastRecording() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .help("Re-run transcription on your most recent recording — recovers a garbled result without re-speaking.")
 
                 Spacer()
 
@@ -169,6 +144,8 @@ struct MenuBarView: View {
 
 struct TranscriptRow: View {
     let record: TranscriptRecord
+    /// Set only on the most-recent row — re-runs transcription on the last recording.
+    var onReTranscribe: (() -> Void)? = nil
     @State private var copied = false
 
     var body: some View {
@@ -197,6 +174,18 @@ struct TranscriptRow: View {
             }
 
             Spacer()
+
+            // Re-transcribe control — only on the most-recent row. Recovers a garbled result
+            // without re-speaking, by re-running STT on the last saved recording.
+            if let onReTranscribe {
+                Button(action: onReTranscribe) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.secondary)
+                .help("Re-transcribe your most recent recording — recovers a garbled result without re-speaking.")
+            }
 
             // Per-row copy button — flips to a green checkmark on copy, then reverts so the
             // click clearly registered.
