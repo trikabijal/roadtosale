@@ -8,9 +8,21 @@ import DictationCore
 /// selector — renamed in macOS 14 from the older `showPreferencesWindow:`, so try both.
 enum SettingsLauncher {
     static func open() {
+        // An `.accessory` (LSUIElement) app can't reliably own a key window, so the Settings
+        // scene often opens behind everything or not at all. Switch to `.regular` for the moment
+        // the window opens, activate, then fire the selector on the next runloop tick so the
+        // policy change has taken effect. (The Dock icon that appears is acceptable while the
+        // Settings window is up.)
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
-        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+        DispatchQueue.main.async {
+            if !NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) {
+                NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
+            }
+            // Bring the freshly-opened Settings window to the front.
+            NSApp.windows.first { $0.title == "Settings" || $0.styleMask.contains(.titled) }?
+                .makeKeyAndOrderFront(nil)
+        }
     }
 }
 

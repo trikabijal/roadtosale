@@ -16,11 +16,12 @@ public enum DictationState {
 }
 
 public enum HotkeyMode: String, CaseIterable {
-    case hold, toggle
+    case hold, toggle, holdLatch
     public var displayName: String {
         switch self {
-        case .hold:   return "Hold to talk"
-        case .toggle: return "Sticky — tap to start, tap to stop"
+        case .hold:      return "Hold to talk"
+        case .toggle:    return "Sticky — tap to start, tap to stop"
+        case .holdLatch: return "Hold to talk — double-tap to lock, tap to stop"
         }
     }
 }
@@ -79,7 +80,7 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var sttConfig: STTConfig = .default
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
     @Published public private(set) var vocabulary: [String] = []
-    @Published public private(set) var hotkeyMode: HotkeyMode = .toggle
+    @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
     @Published public var soundEnabled: Bool = false
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
@@ -153,6 +154,19 @@ public final class AppState: NSObject, ObservableObject {
     /// ever-growing buffer (O(n²) CPU) during long recordings. The final transcription still
     /// uses the full audio.
     private static let previewWindowSeconds: Double = 30
+    // `.holdLatch` gesture tuning. A press shorter than `tapThreshold` counts as a "quick tap";
+    // two quick taps whose DOWN edges fall within `doubleTapWindow` latch recording hands-free.
+    // A longer press is an ordinary hold (push-to-talk).
+    private static let tapThreshold: TimeInterval = 0.25
+    private static let doubleTapWindow: TimeInterval = 0.40
+    // `.holdLatch` gesture state (main-actor only). `latchDownTime` = when the current press went
+    // down; `lastQuickTapTime` = DOWN time of the last quick tap awaiting a possible second tap;
+    // `latched` = recording is held on hands-free; `swallowNextRelease` eats the key-up that
+    // follows a latch/stop press so it isn't mistaken for a hold-release.
+    private var latchDownTime: TimeInterval = 0
+    private var lastQuickTapTime: TimeInterval = 0
+    private var latched = false
+    private var swallowNextRelease = false
     // Frontmost app at the moment recording started — the dictation target. Captured up
     // front so per-app cleanup + telemetry resolve against the right app even if the user
     // switches windows during the async transcribe.
@@ -205,7 +219,7 @@ public final class AppState: NSObject, ObservableObject {
 
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
-        self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .toggle
+        self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
         self.launchAtLogin = LoginItem.isEnabled
@@ -515,6 +529,57 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
+    /// `.holdLatch` gesture: hold to talk (push-to-talk — stops the instant you release, no matter
+    /// how briefly you held), double-tap to latch recording on hands-free, then a single press to
+    /// stop. A press too short to contain speech (< `tapThreshold`) is discarded, not transcribed,
+    /// and only arms double-tap detection. Driven purely by the configured key's DOWN/UP edges, so
+    /// it works on whatever activation key the user selected. Runs on the main actor.
+    func handleHoldLatch(down: Bool) {
+        let now = ProcessInfo.processInfo.systemUptime
+        if down {
+            if latched {
+                // Latched, and a fresh press arrived — this is the "stop" press.
+                latched = false
+                swallowNextRelease = true
+                stopRecordingAndTranscribe()
+                return
+            }
+            // Second quick tap close behind the first → latch on and keep recording hands-free.
+            if lastQuickTapTime != 0, now - lastQuickTapTime <= Self.doubleTapWindow {
+                latched = true
+                lastQuickTapTime = 0
+                swallowNextRelease = true
+                if dictationState == .idle { startRecording() }  // first tap discarded — restart
+                return
+            }
+            // Ordinary press start (also the first of a potential double-tap).
+            latchDownTime = now
+            startRecording()
+        } else {
+            if swallowNextRelease { swallowNextRelease = false; return }
+            if latched { return }            // latched: releases do nothing
+            if now - latchDownTime >= Self.tapThreshold {
+                lastQuickTapTime = 0
+                stopRecordingAndTranscribe() // real hold → instant push-to-talk stop
+            } else {
+                // Too short to be speech: discard (no junk transcript) and arm double-tap detection.
+                lastQuickTapTime = latchDownTime
+                discardRecording()
+            }
+        }
+    }
+
+    /// Stop the engine and return to idle WITHOUT transcribing — used for a sub-`tapThreshold`
+    /// press (the first half of a double-tap, or a stray tap) so it produces no junk transcript.
+    private func discardRecording() {
+        guard dictationState == .recording else { return }
+        recordingEngine.stop()
+        previewTask?.cancel()
+        previewTask = nil
+        audio.reset()
+        finishIdle()
+    }
+
     private func playSound(_ name: String) {
         guard soundEnabled, let sound = NSSound(named: name) else { return }
         sound.play()
@@ -635,6 +700,11 @@ public final class AppState: NSObject, ObservableObject {
         }
         let finalText = cleanupResult?.cleanedText ?? rawText
         guard !finalText.isEmpty else { finishIdle(); return }
+
+        // TIMING INSTRUMENTATION (temporary — measuring where the end-to-end latency goes).
+        // stt = WhisperKit transcribe; cleanup = Apple Foundation Models (or fallback) rewrite.
+        // Read with: log show --predicate 'subsystem == "com.trika.dictation"' --info | grep TIMING
+        log.notice("TIMING stt=\(result.latencyMs, privacy: .public)ms cleanup=\(cleanupResult?.latencyMs ?? 0, privacy: .public)ms words=\(wordCount, privacy: .public) audioMs=\(result.audioDurationMs, privacy: .public) level=\(level.rawValue, privacy: .public) fallback=\(cleanupResult?.usedFallback ?? false, privacy: .public)")
 
         // Write to clipboard and optionally paste
         let ap = autoPaste
@@ -1024,13 +1094,18 @@ extension AppState: RecordingEngineDelegate {
 extension AppState: HotkeyManagerDelegate {
     func hotkeyDidPress() {
         switch hotkeyMode {
-        case .hold:   startRecording()
-        case .toggle: toggleRecording()
+        case .hold:      startRecording()
+        case .toggle:    toggleRecording()
+        case .holdLatch: handleHoldLatch(down: true)
         }
     }
 
     func hotkeyDidRelease() {
-        if hotkeyMode == .hold { stopRecordingAndTranscribe() }
+        switch hotkeyMode {
+        case .hold:      stopRecordingAndTranscribe()
+        case .toggle:    break
+        case .holdLatch: handleHoldLatch(down: false)
+        }
     }
 
     /// The configured key reached us — used by the onboarding test step.
