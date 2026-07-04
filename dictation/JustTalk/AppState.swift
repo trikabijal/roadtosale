@@ -480,10 +480,11 @@ public final class AppState: NSObject, ObservableObject {
             statusMessage = "Recording…"
             recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
             if streamingEnabled {
-                startStreamingSession()   // per-segment STT+cleanup; replaces the preview loop
-            } else {
-                startPreviewLoop()
+                startStreamingSession()   // per-segment STT+cleanup for the pasted result
             }
+            // The tiny-model preview loop drives the live, GROWING HUD text in BOTH modes (it is
+            // display-only and never touches the pasted output — in streaming the session owns that).
+            startPreviewLoop()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -574,6 +575,8 @@ public final class AppState: NSObject, ObservableObject {
     /// Stop a streaming recording: flush the final tail, finish the session, paste + record.
     private func stopStreaming() {
         recordingEngine.stop()
+        previewTask?.cancel()
+        previewTask = nil
         dictationState = .transcribing
         statusMessage = "Transcribing…"
         recordingHUD.setPhase(.processing, label: "Finishing…")
