@@ -1,19 +1,6 @@
 import SwiftUI
 import DictationCore
 
-// MARK: - SettingsLauncher
-
-/// Opens the SwiftUI `Settings` scene from AppKit context (the status-item popover is outside the
-/// SwiftUI scene graph, so `@Environment(\.openSettings)` isn't available there). Uses the system
-/// selector — renamed in macOS 14 from the older `showPreferencesWindow:`, so try both.
-enum SettingsLauncher {
-    static func open() {
-        NSApp.activate(ignoringOtherApps: true)
-        if NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil) { return }
-        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
-    }
-}
-
 // MARK: - MenuBarView
 
 struct MenuBarView: View {
@@ -24,65 +11,86 @@ struct MenuBarView: View {
 
             // Status header
             statusHeader
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.vertical, Theme.Space.md)
 
-            Divider()
+            // Activation-key warning (e.g. Fn leaking to the emoji picker) — persistent, actionable.
+            if let warning = appState.hotkeyWarning {
+                HStack(alignment: .top, spacing: Theme.Space.sm) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(Theme.Palette.warning)
+                    Text(warning)
+                        .font(.caption)
+                        .foregroundStyle(Theme.Palette.textPrimary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(Theme.Space.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(
+                    RoundedRectangle(cornerRadius: Theme.Radius.card)
+                        .fill(Theme.Palette.warning.opacity(0.12))
+                )
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.bottom, Theme.Space.sm)
+            }
+
+            divider
 
             // Recent transcripts
             if appState.recentTranscripts.isEmpty {
                 Text("No transcripts yet")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textSecondary)
                     .font(.caption)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
             } else {
-                ForEach(appState.recentTranscripts) { record in
-                    TranscriptRow(record: record)
-                    Divider()
+                ForEach(Array(appState.recentTranscripts.enumerated()), id: \.element.id) { index, record in
+                    // Re-transcribe acts on the most recent recording, so its control lives on the
+                    // top (most-recent) row instead of a standalone menu button.
+                    TranscriptRow(
+                        record: record,
+                        onReTranscribe: index == 0 ? { appState.reTranscribeLastRecording() } : nil
+                    )
+                    divider
                 }
             }
 
             // Stats footer
             statsFooter
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
+                .padding(.horizontal, Theme.Space.lg)
+                .padding(.vertical, Theme.Space.sm)
 
-            Divider()
+            divider
 
             // Bottom action buttons
-            HStack {
+            HStack(spacing: Theme.Space.md) {
                 Button("Settings") {
-                    SettingsLauncher.open()
+                    appState.showSettingsWindow()
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.Palette.accent)
 
                 Button("History") {
                     appState.showHistoryWindow()
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Theme.Palette.accent)
 
                 Button("Setup") { appState.showOnboardingWindow() }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-
-                Button("Re-transcribe last") { appState.reTranscribeLastRecording() }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.accentColor)
-                    .help("Re-run transcription on your most recent recording — recovers a garbled result without re-speaking.")
+                    .foregroundStyle(Theme.Palette.accent)
 
                 Spacer()
 
                 Button("Quit") { NSApp.terminate(nil) }
                     .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textSecondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
+            .padding(.horizontal, Theme.Space.lg)
+            .padding(.vertical, Theme.Space.sm)
         }
-        .frame(width: 340)
+        .frame(width: 320)
+        .background(Theme.Palette.surface)
         // Global ⌘⇧Z correction shortcut — active while the popover is visible
         .background(
             KeyEventView { event in
@@ -96,26 +104,35 @@ struct MenuBarView: View {
 
     // MARK: - Sub-views
 
+    /// Thin hairline divider using the theme stroke.
+    private var divider: some View {
+        Rectangle()
+            .fill(Theme.Palette.stroke)
+            .frame(height: 1)
+    }
+
     private var statusHeader: some View {
         HStack(spacing: 10) {
             Circle()
                 .fill(statusColor)
                 .frame(width: 8, height: 8)
             Text(appState.statusMessage)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Theme.Palette.textPrimary)
             Spacer()
-            if !appState.engineLoaded {
+            if appState.availability == .warmingUp {
                 ProgressView().scaleEffect(0.7)
             }
         }
     }
 
     private var statusColor: Color {
-        switch appState.dictationState {
-        case .idle:         return appState.engineLoaded ? .green : .gray
-        case .recording:    return .red
-        case .transcribing: return .orange
+        switch appState.phase {
+        case .idle:      return appState.availability == .ready ? Theme.Palette.success : Theme.Palette.textTertiary
+        case .capturing: return Theme.Palette.recording
+        case .finishing: return Theme.Palette.warning
+        case .inserted:  return Theme.Palette.success
+        case .failed:    return Theme.Palette.warning
         }
     }
 
@@ -128,12 +145,12 @@ struct MenuBarView: View {
                     "Avg \(Int(s.avgConfidence * 100))% confidence · " +
                     "\(String(format: "%.0f", s.correctionRate * 100))% corrected"
                 )
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(Theme.Font.mono(11))
+                .foregroundStyle(Theme.Palette.textSecondary)
             } else {
                 Text("No transcripts this week")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .font(Theme.Font.mono(11))
+                    .foregroundStyle(Theme.Palette.textSecondary)
             }
         }
     }
@@ -143,34 +160,52 @@ struct MenuBarView: View {
 
 struct TranscriptRow: View {
     let record: TranscriptRecord
+    /// Set only on the most-recent row — re-runs transcription on the last recording.
+    var onReTranscribe: (() -> Void)? = nil
     @State private var copied = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 2) {
+        HStack(alignment: .top, spacing: Theme.Space.sm) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 Text(record.transcriptText)
                     .lineLimit(2)
                     .font(.callout)
-                    .foregroundStyle(record.wasCorrected ? .secondary : .primary)
+                    .foregroundStyle(record.wasCorrected ? Theme.Palette.textSecondary : Theme.Palette.textPrimary)
 
                 HStack(spacing: 6) {
+                    // Meta line: time · app · confidence (e.g. "3:49 PM · iTerm2 · 94%").
                     Text(record.recordedAt, style: .time)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
+
+                    if let app = record.frontmostApp {
+                        Text("·")
+                        Text(app)
+                    }
+
+                    Text("·")
+                    Text("\(Int(record.whisperkitConfidence * 100))%")
 
                     if record.wasCorrected {
                         Text("✗ corrected")
-                            .font(.caption2)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(Theme.Palette.warning)
                     }
-
-                    Text("\(Int(record.whisperkitConfidence * 100))% conf")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
                 }
+                .font(Theme.Font.mono(11))
+                .foregroundStyle(Theme.Palette.textTertiary)
             }
 
             Spacer()
+
+            // Re-transcribe control — only on the most-recent row. Recovers a garbled result
+            // without re-speaking, by re-running STT on the last saved recording.
+            if let onReTranscribe {
+                Button(action: onReTranscribe) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Palette.textSecondary)
+                .help("Re-transcribe your most recent recording — recovers a garbled result without re-speaking.")
+            }
 
             // Per-row copy button — flips to a green checkmark on copy, then reverts so the
             // click clearly registered.
@@ -187,9 +222,9 @@ struct TranscriptRow: View {
                     .font(.caption)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(copied ? Color.green : Color.secondary)
+            .foregroundStyle(copied ? Theme.Palette.success : Theme.Palette.textSecondary)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, Theme.Space.lg)
+        .padding(.vertical, Theme.Space.sm)
     }
 }

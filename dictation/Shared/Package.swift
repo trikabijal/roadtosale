@@ -30,5 +30,11 @@ let package = Package(
             name: "DictationCoreTests",
             dependencies: ["DictationCore"]
         ),
+        // Dev-only latency benchmark harness (not shipped, not a product). Measures batch vs
+        // chunked STT + cleanup across clip lengths. Run: `swift run bench <clips-dir>`.
+        .executableTarget(
+            name: "bench",
+            dependencies: ["DictationCore"]
+        ),
     ]
 )

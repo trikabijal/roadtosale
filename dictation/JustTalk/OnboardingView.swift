@@ -201,6 +201,17 @@ private struct InputMonitoringCard: View {
 private struct HotkeyCard: View {
     @ObservedObject var appState: AppState
 
+    private var hotkeyModeHint: String {
+        switch appState.hotkeyMode {
+        case .toggle:
+            return "Sticky: tap once to start, talk as long as you like (pauses are fine), tap again to stop."
+        case .holdLatch:
+            return "Hold the key while you talk; release to finish. Or double-tap to lock it recording hands-free, then tap once to stop."
+        case .hold:
+            return "Hold the key while you talk; release to finish."
+        }
+    }
+
     private var competitors: [NSRunningApplication] { HotkeyConflict.runningCompetitors() }
     private var osClaimsFn: Bool { HotkeyConflict.osClaimsFn(for: appState.hotkeyConfig) }
     private var hasConflict: Bool { osClaimsFn || (appState.hotkeyConfig.isFn && !competitors.isEmpty) }
@@ -226,9 +237,7 @@ private struct HotkeyCard: View {
                 }
             }
             .labelsHidden()
-            Text(appState.hotkeyMode == .toggle
-                 ? "Sticky: tap once to start, talk as long as you like (pauses are fine), tap again to stop."
-                 : "Hold the key while you talk; release to finish.")
+            Text(hotkeyModeHint)
                 .font(.caption).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 

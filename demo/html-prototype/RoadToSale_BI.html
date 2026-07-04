@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>AuditPro — Manager BI Dashboard</title>
+<title>Road to Sale — Manager Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--br:#1D52E8;--gr:#27500A;--grl:#EAF3DE;--grb:#639922;--re:#A32D2D;--rel:#FCEBEB;--reb:#E24B4A;--am:#633806;--aml:#FAEEDA;--f:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+:root{--br:#1D52E8;--gr:#27500A;--grl:#EAF3DE;--grb:#639922;--re:#A32D2D;--rel:#FCEBEB;--reb:#E24B4A;--am:#633806;--aml:#FAEEDA;--pu:#5B3B9E;--pul:#F0EAFB;--f:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
 body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 
 /* TOP NAV */
@@ -25,24 +25,34 @@ body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 .wrap{max-width:1100px;margin:0 auto;padding:1.5rem 2rem}
 
 /* PAGE HEADER */
-.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:10px}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:10px}
 .ph-left h1{font-size:20px;font-weight:600;color:#000}
 .ph-left p{font-size:13px;color:#666;margin-top:2px}
 .ph-right{display:flex;align-items:center;gap:10px}
 .sel{font-size:13px;padding:7px 12px;border-radius:8px;border:0.5px solid #ccc;background:#fff;color:#000;cursor:pointer}
 
+/* DEPARTMENT SWITCH */
+.deptsw{display:inline-flex;background:#ececef;border-radius:10px;padding:3px;margin-bottom:1.25rem;gap:2px}
+.deptbtn{font-size:13px;font-weight:600;color:#666;padding:7px 22px;border:none;background:none;border-radius:8px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px}
+.deptbtn.on{background:#fff;color:#000;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.deptbtn .dot{width:8px;height:8px;border-radius:50%}
+.deptbtn .dot.sales{background:var(--br)}
+.deptbtn .dot.service{background:var(--grb)}
+
 /* TABS */
-.tabs{display:flex;border-bottom:0.5px solid #ddd;margin-bottom:1.25rem}
+.tabs{display:flex;border-bottom:0.5px solid #ddd;margin-bottom:1.25rem;flex-wrap:wrap}
 .tab{padding:9px 20px;font-size:13px;font-weight:500;color:#666;cursor:pointer;border:none;border-bottom:2px solid transparent;background:none;transition:all .15s}
 .tab.on{color:var(--br);border-bottom-color:var(--br)}
 .scr{display:none}.scr.on{display:block}
+.dept{display:none}.dept.on{display:block}
 
 /* METRICS */
 .mrow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:1.25rem}
 .mc{background:#fff;border-radius:10px;padding:14px 16px;border:0.5px solid #e5e5e5}
 .mcl{font-size:12px;color:#888;margin-bottom:4px}
 .mcv{font-size:26px;font-weight:600;color:#000;font-family:'Syne',sans-serif}
-.mcv.gr{color:var(--gr)}.mcv.re{color:var(--re)}.mcv.am{color:var(--am)}
+.mcv.gr{color:var(--gr)}.mcv.re{color:var(--re)}.mcv.am{color:var(--am)}.mcv.br{color:var(--br)}
+.mcs{font-size:11px;color:#999;margin-top:3px}
 
 /* SECTION HEADERS */
 .sh{font-size:13px;font-weight:600;color:#000;margin:1.25rem 0 4px}
@@ -71,10 +81,11 @@ body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 .cbox.gr{background:var(--grl);border:0.5px solid #3B6D11}
 .cbox.am{background:var(--aml);border:0.5px solid #BA7517}
 .cbox.re{background:var(--rel);border:0.5px solid var(--re)}
+.cbox.pu{background:var(--pul);border:0.5px solid #7E5FC0}
 .ct{font-size:13px;font-weight:600;margin-bottom:6px}
-.ct.gr{color:#173404}.ct.am{color:#412402}.ct.re{color:#501313}
+.ct.gr{color:#173404}.ct.am{color:#412402}.ct.re{color:#501313}.ct.pu{color:#3A2568}
 .cbody{font-size:12px;line-height:1.6}
-.cbody.gr{color:var(--gr)}.cbody.am{color:var(--am)}.cbody.re{color:var(--re)}
+.cbody.gr{color:var(--gr)}.cbody.am{color:var(--am)}.cbody.re{color:var(--re)}.cbody.pu{color:#4B327F}
 
 /* LEGEND */
 .leg-row{display:flex;gap:16px;margin-bottom:12px;font-size:12px;color:#666;flex-wrap:wrap}
@@ -82,7 +93,62 @@ body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 .leg-sq{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .leg-ln{width:20px;height:2px;border-radius:1px;flex-shrink:0}
 
-@media(max-width:700px){.mrow{grid-template-columns:1fr 1fr}.pgrid{grid-template-columns:1fr}.wrap{padding:1rem}}
+/* OBJECTIONS */
+.objrow{display:flex;align-items:center;gap:12px;padding:9px 16px;border-bottom:0.5px solid #f0f0f0}
+.obj-lbl{font-size:12px;color:#000;width:200px;flex-shrink:0}
+.obj-lbl small{display:block;color:#999;font-size:10px;margin-top:1px}
+.obj-bar-wrap{flex:1;height:14px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+.obj-bar{height:100%;border-radius:3px}
+.obj-ct{font-size:12px;font-weight:600;color:#555;width:70px;flex-shrink:0;text-align:right}
+
+/* LOOP BANNER */
+.loopbanner{background:linear-gradient(100deg,#F0EAFB,#E6F1FB);border:0.5px solid #B9A8E0;border-radius:14px;padding:18px 20px;margin-bottom:1.25rem}
+.loopbanner .lb-tag{font-size:15px;font-weight:700;font-family:'Syne',sans-serif;color:#3A2568;letter-spacing:-.2px}
+.loopbanner .lb-sub{font-size:12px;color:#5B4B7A;margin-top:4px;line-height:1.5}
+
+/* LOOP FLOW */
+.loopflow{display:flex;align-items:stretch;gap:0;margin:6px 0 4px;flex-wrap:wrap}
+.lf-node{flex:1;min-width:150px;background:#fff;border:0.5px solid #e5e5e5;border-radius:10px;padding:12px 14px;position:relative}
+.lf-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;margin-bottom:5px}
+.lf-big{font-size:22px;font-weight:700;font-family:'Syne',sans-serif;line-height:1}
+.lf-txt{font-size:12px;font-weight:600;color:#000;margin-top:4px;line-height:1.3}
+.lf-note{font-size:11px;color:#888;margin-top:2px}
+.lf-arrow{display:flex;align-items:center;justify-content:center;font-size:20px;color:#B9A8E0;padding:0 4px;flex-shrink:0}
+
+/* COACHING SPLIT — the two on-ramps */
+.split-head{display:flex;align-items:baseline;gap:10px;margin:6px 0 2px}
+.split-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 9px;border-radius:20px}
+.split-eyebrow.on1{background:var(--grl);color:#3B6D11}
+.split-eyebrow.on2{background:var(--pul);color:#5B3B9E}
+.split-head h2{font-size:16px;font-weight:600;color:#000;font-family:'Syne',sans-serif}
+.split-sub{font-size:12px;color:#888;margin:2px 0 12px}
+.coach-divider{height:0.5px;background:#e0e0e0;margin:2rem 0 1.5rem}
+
+/* ONBOARDING HERO */
+.onbhero{background:linear-gradient(100deg,#EAF3DE,#E6F1FB);border:0.5px solid #A9C97F;border-radius:14px;padding:18px 20px;margin-bottom:1.25rem;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.onbhero .oh-num{font-size:40px;font-weight:800;font-family:'Syne',sans-serif;color:#27500A;line-height:1}
+.onbhero .oh-num span{font-size:18px;font-weight:600}
+.onbhero .oh-txt{flex:1;min-width:200px}
+.onbhero .oh-tag{font-size:14px;font-weight:700;font-family:'Syne',sans-serif;color:#173404;letter-spacing:-.2px}
+.onbhero .oh-sub{font-size:12px;color:#3B5522;margin-top:4px;line-height:1.5}
+.onbhero .oh-was{font-size:11px;color:#7a8a63;text-decoration:line-through;margin-top:2px}
+
+/* PROGRESS BAR (ramp) */
+.ramp-wrap{height:8px;background:#ececef;border-radius:4px;overflow:hidden;margin-top:4px}
+.ramp-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,#639922,#8ABE4E)}
+.ramp-txt{font-size:11px;color:#888;margin-top:3px}
+
+/* CERT PILL */
+.certpill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.certpill.prog{background:var(--aml);color:#8a5a12}
+.certpill.ready{background:#E6F1FB;color:#0C447C}
+.certpill.cert{background:var(--grl);color:#27500A}
+.certpill .cp-dot{width:6px;height:6px;border-radius:50%}
+.certpill.prog .cp-dot{background:#BA7517}
+.certpill.ready .cp-dot{background:var(--br)}
+.certpill.cert .cp-dot{background:var(--grb)}
+
+@media(max-width:700px){.mrow{grid-template-columns:1fr 1fr}.pgrid{grid-template-columns:1fr}.wrap{padding:1rem}.topnav{padding:0 1rem}.obj-lbl{width:130px}.loopflow{flex-direction:column}.lf-arrow{transform:rotate(90deg);padding:2px 0}}
 </style>
 </head>
 <body>
@@ -101,139 +167,271 @@ body{font-family:var(--f);background:#f5f5f7;min-height:100vh}
 <div class="wrap">
   <div class="ph">
     <div class="ph-left">
-      <h1>Sales Floor Dashboard</h1>
-      <p>Marcus Webb &middot; Sales Manager &middot; Tuesday, Apr 15</p>
+      <h1 id="phTitle">Sales Floor Dashboard</h1>
+      <p id="phSub">Marcus Webb &middot; Sales Manager &middot; Tuesday, Apr 15</p>
     </div>
     <div class="ph-right">
-      <select class="sel">
-        <option>All reps</option><option>M. Webb</option><option>S. Chen</option><option>J. Ruiz</option><option>D. Park</option>
-      </select>
+      <select class="sel" id="phSelect"></select>
     </div>
   </div>
 
-  <div class="tabs">
-    <button class="tab on" onclick="showTab(0,this)">Today's floor</button>
-    <button class="tab" onclick="showTab(1,this)">Weekly pattern</button>
-    <button class="tab" onclick="showTab(2,this)">Rep matrix</button>
+  <!-- DEPARTMENT SWITCH -->
+  <div class="deptsw">
+    <button class="deptbtn on" id="deptSales" onclick="showDept('sales')"><span class="dot sales"></span>Sales</button>
+    <button class="deptbtn" id="deptService" onclick="showDept('service')"><span class="dot service"></span>Service</button>
   </div>
 
-  <!-- TAB 0 -->
-  <div class="scr on" id="t0">
-    <div class="mrow">
-      <div class="mc"><div class="mcl">Active on floor</div><div class="mcv">3</div></div>
-      <div class="mc"><div class="mcl">Closed today</div><div class="mcv gr">2</div></div>
-      <div class="mc"><div class="mcl">Walked today</div><div class="mcv re">6</div></div>
-      <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">22%</div></div>
+  <!-- ================= SALES DEPARTMENT ================= -->
+  <div class="dept on" id="deptView-sales">
+    <div class="tabs" id="salesTabs">
+      <button class="tab on" onclick="showTab('sales',0,this)">Today's floor</button>
+      <button class="tab" onclick="showTab('sales',1,this)">Weekly pattern</button>
+      <button class="tab" onclick="showTab('sales',2,this)">Rep matrix</button>
+      <button class="tab" onclick="showTab('sales',3,this)">Coaching loop</button>
     </div>
-    <div class="sh">All deals today</div>
-    <div class="shsub">Green = step done &middot; Red = step skipped &middot; Active deals shown in progress</div>
-    <div class="card" id="deallist"></div>
-    <div class="sh">Steps most missed on walked deals today</div>
-    <div class="shsub">Sorted by how often step was skipped. Green = done on walked deal. Red = skipped on walked deal.</div>
-    <div class="card" id="stepbars"></div>
-  </div>
 
-  <!-- TAB 1 -->
-  <div class="scr" id="t1">
-    <div class="datebar" id="db1">
-      <span style="font-size:12px;color:#666">Period:</span>
-      <button class="chip" onclick="selChip(this,'db1')">Today</button>
-      <button class="chip on" onclick="selChip(this,'db1')">This week</button>
-      <button class="chip" onclick="selChip(this,'db1')">Last 2 weeks</button>
-    </div>
-    <div class="mrow">
-      <div class="mc"><div class="mcl">Total deals</div><div class="mcv">38</div></div>
-      <div class="mc"><div class="mcl">Closed</div><div class="mcv gr">8</div></div>
-      <div class="mc"><div class="mcl">Walked</div><div class="mcv re">30</div></div>
-      <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">21%</div></div>
-    </div>
-    <div class="sh">This week's coaching priorities</div>
-    <div class="shsub">Steps where closed deals had highest compliance vs walked deals. Fix these first.</div>
-    <div class="pgrid" id="pgrid"></div>
-    <div class="sh">Step compliance gap &mdash; closed vs walked (this week)</div>
-    <div class="shsub">Green = compliance on closed deals. Red = compliance on walked deals. Larger gap = step more decisive to outcome.</div>
-    <div class="card-pad">
-      <div class="leg-row">
-        <div class="leg"><div class="leg-sq" style="background:#639922"></div>Closed deals &mdash; compliance rate</div>
-        <div class="leg"><div class="leg-sq" style="background:#E24B4A"></div>Walked deals &mdash; compliance rate</div>
+    <!-- SALES TAB 0 -->
+    <div class="scr on" id="sales-t0">
+      <div class="mrow">
+        <div class="mc"><div class="mcl">Active on floor</div><div class="mcv">3</div></div>
+        <div class="mc"><div class="mcl">Sold today</div><div class="mcv gr">2</div></div>
+        <div class="mc"><div class="mcl">Walked today</div><div class="mcv re">6</div></div>
+        <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">22%</div></div>
       </div>
-      <div style="position:relative;height:360px"><canvas id="gapChart" role="img" aria-label="Step compliance gap comparing closed and walked deals">Manager T.O.: closed 74%, walked 22%</canvas></div>
+      <div class="sh">All ups today</div>
+      <div class="shsub">Green = step followed &middot; Red = step skipped &middot; Active ups shown in progress</div>
+      <div class="card" id="deallist"></div>
+      <div class="sh">Steps most skipped on walked ups today</div>
+      <div class="shsub">Sorted by how often the step was skipped. Green = followed on walked up. Red = skipped on walked up.</div>
+      <div class="card" id="stepbars"></div>
     </div>
-    <div class="sh">Daily deals and close ratio &mdash; this week</div>
-    <div class="card-pad">
-      <div class="leg-row">
-        <div class="leg"><div class="leg-sq" style="background:#639922"></div>Closed</div>
-        <div class="leg"><div class="leg-sq" style="background:#E24B4A;opacity:.6"></div>Walked</div>
-        <div class="leg"><div class="leg-ln" style="background:var(--br)"></div>Close ratio %</div>
+
+    <!-- SALES TAB 1 -->
+    <div class="scr" id="sales-t1">
+      <div class="datebar" id="db1">
+        <span style="font-size:12px;color:#666">Period:</span>
+        <button class="chip" onclick="selChip(this,'db1')">Today</button>
+        <button class="chip on" onclick="selChip(this,'db1')">This week</button>
+        <button class="chip" onclick="selChip(this,'db1')">Last 2 weeks</button>
       </div>
-      <div style="position:relative;height:200px"><canvas id="trendChart" role="img" aria-label="Daily deals and close ratio this week">Mon 13%, Tue 22%, Wed 13%, Thu 22%, Fri 25%</canvas></div>
+      <div class="mrow">
+        <div class="mc"><div class="mcl">Total ups</div><div class="mcv">38</div></div>
+        <div class="mc"><div class="mcl">Sold</div><div class="mcv gr">8</div></div>
+        <div class="mc"><div class="mcl">Walked</div><div class="mcv re">30</div></div>
+        <div class="mc"><div class="mcl">Close ratio</div><div class="mcv am">21%</div></div>
+      </div>
+      <div class="sh">This week's coaching priorities</div>
+      <div class="shsub">Steps where sold ups had the highest followed rate vs walked ups. Fix these first.</div>
+      <div class="pgrid" id="pgrid"></div>
+      <div class="sh">Step followed-rate gap &mdash; sold vs walked (this week)</div>
+      <div class="shsub">Green = followed rate on sold ups. Red = followed rate on walked ups. Larger gap = step more decisive to outcome.</div>
+      <div class="card-pad">
+        <div class="leg-row">
+          <div class="leg"><div class="leg-sq" style="background:#639922"></div>Sold ups &mdash; followed rate</div>
+          <div class="leg"><div class="leg-sq" style="background:#E24B4A"></div>Walked ups &mdash; followed rate</div>
+        </div>
+        <div style="position:relative;height:340px"><canvas id="gapChart" role="img" aria-label="Step followed-rate gap comparing sold and walked ups">Manager T.O.: sold 74%, walked 22%</canvas></div>
+      </div>
+      <div class="sh">Objections &amp; competitors that keep coming up &mdash; sales floor</div>
+      <div class="shsub">How often each objection surfaced this week on the floor. Bigger bar = more frequent.</div>
+      <div class="card" id="salesObjections"></div>
+      <div class="sh">Daily ups and close ratio &mdash; this week</div>
+      <div class="card-pad">
+        <div class="leg-row">
+          <div class="leg"><div class="leg-sq" style="background:#639922"></div>Sold</div>
+          <div class="leg"><div class="leg-sq" style="background:#E24B4A;opacity:.6"></div>Walked</div>
+          <div class="leg"><div class="leg-ln" style="background:var(--br)"></div>Close ratio %</div>
+        </div>
+        <div style="position:relative;height:200px"><canvas id="trendChart" role="img" aria-label="Daily ups and close ratio this week">Mon 13%, Tue 22%, Wed 13%, Thu 22%, Fri 25%</canvas></div>
+      </div>
     </div>
+
+    <!-- SALES TAB 2 -->
+    <div class="scr" id="sales-t2">
+      <div class="datebar" id="db2">
+        <span style="font-size:12px;color:#666">Period:</span>
+        <button class="chip" onclick="selChip(this,'db2')">Today</button>
+        <button class="chip on" onclick="selChip(this,'db2')">This week</button>
+        <button class="chip" onclick="selChip(this,'db2')">Last 2 weeks</button>
+      </div>
+      <div class="mrow">
+        <div class="mc"><div class="mcl">Reps tracked</div><div class="mcv">4</div></div>
+        <div class="mc"><div class="mcl">Best close ratio</div><div class="mcv gr">30%</div></div>
+        <div class="mc"><div class="mcl">Lowest close ratio</div><div class="mcv re">11%</div></div>
+        <div class="mc"><div class="mcl">Team average</div><div class="mcv am">21%</div></div>
+      </div>
+      <div class="sh">Rep &times; step followed rate &mdash; this week</div>
+      <div class="shsub">Green = strong adherence &middot; Red = needs attention &middot; Blue column headers = highest-gap steps from weekly pattern</div>
+      <div class="card" id="matrix"></div>
+      <div class="sh">Team coaching view</div>
+      <div class="cbox gr"><div class="ct gr">What the whole team does well &mdash; reinforce publicly</div><div class="cbody gr">Greeting (88&ndash;96%), front-line readiness (86&ndash;94%), figures transparency (84&ndash;92%), and close attempt (82&ndash;90%) are strong across all four reps. Call these out in the next team standup &mdash; these habits are holding.</div></div>
+      <div class="cbox am"><div class="ct am">Where most reps are slipping &mdash; team coaching session needed</div><div class="cbody am">Manager T.O. is below 60% for three of four reps: Webb 58%, Ruiz 44%, Park 36%. This single step has the largest gap between sold and walked ups this week (+52pts). Live feature explanation follows the same pattern &mdash; three reps below 55%. One focused session on these two steps would likely move the close ratio within the week.</div></div>
+      <div class="cbox re"><div class="ct re">Individual 1:1 needed this week</div><div class="cbody re">D. Park (11% close ratio): walkaround at 52%, feature depth at 48%, Manager T.O. at 36% &mdash; all significantly below team average. J. Ruiz is trending the same direction at lower severity. Monitor Ruiz through the week; escalate to 1:1 if pattern holds.</div></div>
+    </div>
+
+    <!-- SALES TAB 3 — COACHING LOOP -->
+    <div class="scr" id="sales-t3"></div>
   </div>
 
-  <!-- TAB 2 -->
-  <div class="scr" id="t2">
-    <div class="datebar" id="db2">
-      <span style="font-size:12px;color:#666">Period:</span>
-      <button class="chip" onclick="selChip(this,'db2')">Today</button>
-      <button class="chip on" onclick="selChip(this,'db2')">This week</button>
-      <button class="chip" onclick="selChip(this,'db2')">Last 2 weeks</button>
+  <!-- ================= SERVICE DEPARTMENT ================= -->
+  <div class="dept" id="deptView-service">
+    <div class="tabs" id="serviceTabs">
+      <button class="tab on" onclick="showTab('service',0,this)">Today's lane</button>
+      <button class="tab" onclick="showTab('service',1,this)">Weekly pattern</button>
+      <button class="tab" onclick="showTab('service',2,this)">Advisor matrix</button>
+      <button class="tab" onclick="showTab('service',3,this)">Coaching loop</button>
     </div>
-    <div class="mrow">
-      <div class="mc"><div class="mcl">Reps tracked</div><div class="mcv">4</div></div>
-      <div class="mc"><div class="mcl">Best close ratio</div><div class="mcv gr">30%</div></div>
-      <div class="mc"><div class="mcl">Lowest close ratio</div><div class="mcv re">11%</div></div>
-      <div class="mc"><div class="mcl">Team average</div><div class="mcv am">21%</div></div>
+
+    <!-- SERVICE TAB 0 -->
+    <div class="scr on" id="service-t0">
+      <div class="mrow">
+        <div class="mc"><div class="mcl">ROs today</div><div class="mcv">31</div><div class="mcs">7 in progress</div></div>
+        <div class="mc"><div class="mcl">Recommendation presented</div><div class="mcv gr">74%</div><div class="mcs">23 of 31 ROs</div></div>
+        <div class="mc"><div class="mcl">Declined service (recoverable)</div><div class="mcv am">$8,140</div><div class="mcs">today's follow-up pool</div></div>
+        <div class="mc"><div class="mcl">$ / RO</div><div class="mcv br">$412</div><div class="mcs">approved labor + parts</div></div>
+      </div>
+      <div class="sh">All repair orders today</div>
+      <div class="shsub">Green = step followed &middot; Red = step skipped &middot; Active ROs shown in progress. $ column = recommended amount presented.</div>
+      <div class="card" id="rolist"></div>
+      <div class="sh">Recommended vs approved dollars &mdash; today by advisor</div>
+      <div class="shsub">The gap is the recoverable declined-service pool. Presenting the recommendation is the profit moment.</div>
+      <div class="card-pad">
+        <div class="leg-row">
+          <div class="leg"><div class="leg-sq" style="background:#639922"></div>Approved $</div>
+          <div class="leg"><div class="leg-sq" style="background:#E24B4A;opacity:.55"></div>Declined $ (recoverable)</div>
+        </div>
+        <div style="position:relative;height:230px"><canvas id="svcDollarChart" role="img" aria-label="Recommended versus approved dollars by advisor today">Reyes approved $3,910 declined $1,780</canvas></div>
+      </div>
     </div>
-    <div class="sh">Rep &times; step compliance &mdash; this week</div>
-    <div class="shsub">Green = strong compliance &middot; Red = needs attention &middot; Blue column headers = highest-gap steps from weekly pattern</div>
-    <div class="card" id="matrix"></div>
-    <div class="sh">Team coaching view</div>
-    <div class="cbox gr"><div class="ct gr">What the whole team does well &mdash; reinforce publicly</div><div class="cbody gr">Greeting (88&ndash;96%), front-line readiness (86&ndash;94%), OTD transparency (84&ndash;92%), and F&amp;I handoff (82&ndash;90%) are strong across all four reps. Call these out in the next team standup &mdash; these habits are holding.</div></div>
-    <div class="cbox am"><div class="ct am">Where most reps are slipping &mdash; team coaching session needed</div><div class="cbody am">Manager T.O. is below 60% for three of four reps: Webb 58%, Ruiz 44%, Park 36%. This single step has the largest gap between closed and walked deals this week (+52pts). Live feature explanation follows the same pattern &mdash; three reps below 55%. One focused session on these two steps would likely move the close ratio within the week.</div></div>
-    <div class="cbox re"><div class="ct re">Individual 1:1 needed this week</div><div class="cbody re">D. Park (11% close ratio): walkaround at 52%, feature depth at 48%, Manager T.O. at 36% &mdash; all significantly below team average. J. Ruiz is trending the same direction at lower severity. Monitor Ruiz through the week; escalate to 1:1 if pattern holds.</div></div>
+
+    <!-- SERVICE TAB 1 -->
+    <div class="scr" id="service-t1">
+      <div class="datebar" id="db3">
+        <span style="font-size:12px;color:#666">Period:</span>
+        <button class="chip" onclick="selChip(this,'db3')">Today</button>
+        <button class="chip on" onclick="selChip(this,'db3')">This week</button>
+        <button class="chip" onclick="selChip(this,'db3')">Last 2 weeks</button>
+      </div>
+      <div class="mrow">
+        <div class="mc"><div class="mcl">ROs this week</div><div class="mcv">168</div></div>
+        <div class="mc"><div class="mcl">Recommendation presented</div><div class="mcv gr">71%</div></div>
+        <div class="mc"><div class="mcl">Declined (recoverable)</div><div class="mcv am">$41,600</div></div>
+        <div class="mc"><div class="mcl">$ / RO</div><div class="mcv br">$398</div></div>
+      </div>
+      <div class="sh">Presentation-rate gap &mdash; higher-$ vs lower-$ ROs (this week)</div>
+      <div class="shsub">Green = step followed rate on ROs that approved above $300. Red = followed rate on ROs that approved below $300. Larger gap = step more decisive to dollars per RO.</div>
+      <div class="card-pad">
+        <div class="leg-row">
+          <div class="leg"><div class="leg-sq" style="background:#639922"></div>Higher-$ ROs &mdash; followed rate</div>
+          <div class="leg"><div class="leg-sq" style="background:#E24B4A"></div>Lower-$ ROs &mdash; followed rate</div>
+        </div>
+        <div style="position:relative;height:280px"><canvas id="svcGapChart" role="img" aria-label="Service step followed-rate gap comparing higher and lower dollar ROs">Recommendation w/ value: high 86%, low 41%</canvas></div>
+      </div>
+      <div class="sh">Top declined-service reasons &mdash; the recovery list</div>
+      <div class="shsub">Why customers said no this week, by recoverable dollars. This is the follow-up call list.</div>
+      <div class="card" id="declineReasons"></div>
+      <div class="sh">Objections &amp; competitors that keep coming up &mdash; service lane</div>
+      <div class="shsub">How often each objection surfaced this week in the drive. Bigger bar = more frequent.</div>
+      <div class="card" id="serviceObjections"></div>
+    </div>
+
+    <!-- SERVICE TAB 2 -->
+    <div class="scr" id="service-t2">
+      <div class="datebar" id="db4">
+        <span style="font-size:12px;color:#666">Period:</span>
+        <button class="chip" onclick="selChip(this,'db4')">Today</button>
+        <button class="chip on" onclick="selChip(this,'db4')">This week</button>
+        <button class="chip" onclick="selChip(this,'db4')">Last 2 weeks</button>
+      </div>
+      <div class="mrow">
+        <div class="mc"><div class="mcl">Advisors tracked</div><div class="mcv">4</div></div>
+        <div class="mc"><div class="mcl">Best $ / RO</div><div class="mcv gr">$471</div></div>
+        <div class="mc"><div class="mcl">Lowest $ / RO</div><div class="mcv re">$312</div></div>
+        <div class="mc"><div class="mcl">Team average</div><div class="mcv am">$398</div></div>
+      </div>
+      <div class="sh">Advisor &times; service-step followed rate &mdash; this week</div>
+      <div class="shsub">Green = strong adherence &middot; Red = needs attention &middot; Blue column headers = highest-gap steps to dollars per RO</div>
+      <div class="card" id="svcMatrix"></div>
+      <div class="sh">Team coaching view</div>
+      <div class="cbox gr"><div class="ct gr">What the whole drive does well &mdash; reinforce publicly</div><div class="cbody gr">Write-up (90&ndash;96%), walkaround inspection (84&ndash;93%), and active delivery follow-up (82&ndash;90%) are strong across all four advisors. The lane is capturing the concern and documenting the vehicle consistently &mdash; that trust is what makes the recommendation land.</div></div>
+      <div class="cbox am"><div class="ct am">Where the dollars are leaking &mdash; team coaching session needed</div><div class="cbody am">Recommendation-with-value is below 60% for three of four advisors: Nguyen 58%, Ellis 46%, Boone 39%. This is the single biggest driver of $/RO &mdash; advisors who present the maintenance with the <em>why</em> and the dollar figure run $471/RO; advisors who skip it run $312. Closing this one step is worth an estimated $86/RO across the drive.</div></div>
+      <div class="cbox re"><div class="ct re">Individual 1:1 needed this week</div><div class="cbody re">R. Boone ($312/RO): recommendation-with-value at 39%, objection handling at 41%, follow-up scheduling at 48%. He is documenting the work but not presenting or recovering it. Ellis is trending the same way at lower severity. Start Boone on the declined-maintenance drill this week.</div></div>
+    </div>
+
+    <!-- SERVICE TAB 3 — COACHING LOOP -->
+    <div class="scr" id="service-t3"></div>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-function showTab(n,b){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));b.classList.add('on');document.querySelectorAll('.scr').forEach((s,i)=>s.classList.toggle('on',i===n));}
-function selChip(el,g){document.getElementById(g).querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));el.classList.add('on');}
+/* ---------- NAV / DEPARTMENT / TABS ---------- */
+var deptMeta={
+  sales:{title:'Sales Floor Dashboard',sub:'Marcus Webb &middot; Sales Manager &middot; Tuesday, Apr 15',sel:['All reps','M. Webb','S. Chen','J. Ruiz','D. Park']},
+  service:{title:'Service Lane Dashboard',sub:'Marcus Webb &middot; Service Manager &middot; Tuesday, Apr 15',sel:['All advisors','A. Reyes','P. Nguyen','K. Ellis','R. Boone']}
+};
+var curDept='sales';
+function applyDeptHeader(d){
+  document.getElementById('phTitle').innerHTML=deptMeta[d].title;
+  document.getElementById('phSub').innerHTML=deptMeta[d].sub;
+  document.getElementById('phSelect').innerHTML=deptMeta[d].sel.map(function(o){return '<option>'+o+'</option>';}).join('');
+}
+function showDept(d){
+  curDept=d;
+  document.getElementById('deptSales').classList.toggle('on',d==='sales');
+  document.getElementById('deptService').classList.toggle('on',d==='service');
+  document.getElementById('deptView-sales').classList.toggle('on',d==='sales');
+  document.getElementById('deptView-service').classList.toggle('on',d==='service');
+  applyDeptHeader(d);
+}
+function showTab(dept,n,b){
+  var tabsId=dept+'Tabs';
+  document.getElementById(tabsId).querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});
+  b.classList.add('on');
+  for(var i=0;i<4;i++){
+    var el=document.getElementById(dept+'-t'+i);
+    if(el)el.classList.toggle('on',i===n);
+  }
+}
+function selChip(el,g){document.getElementById(g).querySelectorAll('.chip').forEach(function(c){c.classList.remove('on');});el.classList.add('on');}
+applyDeptHeader('sales');
 
-var steps14=['1.1 Greet','1.2 Refreshment','2.1 Discovery','3.1 Vehicle logic','3.2 Front-line ready','4.1 Walkaround','4.2 Features','5.1 Demo route','5.2 Live explain','6.1 Trade-in walk','7.1 Time to pencil','7.2 OTD figures','8.1 Manager T.O.','9.1 F&I handoff'];
+/* ================= SALES DATA ================= */
+var steps13=['1.1 Greet','1.2 Refreshment','2.1 Discovery','3.1 Vehicle match','3.2 Front-line ready','4.1 Walkaround','4.2 Features','5.1 Demo route','5.2 Live explain','6.1 Trade-in walk','7.1 Time to pencil','7.2 Figures','8.1 Manager T.O.'];
 
 var deals=[
-  {n:'J. Harrison',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,1,1,1,1,1,1],o:'closed',t:'2h ago'},
-  {n:'D. Okafor',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,1,1,1,0,1,1,1,1,1],o:'closed',t:'4h ago'},
-  {n:'M. Nguyen',v:'Civic Sport',r:'D. Park',s:[1,1,1,0,1,0,0,1,0,1,1,1,0,1],o:'walked',t:'1h ago'},
-  {n:'T. Alvarez',v:'HR-V EX',r:'M. Webb',s:[1,1,0,0,1,0,0,1,0,0,1,1,0,1],o:'walked',t:'1.5h ago'},
-  {n:'R. Danes',v:'Accord EX',r:'J. Ruiz',s:[1,1,1,1,1,1,0,1,0,1,1,1,0,1],o:'walked',t:'3h ago'},
-  {n:'L. Friedman',v:'Civic EX',r:'D. Park',s:[1,0,1,0,1,0,0,1,0,1,1,1,0,1],o:'walked',t:'5h ago'},
-  {n:'K. Park',v:'CR-V Sport',r:'S. Chen',s:[1,1,1,0,1,1,0,1,0,0,1,1,0,0],o:'walked',t:'6h ago'},
-  {n:'A. Torres',v:'HR-V',r:'J. Ruiz',s:[1,0,0,0,1,0,0,0,0,0,1,1,0,1],o:'walked',t:'7h ago'},
-  {n:'Sarah Mitchell',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,0,0,0,0,0,0],o:'active',t:'14m'},
-  {n:'Robert Danes',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,0,0,0,0,0,0,0,0,0],o:'active',t:'31m'},
-  {n:'Amy Torres',v:'Civic Sport',r:'J. Ruiz',s:[1,1,1,0,0,0,0,0,0,0,0,0,0,0],o:'active',t:'8m'},
+  {n:'J. Harrison',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,1,1,1,1,1],o:'closed',t:'2h ago'},
+  {n:'D. Okafor',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,1,1,1,0,1,1,1,1],o:'closed',t:'4h ago'},
+  {n:'M. Nguyen',v:'Civic Sport',r:'D. Park',s:[1,1,1,0,1,0,0,1,0,1,1,1,0],o:'walked',t:'1h ago'},
+  {n:'T. Alvarez',v:'HR-V EX',r:'M. Webb',s:[1,1,0,0,1,0,0,1,0,0,1,1,0],o:'walked',t:'1.5h ago'},
+  {n:'R. Danes',v:'Accord EX',r:'J. Ruiz',s:[1,1,1,1,1,1,0,1,0,1,1,1,0],o:'walked',t:'3h ago'},
+  {n:'L. Friedman',v:'Civic EX',r:'D. Park',s:[1,0,1,0,1,0,0,1,0,1,1,1,0],o:'walked',t:'5h ago'},
+  {n:'K. Park',v:'CR-V Sport',r:'S. Chen',s:[1,1,1,0,1,1,0,1,0,0,1,1,0],o:'walked',t:'6h ago'},
+  {n:'A. Torres',v:'HR-V',r:'J. Ruiz',s:[1,0,0,0,1,0,0,0,0,0,1,1,0],o:'walked',t:'7h ago'},
+  {n:'Sarah Mitchell',v:'CR-V EX-L',r:'M. Webb',s:[1,1,1,1,1,1,1,1,0,0,0,0,0],o:'active',t:'14m'},
+  {n:'Robert Danes',v:'Pilot AWD',r:'S. Chen',s:[1,1,1,1,1,0,0,0,0,0,0,0,0],o:'active',t:'31m'},
+  {n:'Amy Torres',v:'Civic Sport',r:'J. Ruiz',s:[1,1,1,0,0,0,0,0,0,0,0,0,0],o:'active',t:'8m'},
 ];
 
 function buildDealList(){
   var c=document.getElementById('deallist');
-  var hdrs=['Customer','Vehicle','Rep','Steps (14 total)','Outcome','Time'];
-  var hw=['105px','1','60px','140px','65px','52px'];
+  var hdrs=['Customer','Vehicle','Rep','Steps (13 total)','Outcome','Time'];
+  var hw=['105px','1','60px','130px','65px','52px'];
   var h='<div style="display:flex;align-items:center;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee">';
   hdrs.forEach(function(l,i){h+='<div style="'+(hw[i]==='1'?'flex:1':'width:'+hw[i]+';flex-shrink:0')+';font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em'+(i>=4?';text-align:right':'')+'">'+l+'</div>';});
   h+='</div>';
   deals.forEach(function(d){
     var ob=d.o==='closed'?'#EAF3DE':d.o==='walked'?'#FCEBEB':'#E6F1FB';
     var oc=d.o==='closed'?'#27500A':d.o==='walked'?'#791F1F':'#0C447C';
-    var ol=d.o==='closed'?'Closed':d.o==='walked'?'Walked':'Active';
+    var ol=d.o==='closed'?'Sold':d.o==='walked'?'Walked':'Active';
     h+='<div style="display:flex;align-items:center;padding:9px 16px;gap:8px;border-top:0.5px solid #f0f0f0;background:'+(d.o==='active'?'rgba(29,82,232,.02)':'#fff')+'">';
     h+='<div style="font-size:13px;font-weight:500;color:#000;width:105px;flex-shrink:0">'+d.n+'</div>';
     h+='<div style="font-size:12px;color:#555;flex:1">'+d.v+'</div>';
     h+='<div style="font-size:12px;color:#555;width:60px;flex-shrink:0">'+d.r+'</div>';
-    h+='<div style="display:flex;gap:2px;width:140px;flex-shrink:0;flex-wrap:wrap">';
+    h+='<div style="display:flex;gap:2px;width:130px;flex-shrink:0;flex-wrap:wrap">';
     d.s.forEach(function(st,si){
       var bg=d.o==='active'?(st?'#639922':'#e0e0e0'):(st?'#639922':'#E24B4A');
-      h+='<div style="width:9px;height:9px;border-radius:1px;background:'+bg+'" title="'+steps14[si]+'"></div>';
+      h+='<div style="width:9px;height:9px;border-radius:1px;background:'+bg+'" title="'+steps13[si]+'"></div>';
     });
     h+='</div>';
     h+='<div style="font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px;background:'+ob+';color:'+oc+';width:65px;flex-shrink:0;text-align:center">'+ol+'</div>';
@@ -241,7 +439,7 @@ function buildDealList(){
     h+='</div>';
   });
   h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888;display:flex;gap:14px;flex-wrap:wrap">';
-  [['#639922','Step done'],['#E24B4A','Step skipped (completed deals)'],['#e0e0e0','Not yet reached (active deals)']].forEach(function(s){
+  [['#639922','Step followed'],['#E24B4A','Step skipped (completed ups)'],['#e0e0e0','Not yet reached (active ups)']].forEach(function(s){
     h+='<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s[0]+'"></span>'+s[1]+'</span>';
   });
   h+='</div>';
@@ -250,7 +448,7 @@ function buildDealList(){
 
 function buildStepBars(){
   var walked=deals.filter(function(d){return d.o==='walked';});
-  var bars=steps14.map(function(s,i){
+  var bars=steps13.map(function(s,i){
     var done=walked.filter(function(d){return d.s[i]===1;}).length;
     return{step:s,done:done,total:walked.length};
   }).sort(function(a,b){return a.done-b.done;});
@@ -265,11 +463,11 @@ function buildStepBars(){
     if(grw>0)h+='<div style="width:'+grw+'%;background:#639922;height:100%"></div>';
     if(rw>0)h+='<div style="width:'+rw+'%;background:#E24B4A;height:100%"></div>';
     h+='</div>';
-    h+='<div style="font-size:11px;color:#888;width:90px;flex-shrink:0;text-align:right">'+b.done+'/'+b.total+' walked deals</div>';
+    h+='<div style="font-size:11px;color:#888;width:90px;flex-shrink:0;text-align:right">'+b.done+'/'+b.total+' walked ups</div>';
     h+='</div>';
   });
   h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888;display:flex;gap:14px">';
-  [['#639922','Done on walked deal'],['#E24B4A','Skipped — coaching focus']].forEach(function(s){
+  [['#639922','Followed on walked up'],['#E24B4A','Skipped — coaching focus']].forEach(function(s){
     h+='<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s[0]+'"></span>'+s[1]+'</span>';
   });
   h+='</div></div>';
@@ -277,15 +475,15 @@ function buildStepBars(){
 }
 
 var topGaps=[
-  {step:'Manager T.O.',gap:52,note:'Closed: 74% · Walked: 22%'},
-  {step:'Live feature explain',gap:47,note:'Closed: 71% · Walked: 24%'},
-  {step:'Features demonstrated',gap:44,note:'Closed: 76% · Walked: 32%'},
-  {step:'Vehicle logic',gap:41,note:'Closed: 84% · Walked: 43%'},
+  {step:'Manager T.O.',gap:52,note:'Sold: 74% · Walked: 22%'},
+  {step:'Live feature explain',gap:47,note:'Sold: 71% · Walked: 24%'},
+  {step:'Features demonstrated',gap:44,note:'Sold: 76% · Walked: 32%'},
+  {step:'Vehicle match',gap:41,note:'Sold: 84% · Walked: 43%'},
 ];
 function buildPGrid(){
   var c=document.getElementById('pgrid');
   c.innerHTML=topGaps.map(function(g){
-    return'<div class="pgcard"><div class="pg-lbl">Compliance gap</div><div class="pg-gap">+'+g.gap+'<span>pts</span></div><div class="pg-step">'+g.step+'</div><div class="pg-note">'+g.note+'</div></div>';
+    return'<div class="pgcard"><div class="pg-lbl">Followed-rate gap</div><div class="pg-gap">+'+g.gap+'<span>pts</span></div><div class="pg-step">'+g.step+'</div><div class="pg-note">'+g.note+'</div></div>';
   }).join('');
 }
 
@@ -293,26 +491,25 @@ var gapData=[
   {step:'Manager T.O.',cl:74,wl:22},
   {step:'Live feature explain',cl:71,wl:24},
   {step:'Features demonstrated',cl:76,wl:32},
-  {step:'Vehicle logic',cl:84,wl:43},
+  {step:'Vehicle match',cl:84,wl:43},
   {step:'6-pos. walkaround',cl:80,wl:42},
   {step:'Discovery sheet',cl:90,wl:58},
   {step:'Trade-in walk',cl:85,wl:57},
   {step:'Front-line ready',cl:92,wl:67},
-  {step:'OTD transparency',cl:90,wl:68},
+  {step:'Figures transparency',cl:90,wl:68},
   {step:'Demo route',cl:83,wl:65},
   {step:'Greet',cl:94,wl:80},
   {step:'Refreshment',cl:88,wl:76},
   {step:'Time to pencil',cl:89,wl:79},
-  {step:'F&I handoff',cl:87,wl:79},
 ].reverse();
 
-var shortS=['Greet','Refresh','Discov.','Logic','FLR','Walk','Feat.','Route','Live','Trade','Pencil','OTD','T.O.','F&I'];
+var shortS=['Greet','Refresh','Discov.','Match','FLR','Walk','Feat.','Route','Live','Trade','Pencil','Figs','T.O.'];
 var hiCols=[3,6,8,12];
 var reps=[
-  {n:'M. Webb',ratio:'25%',deals:'2/8',sc:[92,88,90,84,92,76,70,80,62,82,88,90,58,86]},
-  {n:'S. Chen',ratio:'30%',deals:'3/10',sc:[96,90,94,88,94,86,82,86,74,88,90,92,72,90]},
-  {n:'J. Ruiz',ratio:'18%',deals:'2/11',sc:[88,80,86,74,88,66,58,72,50,74,82,84,44,78]},
-  {n:'D. Park',ratio:'11%',deals:'1/9',sc:[86,76,82,68,86,52,48,68,40,70,78,80,36,74]},
+  {n:'M. Webb',ratio:'25%',deals:'2/8',sc:[92,88,90,84,92,76,70,80,62,82,88,90,58]},
+  {n:'S. Chen',ratio:'30%',deals:'3/10',sc:[96,90,94,88,94,86,82,86,74,88,90,92,72]},
+  {n:'J. Ruiz',ratio:'18%',deals:'2/11',sc:[88,80,86,74,88,66,58,72,50,74,82,84,44]},
+  {n:'D. Park',ratio:'11%',deals:'1/9',sc:[86,76,82,68,86,52,48,68,40,70,78,80,36]},
 ];
 
 function buildMatrix(){
@@ -328,7 +525,7 @@ function buildMatrix(){
   h+='</div></div>';
   reps.forEach(function(rep){
     h+='<div style="display:flex;align-items:center;border-top:0.5px solid #f0f0f0">';
-    h+='<div style="width:110px;flex-shrink:0;padding:9px 14px"><div style="font-size:13px;font-weight:500;color:#000">'+rep.n+'</div><div style="font-size:10px;color:#888">'+rep.deals+' closed</div></div>';
+    h+='<div style="width:110px;flex-shrink:0;padding:9px 14px"><div style="font-size:13px;font-weight:500;color:#000">'+rep.n+'</div><div style="font-size:10px;color:#888">'+rep.deals+' sold</div></div>';
     h+='<div style="width:75px;flex-shrink:0;padding:9px 8px;border-left:0.5px solid #eee"><div style="font-size:15px;font-weight:600;color:#000">'+rep.ratio+'</div></div>';
     h+='<div style="display:flex;flex:1">';
     rep.sc.forEach(function(sc,si){
@@ -360,15 +557,387 @@ function buildMatrix(){
   c.innerHTML=h+h2;
 }
 
-buildDealList();buildStepBars();buildPGrid();buildMatrix();
+/* ---------- OBJECTIONS (shared renderer) ---------- */
+function buildObjections(elId,rows,color){
+  var c=document.getElementById(elId);
+  var max=Math.max.apply(null,rows.map(function(r){return r.ct;}));
+  var h='';
+  rows.forEach(function(r){
+    var w=Math.round((r.ct/max)*100);
+    h+='<div class="objrow"><div class="obj-lbl">'+r.lbl+(r.sub?'<small>'+r.sub+'</small>':'')+'</div>';
+    h+='<div class="obj-bar-wrap"><div class="obj-bar" style="width:'+w+'%;background:'+color+'"></div></div>';
+    h+='<div class="obj-ct">'+r.ct+' this wk</div></div>';
+  });
+  c.innerHTML=h;
+}
+var salesObj=[
+  {lbl:'Trade-in value fight',sub:'"my car\'s worth more than that"',ct:34},
+  {lbl:'"I need to think about it"',sub:'stall / no urgency created',ct:29},
+  {lbl:'"The store down the street"',sub:'cross-shopping a competitor',ct:22},
+  {lbl:'Payment / monthly too high',sub:'figures pushback',ct:18},
+  {lbl:'"Just looking today"',sub:'greet-stage brush-off',ct:15},
+];
+var serviceObj=[
+  {lbl:'"Too expensive"',sub:'sticker shock on recommendation',ct:41},
+  {lbl:'"I\'ll do it later"',sub:'deferral / no follow-up set',ct:33},
+  {lbl:'"I\'ll go to my own shop"',sub:'indie / quick-lube competitor',ct:24},
+  {lbl:'"Is it really necessary?"',sub:'value of the why not landed',ct:19},
+  {lbl:'"Not on this visit"',sub:'time / just here for the one thing',ct:16},
+];
 
+/* ================= SERVICE DATA ================= */
+var svcSteps=['1. Write-up','2. Walkaround','3. MPI review','4. Recommendation','5. Objection handling','6. Follow-up'];
+var svcShort=['Write-up','Walk','MPI','Recomm.','Objection','Follow-up'];
+var svcHiCols=[3,4,5];
+
+var ros=[
+  {n:'G. Freeman',v:'CR-V EX-L',a:'A. Reyes',s:[1,1,1,1,1,1],o:'approved',amt:920,t:'2h ago'},
+  {n:'M. Santos',v:'Odyssey EX',a:'A. Reyes',s:[1,1,1,1,0,1],o:'partial',amt:640,t:'3h ago'},
+  {n:'D. Khan',v:'Accord Sport',a:'P. Nguyen',s:[1,1,1,1,1,1],o:'approved',amt:780,t:'1h ago'},
+  {n:'B. Iyer',v:'Pilot Touring',a:'P. Nguyen',s:[1,1,1,0,0,0],o:'declined',amt:410,t:'4h ago'},
+  {n:'S. Watts',v:'Civic LX',a:'K. Ellis',s:[1,1,0,0,0,1],o:'declined',amt:290,t:'2h ago'},
+  {n:'R. Cole',v:'HR-V EX',a:'K. Ellis',s:[1,1,1,1,0,0],o:'partial',amt:520,t:'5h ago'},
+  {n:'T. Owens',v:'CR-V Hybrid',a:'R. Boone',s:[1,1,0,0,0,0],o:'declined',amt:340,t:'3h ago'},
+  {n:'L. Byrd',v:'Ridgeline RTL',a:'R. Boone',s:[1,1,1,0,0,1],o:'partial',amt:470,t:'6h ago'},
+  {n:'Priya Anand',v:'Accord Hybrid',a:'A. Reyes',s:[1,1,1,1,0,0],o:'active',amt:610,t:'18m'},
+  {n:'Carl Mendez',v:'Pilot AWD',a:'P. Nguyen',s:[1,1,1,0,0,0],o:'active',amt:0,t:'25m'},
+  {n:'Dana Reeves',v:'Civic Sport',a:'K. Ellis',s:[1,1,0,0,0,0],o:'active',amt:0,t:'9m'},
+];
+
+function buildRoList(){
+  var c=document.getElementById('rolist');
+  var hdrs=['Customer','Vehicle','Advisor','Steps (6 total)','Recomm.','Outcome','Time'];
+  var hw=['100px','1','62px','92px','62px','66px','48px'];
+  var h='<div style="display:flex;align-items:center;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee">';
+  hdrs.forEach(function(l,i){h+='<div style="'+(hw[i]==='1'?'flex:1':'width:'+hw[i]+';flex-shrink:0')+';font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em'+(i>=4?';text-align:right':'')+'">'+l+'</div>';});
+  h+='</div>';
+  ros.forEach(function(d){
+    var map={approved:['#EAF3DE','#27500A','Approved'],partial:['#FAEEDA','#633806','Partial'],declined:['#FCEBEB','#791F1F','Declined'],active:['#E6F1FB','#0C447C','Active']};
+    var m=map[d.o];
+    h+='<div style="display:flex;align-items:center;padding:9px 16px;gap:8px;border-top:0.5px solid #f0f0f0;background:'+(d.o==='active'?'rgba(29,82,232,.02)':'#fff')+'">';
+    h+='<div style="font-size:13px;font-weight:500;color:#000;width:100px;flex-shrink:0">'+d.n+'</div>';
+    h+='<div style="font-size:12px;color:#555;flex:1">'+d.v+'</div>';
+    h+='<div style="font-size:12px;color:#555;width:62px;flex-shrink:0">'+d.a+'</div>';
+    h+='<div style="display:flex;gap:3px;width:92px;flex-shrink:0">';
+    d.s.forEach(function(st,si){
+      var bg=d.o==='active'?(st?'#639922':'#e0e0e0'):(st?'#639922':'#E24B4A');
+      h+='<div style="width:11px;height:11px;border-radius:2px;background:'+bg+'" title="'+svcSteps[si]+'"></div>';
+    });
+    h+='</div>';
+    h+='<div style="font-size:12px;color:#333;font-weight:500;width:62px;flex-shrink:0;text-align:right">'+(d.amt?'$'+d.amt:'—')+'</div>';
+    h+='<div style="font-size:11px;font-weight:500;padding:3px 8px;border-radius:20px;background:'+m[0]+';color:'+m[1]+';width:66px;flex-shrink:0;text-align:center">'+m[2]+'</div>';
+    h+='<div style="font-size:11px;color:#aaa;width:48px;text-align:right;flex-shrink:0">'+d.t+'</div>';
+    h+='</div>';
+  });
+  h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888;display:flex;gap:14px;flex-wrap:wrap">';
+  [['#639922','Step followed'],['#E24B4A','Step skipped'],['#e0e0e0','Not yet reached (active RO)']].forEach(function(s){
+    h+='<span style="display:flex;align-items:center;gap:4px"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:'+s[0]+'"></span>'+s[1]+'</span>';
+  });
+  h+='</div>';
+  c.innerHTML=h;
+}
+
+/* recommended vs approved $ by advisor (today) — internally consistent with $8,140 recoverable */
+var svcDollar=[
+  {a:'A. Reyes',approved:3910,declined:1780},
+  {a:'P. Nguyen',approved:3120,declined:2040},
+  {a:'K. Ellis',approved:2560,declined:2160},
+  {a:'R. Boone',approved:1180,declined:2160},
+];
+/* declined total = 1780+2040+2160+2160 = 8140 -> matches KPI */
+
+var svcGapData=[
+  {step:'Recommendation w/ value',hi:86,lo:41},
+  {step:'Objection handling',hi:79,lo:38},
+  {step:'Follow-up scheduled',hi:74,lo:40},
+  {step:'MPI review shown',hi:88,lo:61},
+  {step:'Walkaround inspection',hi:92,lo:74},
+  {step:'Write-up / concern',hi:96,lo:90},
+].reverse();
+
+var declineReasons=[
+  {lbl:'Too expensive right now',sub:'brakes, tires, major services',amt:14800,ct:38},
+  {lbl:'"I\'ll do it later"',sub:'deferred maintenance, no date set',amt:11200,ct:31},
+  {lbl:'Going to my own / indie shop',sub:'oil, filters, wipers',amt:6900,ct:22},
+  {lbl:'Didn\'t see the value',sub:'recommendation without the why',amt:5300,ct:17},
+  {lbl:'Only here for the one thing',sub:'time-boxed visit',amt:3400,ct:14},
+];
+/* recoverable total ≈ 41,600 -> matches weekly KPI */
+
+function buildDeclineReasons(){
+  var c=document.getElementById('declineReasons');
+  var max=Math.max.apply(null,declineReasons.map(function(r){return r.amt;}));
+  var h='<div style="display:flex;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em"><div style="width:220px;flex-shrink:0">Reason</div><div style="flex:1">Recoverable $</div><div style="width:70px;text-align:right;flex-shrink:0">ROs</div></div>';
+  declineReasons.forEach(function(r){
+    var w=Math.round((r.amt/max)*100);
+    h+='<div class="objrow"><div class="obj-lbl">'+r.lbl+'<small>'+r.sub+'</small></div>';
+    h+='<div style="flex:1;display:flex;align-items:center;gap:10px"><div class="obj-bar-wrap" style="flex:1"><div class="obj-bar" style="width:'+w+'%;background:#E24B4A"></div></div><span style="font-size:12px;font-weight:600;color:#791F1F;width:66px;text-align:right;flex-shrink:0">$'+r.amt.toLocaleString()+'</span></div>';
+    h+='<div class="obj-ct">'+r.ct+'</div></div>';
+  });
+  h+='<div style="padding:8px 16px;background:#f9f9f9;font-size:11px;color:#888">Total recoverable this week: <strong style="color:#791F1F">$41,600</strong> across 122 declined line items &mdash; this is the follow-up call list.</div>';
+  c.innerHTML=h;
+}
+
+var svcAdvisors=[
+  {n:'A. Reyes',perRO:'$471',ros:'44',sc:[96,93,90,86,79,82]},
+  {n:'P. Nguyen',perRO:'$406',ros:'41',sc:[94,88,84,58,64,70]},
+  {n:'K. Ellis',perRO:'$362',ros:'40',sc:[92,86,72,46,52,60]},
+  {n:'R. Boone',perRO:'$312',ros:'43',sc:[90,84,66,39,41,48]},
+];
+
+function buildSvcMatrix(){
+  var c=document.getElementById('svcMatrix');
+  var h='<div style="display:flex;background:#f9f9f9;border-bottom:0.5px solid #eee">';
+  h+='<div style="width:110px;flex-shrink:0;padding:7px 14px;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">Advisor</div>';
+  h+='<div style="width:75px;flex-shrink:0;padding:7px 8px;border-left:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">$ / RO</div>';
+  h+='<div style="display:flex;flex:1">';
+  svcShort.forEach(function(s,i){
+    var hi=svcHiCols.indexOf(i)>=0;
+    h+='<div style="flex:1;font-size:9px;font-weight:600;color:'+(hi?'#0C447C':'#888')+';text-align:center;padding:5px 1px;border-left:0.5px solid #eee;line-height:1.3;background:'+(hi?'rgba(29,82,232,.05)':'')+'">'+s+'</div>';
+  });
+  h+='</div></div>';
+  svcAdvisors.forEach(function(a){
+    h+='<div style="display:flex;align-items:center;border-top:0.5px solid #f0f0f0">';
+    h+='<div style="width:110px;flex-shrink:0;padding:9px 14px"><div style="font-size:13px;font-weight:500;color:#000">'+a.n+'</div><div style="font-size:10px;color:#888">'+a.ros+' ROs</div></div>';
+    h+='<div style="width:75px;flex-shrink:0;padding:9px 8px;border-left:0.5px solid #eee"><div style="font-size:15px;font-weight:600;color:#000">'+a.perRO+'</div></div>';
+    h+='<div style="display:flex;flex:1">';
+    a.sc.forEach(function(sc,si){
+      var hi=svcHiCols.indexOf(si)>=0;
+      var bg=sc>=80?'#EAF3DE':sc>=65?'#FEF9C3':sc>=50?'#FAEEDA':'#FCEBEB';
+      var col=sc>=80?'#27500A':sc>=65?'#412402':sc>=50?'#633806':'#791F1F';
+      h+='<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:9px 1px;border-left:0.5px solid #eee;font-size:10px;font-weight:600;background:'+bg+';color:'+col+';position:relative">';
+      if(hi)h+='<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--br)"></div>';
+      h+=sc+'%</div>';
+    });
+    h+='</div></div>';
+  });
+  var h2='<div style="display:flex;align-items:center;border-top:0.5px solid #eee;background:#f9f9f9">';
+  h2+='<div style="width:110px;flex-shrink:0;padding:7px 14px;font-size:11px;font-weight:600;color:#888">Team avg</div>';
+  h2+='<div style="width:75px;flex-shrink:0;padding:7px 8px;border-left:0.5px solid #eee;font-size:12px;font-weight:600;color:#888">$398</div>';
+  h2+='<div style="display:flex;flex:1">';
+  svcShort.forEach(function(s,i){
+    var avg=Math.round(svcAdvisors.reduce(function(x,r){return x+r.sc[i];},0)/svcAdvisors.length);
+    var hi=svcHiCols.indexOf(i)>=0;
+    h2+='<div style="flex:1;display:flex;align-items:center;justify-content:center;padding:7px 1px;border-left:0.5px solid #eee;font-size:10px;color:#888;background:'+(hi?'rgba(29,82,232,.03)':'')+'">'+avg+'%</div>';
+  });
+  h2+='</div></div>';
+  h2+='<div style="display:flex;align-items:center;gap:10px;padding:8px 14px;border-top:0.5px solid #eee;background:#f9f9f9;flex-wrap:wrap">';
+  [['#EAF3DE','80%+'],['#FEF9C3','65–79%'],['#FAEEDA','50–64%'],['#FCEBEB','<50%']].forEach(function(s){
+    h2+='<span style="display:flex;align-items:center;gap:4px;font-size:10px;color:#888"><span style="display:inline-block;width:12px;height:8px;border-radius:1px;background:'+s[0]+'"></span>'+s[1]+'</span>';
+  });
+  h2+='<span style="font-size:10px;color:#0C447C;margin-left:8px">Blue columns = highest-gap steps to dollars per RO</span>';
+  h2+='</div>';
+  c.innerHTML=h+h2;
+}
+
+/* ================= ONBOARDING TRACKER (new hires) ================= */
+var onboardData={
+  sales:{
+    heroDays:6,heroWas:21,
+    modules:6,
+    curriculum:'Greet · Needs discovery · Walkaround · Test drive · Objection handling · Ask for the sale',
+    hires:[
+      {n:'T. Alvarez',start:'Started Mon · week 1',done:6,target:7,actual:6,cert:'ready'},
+      {n:'J. Okafor',start:'Started 4 days ago · week 1',done:4,target:7,actual:null,cert:'prog'},
+      {n:'B. Whitfield',start:'Started 2 weeks ago · week 2',done:6,target:7,actual:5,cert:'cert'}
+    ]
+  },
+  service:{
+    heroDays:7,heroWas:24,
+    modules:6,
+    curriculum:'Greet / write-up · Walkaround · MPI review · Recommendation w/ value · Declined-service recovery · Active delivery',
+    hires:[
+      {n:'M. Delgado',start:'Started Tue · week 1',done:5,target:8,actual:null,cert:'prog'},
+      {n:'H. Tran',start:'Started 6 days ago · week 1',done:6,target:8,actual:7,cert:'ready'},
+      {n:'C. Barnes',start:'Started 3 weeks ago · week 3',done:6,target:8,actual:6,cert:'cert'}
+    ]
+  }
+};
+
+function certMeta(c){
+  if(c==='cert') return {cls:'cert',label:'Certified'};
+  if(c==='ready') return {cls:'ready',label:'Floor-ready'};
+  return {cls:'prog',label:'In progress'};
+}
+
+function buildOnboarding(dept){
+  var d=onboardData[dept];
+  var isSvc=dept==='service';
+  var unit=isSvc?'advisor':'rep';
+  var readyOrCert=d.hires.filter(function(x){return x.cert!=='prog';}).length;
+  var h='';
+
+  /* split header — on-ramp 1 */
+  h+='<div class="split-head"><span class="split-eyebrow on1">On-ramp 1</span><h2>Onboarding &mdash; new hires</h2></div>';
+  h+='<div class="split-sub">Structured curriculum against AI customers &mdash; ramp new '+(isSvc?'advisors':'reps')+' <em>before</em> they touch the '+(isSvc?'drive':'floor')+'. Not driven by a floor gap; they have no floor history yet.</div>';
+
+  /* hero value stat — the turnover win */
+  h+='<div class="onbhero"><div class="oh-num">'+d.heroDays+'<span> days</span></div><div class="oh-txt">';
+  h+='<div class="oh-tag">New '+unit+' floor-ready in '+d.heroDays+' days</div>';
+  h+='<div class="oh-sub">'+d.modules+'-module road-to-sale curriculum, each a practice rep against an AI customer, with a floor-ready certification at the end. Fast onboarding is the answer to '+(isSvc?'service-drive':'showroom')+' turnover.</div>';
+  h+='<div class="oh-was">Was ~'+d.heroWas+' days shadowing on the '+(isSvc?'drive':'floor')+'</div>';
+  h+='</div></div>';
+
+  /* KPI row */
+  h+='<div class="mrow">';
+  h+='<div class="mc"><div class="mcl">New hires onboarding</div><div class="mcv br">'+d.hires.length+'</div><div class="mcs">active this month</div></div>';
+  h+='<div class="mc"><div class="mcl">Avg days to floor-ready</div><div class="mcv gr">'+d.heroDays+'</div><div class="mcs">vs ~'+d.heroWas+' before</div></div>';
+  h+='<div class="mc"><div class="mcl">Floor-ready or certified</div><div class="mcv am">'+readyOrCert+'/'+d.hires.length+'</div><div class="mcs">cleared the curriculum</div></div>';
+  h+='<div class="mc"><div class="mcl">Curriculum modules</div><div class="mcv">'+d.modules+'</div><div class="mcs">one practice rep each</div></div>';
+  h+='</div>';
+
+  /* new-hire table */
+  h+='<div class="sh">New hires &mdash; ramp progress &amp; certification</div>';
+  h+='<div class="shsub">Modules completed, days to floor-ready (actual vs target), and where each '+unit+' stands. Curriculum: '+d.curriculum+'.</div>';
+  h+='<div class="card"><div style="display:flex;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">';
+  h+='<div style="width:110px;flex-shrink:0">'+(isSvc?'Advisor':'Rep')+'</div><div style="flex:1.4">Ramp progress</div><div style="width:120px;text-align:right;flex-shrink:0">Days to floor-ready</div><div style="width:104px;text-align:right;flex-shrink:0">Certification</div></div>';
+  d.hires.forEach(function(x){
+    var pct=Math.round(x.done/d.modules*100);
+    var cm=certMeta(x.cert);
+    var daysCell;
+    if(x.actual===null){
+      daysCell='<span style="color:#888">'+x.done+'/'+d.modules+' modules</span> <span style="color:#bbb">·</span> <span style="color:#8a5a12">target '+x.target+'d</span>';
+    }else{
+      var beat=x.actual<=x.target;
+      daysCell='<span style="color:'+(beat?'#27500A':'#8a5a12')+';font-weight:600">'+x.actual+'d</span> <span style="color:#bbb">/</span> <span style="color:#888">'+x.target+'d target</span>';
+    }
+    h+='<div style="display:flex;align-items:center;padding:11px 16px;gap:8px;border-top:0.5px solid #f0f0f0">';
+    h+='<div style="width:110px;flex-shrink:0"><div style="font-size:13px;font-weight:500;color:#000">'+x.n+'</div><div style="font-size:10px;color:#999;margin-top:1px">'+x.start+'</div></div>';
+    h+='<div style="flex:1.4"><div class="ramp-wrap"><div class="ramp-bar" style="width:'+pct+'%"></div></div><div class="ramp-txt">'+x.done+' of '+d.modules+' modules complete</div></div>';
+    h+='<div style="width:120px;text-align:right;flex-shrink:0;font-size:11px">'+daysCell+'</div>';
+    h+='<div style="width:104px;text-align:right;flex-shrink:0"><span class="certpill '+cm.cls+'"><span class="cp-dot"></span>'+cm.label+'</span></div>';
+    h+='</div>';
+  });
+  h+='</div>';
+
+  /* divider into on-ramp 2 */
+  h+='<div class="coach-divider"></div>';
+  h+='<div class="split-head"><span class="split-eyebrow on2">On-ramp 2</span><h2>Coaching loop &mdash; existing reps</h2></div>';
+  h+='<div class="split-sub">Drills auto-assigned from each '+unit+'\'s real '+(isSvc?'service-lane':'floor')+' gaps. Find the specific mistake, then fix it on specifics.</div>';
+
+  return h;
+}
+
+/* ================= COACHING LOOP ================= */
+var loopData={
+  sales:{
+    practiced:14,ofTotal:'of 4 reps · 14 drills',avgScore:78,improved:'+9 pts',
+    who:[
+      {n:'M. Webb',drills:4,score:84,delta:'+6'},
+      {n:'S. Chen',drills:3,score:88,delta:'+4'},
+      {n:'J. Ruiz',drills:4,score:74,delta:'+11'},
+      {n:'D. Park',drills:3,score:69,delta:'+13'},
+    ],
+    hero:{who:'D. Park',step:'Manager T.O.',before:36,drill:'Turnover the deal',score:81,after:54},
+    rows:[
+      {rep:'D. Park',step:'Manager T.O.',drill:'Turnover the deal',score:81,before:36,after:54},
+      {rep:'J. Ruiz',step:'Live feature explain',drill:'Feature-benefit on the drive',score:76,before:50,after:63},
+      {rep:'D. Park',step:'Walkaround',drill:'6-position walkaround',score:72,before:52,after:64},
+      {rep:'M. Webb',step:'Manager T.O.',drill:'Turnover the deal',score:88,before:58,after:71},
+      {rep:'S. Chen',step:'Live feature explain',drill:'Feature-benefit on the drive',score:90,before:74,after:83},
+    ],
+    color:'#1D52E8'
+  },
+  service:{
+    practiced:11,ofTotal:'of 4 advisors · 11 drills',avgScore:75,improved:'+12 pts',
+    who:[
+      {n:'A. Reyes',drills:2,score:89,delta:'+3'},
+      {n:'P. Nguyen',drills:3,score:78,delta:'+9'},
+      {n:'K. Ellis',drills:3,score:71,delta:'+13'},
+      {n:'R. Boone',drills:3,score:66,delta:'+15'},
+    ],
+    hero:{who:'R. Boone',step:'Recommendation w/ value',before:39,drill:'Present maintenance + the why',score:79,after:57},
+    rows:[
+      {rep:'R. Boone',step:'Recommendation w/ value',drill:'Present maintenance + the why',score:79,before:39,after:57},
+      {rep:'R. Boone',step:'Objection handling',drill:'"Too expensive" recovery',score:74,before:41,after:56},
+      {rep:'K. Ellis',step:'Recommendation w/ value',drill:'Present maintenance + the why',score:77,before:46,after:61},
+      {rep:'K. Ellis',step:'MPI review shown',drill:'Walk the red/yellow/green',score:80,before:72,after:81},
+      {rep:'P. Nguyen',step:'Recommendation w/ value',drill:'Present maintenance + the why',score:82,before:58,after:72},
+    ],
+    color:'#639922'
+  }
+};
+
+function buildLoop(dept){
+  var d=loopData[dept];
+  var isSvc=dept==='service';
+  var unit=isSvc?'advisor':'rep';
+  var floorLabel=isSvc?'floor rate on this step':'floor rate on this step';
+  var h='';
+  /* on-ramp 1 — onboarding tracker (rendered above the loop) */
+  h+=buildOnboarding(dept);
+  /* banner */
+  h+='<div class="loopbanner"><div class="lb-tag">Your floor tells you what to practice. The practice fixes your floor.</div>';
+  h+='<div class="lb-sub">Every drill below was auto-assigned from a real '+(isSvc?'service-lane':'floor')+' gap. Practice against an AI customer lifts the score &mdash; and the '+unit+'\'s live '+(isSvc?'lane':'floor')+' rate on that exact step follows. No competitor closes this loop.</div></div>';
+
+  /* KPI row */
+  h+='<div class="mrow">';
+  h+='<div class="mc"><div class="mcl">Drills completed this week</div><div class="mcv br">'+d.practiced+'</div><div class="mcs">'+d.ofTotal+'</div></div>';
+  h+='<div class="mc"><div class="mcl">Avg practice score</div><div class="mcv gr">'+d.avgScore+'</div><div class="mcs">out of 100</div></div>';
+  h+='<div class="mc"><div class="mcl">Avg floor-rate lift</div><div class="mcv am">'+d.improved+'</div><div class="mcs">on drilled steps</div></div>';
+  h+='<div class="mc"><div class="mcl">'+(isSvc?'Advisors':'Reps')+' practicing</div><div class="mcv">'+d.who.length+'/4</div><div class="mcs">all active this week</div></div>';
+  h+='</div>';
+
+  /* the loop visual */
+  var hero=d.hero;
+  h+='<div class="sh">The loop, closing &mdash; '+hero.who+' on "'+hero.step+'"</div>';
+  h+='<div class="shsub">One '+unit+', one weak step, one assigned drill, one measurable floor improvement.</div>';
+  h+='<div class="card-pad"><div class="loopflow">';
+  h+='<div class="lf-node"><div class="lf-lbl" style="color:#791F1F">1 · Floor gap detected</div><div class="lf-big re" style="color:#A32D2D">'+hero.before+'%</div><div class="lf-txt">'+hero.step+'</div><div class="lf-note">'+hero.who+'\'s live '+(isSvc?'lane':'floor')+' rate</div></div>';
+  h+='<div class="lf-arrow">&rarr;</div>';
+  h+='<div class="lf-node"><div class="lf-lbl" style="color:#3A2568">2 · Drill auto-assigned</div><div class="lf-big" style="color:#5B3B9E">'+hero.score+'</div><div class="lf-txt">'+hero.drill+'</div><div class="lf-note">practice score vs AI customer</div></div>';
+  h+='<div class="lf-arrow">&rarr;</div>';
+  h+='<div class="lf-node"><div class="lf-lbl" style="color:#27500A">3 · Floor rate improves</div><div class="lf-big gr" style="color:#27500A">'+hero.after+'%</div><div class="lf-txt">+'+(hero.after-hero.before)+' pts on the '+(isSvc?'drive':'floor')+'</div><div class="lf-note">same step, next week</div></div>';
+  h+='</div></div>';
+
+  /* who practiced */
+  h+='<div class="sh">Who practiced this week</div>';
+  h+='<div class="shsub">Drills completed, average practice score, and the floor-rate change on drilled steps.</div>';
+  h+='<div class="card"><div style="display:flex;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em"><div style="flex:1">'+(isSvc?'Advisor':'Rep')+'</div><div style="width:90px;text-align:right">Drills</div><div style="width:110px;text-align:right">Avg score</div><div style="width:100px;text-align:right">Floor Δ</div></div>';
+  d.who.forEach(function(w){
+    h+='<div style="display:flex;align-items:center;padding:10px 16px;gap:8px;border-top:0.5px solid #f0f0f0"><div style="flex:1;font-size:13px;font-weight:500;color:#000">'+w.n+'</div>';
+    h+='<div style="width:90px;text-align:right;font-size:13px;color:#555">'+w.drills+'</div>';
+    h+='<div style="width:110px;text-align:right;font-size:13px;font-weight:600;color:#000">'+w.score+'</div>';
+    h+='<div style="width:100px;text-align:right;font-size:13px;font-weight:600;color:#27500A">'+w.delta+' pts</div></div>';
+  });
+  h+='</div>';
+
+  /* loop table */
+  h+='<div class="sh">Drills auto-assigned from floor gaps &mdash; the loop, per '+unit+'</div>';
+  h+='<div class="shsub">Weak floor step &rarr; drill assigned &rarr; practice score &rarr; before / after floor rate on that step.</div>';
+  h+='<div class="card"><div style="display:flex;background:#f9f9f9;padding:8px 16px;gap:8px;border-bottom:0.5px solid #eee;font-size:10px;font-weight:600;color:#888;text-transform:uppercase;letter-spacing:.06em">';
+  h+='<div style="width:78px;flex-shrink:0">'+(isSvc?'Advisor':'Rep')+'</div><div style="flex:1.2">Weak floor step</div><div style="flex:1.3">Drill assigned</div><div style="width:56px;text-align:right;flex-shrink:0">Score</div><div style="width:120px;text-align:right;flex-shrink:0">Floor: before &rarr; after</div></div>';
+  d.rows.forEach(function(r){
+    var lift=r.after-r.before;
+    h+='<div style="display:flex;align-items:center;padding:10px 16px;gap:8px;border-top:0.5px solid #f0f0f0">';
+    h+='<div style="width:78px;flex-shrink:0;font-size:12px;font-weight:500;color:#000">'+r.rep+'</div>';
+    h+='<div style="flex:1.2;font-size:12px;color:#555">'+r.step+'</div>';
+    h+='<div style="flex:1.3;font-size:12px;color:#5B3B9E;font-weight:500">'+r.drill+'</div>';
+    h+='<div style="width:56px;text-align:right;flex-shrink:0;font-size:13px;font-weight:600;color:#5B3B9E">'+r.score+'</div>';
+    h+='<div style="width:120px;text-align:right;flex-shrink:0;font-size:12px"><span style="color:#A32D2D">'+r.before+'%</span> <span style="color:#bbb">&rarr;</span> <span style="color:#27500A;font-weight:600">'+r.after+'%</span> <span style="color:#27500A;font-size:10px">(+'+lift+')</span></div>';
+    h+='</div>';
+  });
+  h+='<div style="padding:9px 16px;background:#f9f9f9;font-size:11px;color:#888">Every row started as a red cell in the '+(isSvc?'advisor':'rep')+' matrix. The drill closed the gap without a single manager 1:1.</div>';
+  h+='</div>';
+
+  document.getElementById(dept+'-t3').innerHTML=h;
+}
+
+/* ---------- BUILD EVERYTHING ---------- */
+buildDealList();buildStepBars();buildPGrid();buildMatrix();
+buildObjections('salesObjections',salesObj,'#1D52E8');
+buildObjections('serviceObjections',serviceObj,'#639922');
+buildRoList();buildDeclineReasons();buildSvcMatrix();
+buildLoop('sales');buildLoop('service');
+
+/* ---------- CHARTS ---------- */
 new Chart(document.getElementById('gapChart'),{
   type:'bar',
   data:{
     labels:gapData.map(function(d){return d.step;}),
     datasets:[
-      {label:'Closed deals',data:gapData.map(function(d){return d.cl;}),backgroundColor:'#639922',borderRadius:2},
-      {label:'Walked deals',data:gapData.map(function(d){return d.wl;}),backgroundColor:'#E24B4A',borderRadius:2}
+      {label:'Sold ups',data:gapData.map(function(d){return d.cl;}),backgroundColor:'#639922',borderRadius:2},
+      {label:'Walked ups',data:gapData.map(function(d){return d.wl;}),backgroundColor:'#E24B4A',borderRadius:2}
     ]
   },
   options:{
@@ -385,7 +954,7 @@ new Chart(document.getElementById('trendChart'),{
   data:{
     labels:['Mon','Tue','Wed','Thu','Fri (partial)'],
     datasets:[
-      {type:'bar',label:'Closed',data:[1,2,1,2,2],backgroundColor:'#639922',stack:'d',borderRadius:3},
+      {type:'bar',label:'Sold',data:[1,2,1,2,2],backgroundColor:'#639922',stack:'d',borderRadius:3},
       {type:'bar',label:'Walked',data:[7,7,7,7,6],backgroundColor:'rgba(226,75,74,.55)',stack:'d',borderRadius:3},
       {type:'line',label:'Close ratio',data:[13,22,13,22,25],yAxisID:'pct',borderColor:'#1D52E8',borderWidth:2,pointBackgroundColor:'#1D52E8',pointRadius:4,tension:.3,fill:false}
     ]
@@ -395,8 +964,46 @@ new Chart(document.getElementById('trendChart'),{
     plugins:{legend:{display:false}},
     scales:{
       x:{grid:{display:false},ticks:{font:{size:11},color:'#888'}},
-      y:{stacked:true,min:0,max:12,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',stepSize:2},title:{display:true,text:'Deals',font:{size:10},color:'#888'}},
+      y:{stacked:true,min:0,max:12,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',stepSize:2},title:{display:true,text:'Ups',font:{size:10},color:'#888'}},
       pct:{position:'right',min:0,max:40,grid:{display:false},ticks:{font:{size:11},color:'#1D52E8',callback:function(v){return v+'%'}},title:{display:true,text:'Close ratio',font:{size:10},color:'#1D52E8'}}
+    }
+  }
+});
+
+new Chart(document.getElementById('svcDollarChart'),{
+  type:'bar',
+  data:{
+    labels:svcDollar.map(function(d){return d.a;}),
+    datasets:[
+      {label:'Approved $',data:svcDollar.map(function(d){return d.approved;}),backgroundColor:'#639922',stack:'d',borderRadius:3},
+      {label:'Declined $ (recoverable)',data:svcDollar.map(function(d){return d.declined;}),backgroundColor:'rgba(226,75,74,.55)',stack:'d',borderRadius:3}
+    ]
+  },
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': $'+ctx.raw.toLocaleString();}}}},
+    scales:{
+      x:{grid:{display:false},ticks:{font:{size:11},color:'#888'}},
+      y:{stacked:true,min:0,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',callback:function(v){return '$'+(v/1000)+'k'}},title:{display:true,text:'Recommended $',font:{size:10},color:'#888'}}
+    }
+  }
+});
+
+new Chart(document.getElementById('svcGapChart'),{
+  type:'bar',
+  data:{
+    labels:svcGapData.map(function(d){return d.step;}),
+    datasets:[
+      {label:'Higher-$ ROs',data:svcGapData.map(function(d){return d.hi;}),backgroundColor:'#639922',borderRadius:2},
+      {label:'Lower-$ ROs',data:svcGapData.map(function(d){return d.lo;}),backgroundColor:'#E24B4A',borderRadius:2}
+    ]
+  },
+  options:{
+    indexAxis:'y',responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{callbacks:{label:function(ctx){return ctx.dataset.label+': '+ctx.raw+'%';}}}},
+    scales:{
+      x:{min:0,max:100,grid:{color:'rgba(0,0,0,.06)'},ticks:{font:{size:11},color:'#888',callback:function(v){return v+'%'}}},
+      y:{grid:{display:false},ticks:{font:{size:11},color:'#333'}}
     }
   }
 });

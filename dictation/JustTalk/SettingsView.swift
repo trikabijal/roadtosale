@@ -1,5 +1,36 @@
+import AppKit
 import SwiftUI
 import DictationCore
+
+// MARK: - SettingsWindow
+
+/// Hosts Settings in a normal titled AppKit window, managed exactly like `HistoryWindow`.
+/// The SwiftUI `Settings` scene + the `showSettingsWindow:` selector are unreliable for a
+/// menu-bar (`LSUIElement`) app hosted in an NSPopover outside the scene graph — clicking
+/// Settings would open nothing (or focus whatever window was last shown). An explicit
+/// NSWindow, opened the same way History is, is the reliable path.
+@MainActor
+final class SettingsWindow {
+    private var window: NSWindow?
+
+    func show(appState: AppState) {
+        if window == nil {
+            let w = NSWindow(
+                contentRect: NSRect(x: 0, y: 0, width: 420, height: 560),
+                styleMask: [.titled, .closable, .miniaturizable],
+                backing: .buffered,
+                defer: false
+            )
+            w.title = "Just Talk Settings"
+            w.isReleasedWhenClosed = false
+            w.center()
+            w.contentView = NSHostingView(rootView: SettingsView().environmentObject(appState))
+            window = w
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window?.makeKeyAndOrderFront(nil)
+    }
+}
 
 // MARK: - SettingsView
 
@@ -9,8 +40,8 @@ struct SettingsView: View {
     var body: some View {
         Form {
 
-            // MARK: Recording section
-            Section("Recording") {
+            // MARK: Dictation section
+            Section {
                 Picker("Activation key", selection: Binding(
                     get: { appState.hotkeyConfig },
                     set: { appState.setHotkey($0) }
@@ -19,9 +50,12 @@ struct SettingsView: View {
                         Text(key.displayName).tag(key)
                     }
                 }
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accent)
 
                 Button("Re-run setup…") { appState.showOnboardingWindow() }
                     .buttonStyle(.link)
+                    .tint(Theme.Palette.accent)
 
                 Picker("Activation mode", selection: Binding(
                     get: { appState.hotkeyMode },
@@ -31,28 +65,41 @@ struct SettingsView: View {
                         Text(mode.displayName).tag(mode)
                     }
                 }
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accent)
 
                 Toggle("Auto-paste after transcription", isOn: Binding(
                     get: { appState.autoPaste },
                     set: { appState.setAutoPaste($0) }
                 ))
+                .tint(Theme.Palette.accent)
 
                 Toggle("Play start/stop sounds", isOn: Binding(
                     get: { appState.soundEnabled },
                     set: { appState.setSoundEnabled($0) }
                 ))
+                .tint(Theme.Palette.accent)
+
+                // Live text (words appear as you speak) is now always on — there is a single
+                // capture→transcribe path, so no toggle. The former "Streaming (BETA)" switch was
+                // removed when the second (preview) model was deleted.
+            } header: {
+                sectionHeader("Dictation")
             }
 
             // MARK: Startup section
-            Section("Startup") {
+            Section {
                 Toggle("Launch at login", isOn: Binding(
                     get: { appState.launchAtLogin },
                     set: { appState.setLaunchAtLogin($0) }
                 ))
+                .tint(Theme.Palette.accent)
+            } header: {
+                sectionHeader("Startup")
             }
 
             // MARK: Speech-to-text section
-            Section("Speech-to-text") {
+            Section {
                 // Provider — the voice-understanding model, swappable behind a contract.
                 Picker("Provider", selection: Binding(
                     get: { appState.sttConfig.provider },
@@ -71,6 +118,8 @@ struct SettingsView: View {
                             .tag(provider)
                     }
                 }
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accent)
 
                 // Model — only WhisperKit exposes selectable tiers today.
                 if appState.sttConfig.provider == .whisperKit {
@@ -84,21 +133,24 @@ struct SettingsView: View {
                             Text(tier.displayName).tag(tier)
                         }
                     }
-                    .pickerStyle(.radioGroup)
+                    .pickerStyle(.menu)
+                    .tint(Theme.Palette.accent)
                 }
 
-                if !appState.engineLoaded {
-                    HStack(spacing: 6) {
+                if appState.availability == .warmingUp {
+                    HStack(spacing: Theme.Space.sm) {
                         ProgressView().scaleEffect(0.7)
                         Text(appState.statusMessage)
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(Theme.Palette.textTertiary)
                     }
                 }
+            } header: {
+                sectionHeader("Speech-to-text")
             }
 
             // MARK: AI cleanup section
-            Section("AI Cleanup") {
+            Section {
                 // Level — how aggressively to rewrite dictated speech.
                 Picker("Cleanup", selection: Binding(
                     get: { appState.cleanupConfig.level },
@@ -111,7 +163,8 @@ struct SettingsView: View {
                         Text(level.displayName).tag(level)
                     }
                 }
-                .pickerStyle(.radioGroup)
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accent)
 
                 // Provider — the cleanup model, swappable behind a contract.
                 Picker("Engine", selection: Binding(
@@ -128,30 +181,38 @@ struct SettingsView: View {
                             .tag(provider)
                     }
                 }
+                .pickerStyle(.menu)
+                .tint(Theme.Palette.accent)
 
                 Text("On-device only. Nothing you say or type leaves this Mac.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textTertiary)
+            } header: {
+                sectionHeader("AI Cleanup")
             }
 
             // MARK: Per-app cleanup section
-            Section("Per-App Cleanup") {
+            Section {
                 AppProfilesEditor()
                 Text("Override the cleanup level for specific apps — e.g. Off in your terminal or code editor.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textTertiary)
+            } header: {
+                sectionHeader("Per-App Cleanup")
             }
 
             // MARK: Custom vocabulary section
-            Section("Custom Vocabulary") {
+            Section {
                 VocabularyEditor()
                 Text("Names and jargon — biases transcription and forces spelling after cleanup.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textTertiary)
+            } header: {
+                sectionHeader("Custom Vocabulary")
             }
 
             // MARK: Weekly stats section
-            Section("This Week") {
+            Section {
                 let s = appState.weeklyStats
                 LabeledContent("Transcripts", value: "\(s.totalCount)")
                 LabeledContent("Audio dictated",
@@ -162,10 +223,12 @@ struct SettingsView: View {
                 LabeledContent("Avg latency", value: "\(Int(s.avgLatencyMs)) ms")
                 LabeledContent("Avg audio length",
                                value: "\(String(format: "%.1f", s.avgAudioDurationMs / 1000.0)) s")
+            } header: {
+                sectionHeader("This Week")
             }
 
             // MARK: Usage & cost projection
-            Section("Usage & Cost (all-time)") {
+            Section {
                 let t = appState.usageTotals
                 LabeledContent("Total dictations", value: "\(t.totalCount)")
                 LabeledContent("Total audio",
@@ -173,12 +236,16 @@ struct SettingsView: View {
                 LabeledContent("Est. cloud STT cost",
                                value: String(format: "≈ ₹%.0f", t.totalHours * 45))
                 Text("On-device STT + cleanup is free. The estimate shows what a cloud model billed ~₹45/hr would cost at this usage — a reference for Road to Sale pricing.")
-                    .font(.caption2).foregroundStyle(.secondary)
+                    .font(.caption2).foregroundStyle(Theme.Palette.textTertiary)
+            } header: {
+                sectionHeader("Usage & Cost (all-time)")
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .environment(\.colorScheme, .dark)
         .frame(width: 420, height: 560)
-        .padding()
+        .background(Theme.Palette.surface)
         .navigationTitle("Just Talk Settings")
         .onAppear { Task { await appState.refreshStats() } }
         // ⌘⇧Z correction shortcut — active while the Settings window is key
@@ -189,6 +256,18 @@ struct SettingsView: View {
                 }
             }
         )
+    }
+
+    // MARK: Section header
+
+    /// Uppercase, letter-spaced mono label in the tertiary text color — the grouped-form
+    /// section header used throughout the redesigned Settings window.
+    private func sectionHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(Theme.Font.mono(11))
+            .foregroundStyle(Theme.Palette.textTertiary)
+            .tracking(1.2)
+            .textCase(nil)
     }
 }
 

@@ -38,26 +38,39 @@ struct HistoryView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TextField("Search transcripts…", text: $query)
-                .textFieldStyle(.roundedBorder)
-                .padding(12)
-                .onChange(of: query) { _, _ in Task { await reload() } }
-
-            Divider()
+            HStack(spacing: Theme.Space.sm) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(Theme.Palette.textTertiary)
+                TextField("Search transcripts…", text: $query)
+                    .textFieldStyle(.plain)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+            }
+            .padding(.horizontal, Theme.Space.md)
+            .padding(.vertical, Theme.Space.sm)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.control)
+                    .fill(Theme.Palette.surfaceInset)
+            )
+            .padding(Theme.Space.md)
+            .onChange(of: query) { _, _ in Task { await reload() } }
 
             if results.isEmpty {
                 Spacer()
                 Text(query.isEmpty ? "No transcripts yet" : "No matches")
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(Theme.Palette.textSecondary)
                 Spacer()
             } else {
                 List(results) { record in
                     HistoryRow(record: record) { appState.copyToClipboard(record.transcriptText) }
+                        .listRowBackground(Theme.Palette.surface)
+                        .listRowSeparatorTint(Theme.Palette.stroke)
                 }
-                .listStyle(.inset)
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
         }
         .frame(width: 480, height: 540)
+        .background(Theme.Palette.surface)
         .task { await reload() }
     }
 
@@ -72,21 +85,17 @@ private struct HistoryRow: View {
     @State private var copied = false
 
     var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            VStack(alignment: .leading, spacing: 3) {
+        HStack(alignment: .top, spacing: Theme.Space.sm) {
+            VStack(alignment: .leading, spacing: Theme.Space.xs) {
                 Text(record.transcriptText)
-                    .lineLimit(4)
+                    .font(.callout)
+                    .foregroundStyle(Theme.Palette.textPrimary)
+                    .lineLimit(2)
                     .textSelection(.enabled)
-                HStack(spacing: 8) {
-                    Text(record.recordedAt, format: .dateTime.month().day().hour().minute())
-                        .font(.caption2).foregroundStyle(.tertiary)
-                    if let app = record.frontmostApp {
-                        Text(app).font(.caption2).foregroundStyle(.tertiary).lineLimit(1)
-                    }
-                    if record.wasCorrected {
-                        Text("✗ corrected").font(.caption2).foregroundStyle(.orange)
-                    }
-                }
+                Text(metaLine)
+                    .font(Theme.Font.mono(11))
+                    .foregroundStyle(Theme.Palette.textTertiary)
+                    .lineLimit(1)
             }
             Spacer()
             Button {
@@ -100,10 +109,20 @@ private struct HistoryRow: View {
                 Label(copied ? "Copied" : "Copy", systemImage: copied ? "checkmark" : "doc.on.doc")
                     .labelStyle(.titleAndIcon)
                     .font(.caption)
-                    .foregroundStyle(copied ? Color.green : Color.secondary)
+                    .foregroundStyle(copied ? Theme.Palette.success : Theme.Palette.textSecondary)
             }
             .buttonStyle(.borderless)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, Theme.Space.xs)
+    }
+
+    /// "4 Jul, 3:49 PM · iTerm2 · 94%" — date+time, app (if any), confidence %.
+    private var metaLine: String {
+        var parts: [String] = [
+            record.recordedAt.formatted(.dateTime.day().month(.abbreviated).hour().minute())
+        ]
+        if let app = record.frontmostApp { parts.append(app) }
+        parts.append("\(Int((record.whisperkitConfidence * 100).rounded()))%")
+        return parts.joined(separator: " · ")
     }
 }

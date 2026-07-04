@@ -58,6 +58,9 @@ targets:
         NSMicrophoneUsageDescription: "Just Talk uses the microphone to record your voice for transcription. Audio never leaves your Mac."
         NSAppleEventsUsageDescription: "Just Talk sends keyboard events to paste transcribed text into the app you're using."
         LSUIElement: true
+        # OS-level guard: LaunchServices won't launch a second instance of this bundle. Backed up
+        # by a process-wide file lock in AppDelegate, which also catches a differently-signed copy.
+        LSMultipleInstancesProhibited: true
     scheme:
       testTargets:
         - JustTalkTests

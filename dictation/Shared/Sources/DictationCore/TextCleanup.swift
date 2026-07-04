@@ -72,19 +72,25 @@ public struct CleanupRequest: Sendable {
     public var vocab: [String: String]            // forced spellings, applied AFTER cleanup
     public var commandGrammar: [String: String]   // "new paragraph" → "\n\n"
     public var profile: String
+    /// Streaming cleanup only: the previously cleaned sentence, supplied as read-only rolling
+    /// context so seams (casing, punctuation, pronouns) stay consistent across sentence-by-sentence
+    /// cleanup. Empty for batch cleanup. Never echoed into the output — context in, not out.
+    public var priorContext: String
 
     public init(
         rawText: String,
         level: CleanupLevel,
         vocab: [String: String] = [:],
         commandGrammar: [String: String] = [:],
-        profile: String = "dictation"
+        profile: String = "dictation",
+        priorContext: String = ""
     ) {
         self.rawText = rawText
         self.level = level
         self.vocab = vocab
         self.commandGrammar = commandGrammar
         self.profile = profile
+        self.priorContext = priorContext
     }
 }
 

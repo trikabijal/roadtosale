@@ -24,40 +24,57 @@ The main flow. All orchestration lives in `JustTalk/AppState.swift` unless noted
 3. **`startRecording()`:**
    - Gates on `dictationState == .idle && engineLoaded`, and on **mic permission** (never
      starts the audio engine without it — that was the "mic prompt on every key press" bug).
-   - Resets the `BufferAccumulator`, records the start time, captures the **frontmost app**
+   - Resets the `CapturedAudioStream`, records the start time, captures the **frontmost app**
      (`NSWorkspace.frontmostApplication`) as the paste target.
    - Calls `cleanup.prewarm()` — warms the on-device LLM *while the user talks* (~355 ms warm
      vs ~1.3 s cold).
    - `recordingEngine.start()` (`DictationCore/RecordingEngine.swift`) installs the audio tap.
-   - Shows the `RecordingHUD` ("Listening…") and starts the live-preview loop.
+   - Shows the `RecordingHUD` ("Listening…") and opens the streaming session
+     (`startStreamingSession` → `StreamingDictationSession`). There is **one** capture→transcribe
+     path — every dictation streams STT; the old batch-vs-streaming split and its Settings toggle
+     are gone.
 4. **Audio capture.** `RecordingEngine` converts each native buffer to 16 kHz mono Float32 and
    calls back on the audio thread:
    - `recordingEngine(_:didReceiveBuffer:)` → `audio.append(buffer)` **synchronously on the
      audio thread** (order-preserving — this is what fixed long recordings scrambling).
+     `CapturedAudioStream` appends under an `os_unfair_lock` with an O(1) critical section, so the
+     audio render thread is never meaningfully blocked (it replaced the `NSLock`-based accumulator).
    - `recordingEngine(_:didUpdateLevel:)` → updates the HUD meter and the "too quiet" warning,
      and enforces the **10-minute hard safety stop**.
-   - Silence detection is wired but intentionally does **not** auto-stop.
-   - Meanwhile `runPreview()` transcribes the last 30 s with the tiny `tinyEn` model every
-     ~1.2 s for the HUD preview only (never the paste path).
-5. **Key release / second tap → stop.** `stopRecordingAndTranscribe()` stops the engine,
-   cancels the preview, sets state `.transcribing`, snapshots the buffers, **persists the raw
-   audio** (`persistRecording` → `FileRecordingStore`, last 5 kept), and launches
-   `performTranscription`.
-6. **Transcription** (`performTranscription` → `transcribeWithRetry`):
-   - `withTimeout(60s)` wraps `transcriber.transcribe(buffers:audioStartDate:)`. Up to 3
-     attempts on transient failure; `emptyResult`/`noAudioData` are rethrown immediately
-     (no point retrying silence); a `TimeoutError` fails fast.
-   - `WhisperKitTranscriber` flattens buffers, rejects silence/quiet/hallucinated output, and
-     returns a `TranscriptionResult`.
-7. **Cleanup:**
+   - `recordingEngineDidDetectSilence` → `flushStreamingSegment`. VAD silence still does **not**
+     auto-stop; it marks a segment boundary. Each flush hands the buffers captured since the last
+     flush to the session, which transcribes that segment with the **single main `transcriber`**
+     and appends the raw words, growing the live HUD pill. There is **no** second (preview) model —
+     the old tiny `tinyEn` live-preview loop was deleted, because running two models starved the
+     Neural Engine and dropped mic buffers. The session assembles **raw STT only** during speech;
+     no cleanup runs yet.
+5. **Key release / second tap → stop.** `stopRecordingAndTranscribe()` routes to `stopStreaming()`:
+   stops the engine, sets state `.transcribing`, snapshots the buffers, **persists the raw audio**
+   (`persistRecording` → `FileRecordingStore`, last 5 kept), ingests the final tail (a no-pause
+   recording simply ingests the whole buffer here), then awaits `session.finish()` and hands off to
+   `finalizeStreaming`.
+6. **Transcription** happens incrementally during capture (step 4) plus the final tail at stop —
+   all through the single `transcriber`, assembling raw text only. `WhisperKitTranscriber` flattens
+   each segment's buffers, rejects silence/quiet/hallucinated output, and returns a
+   `TranscriptionResult`. `finalizeStreaming` preserves the batch path's safety net: an
+   **empty-but-substantial-audio** result routes through `handleEmpty` → `failWithRetry` (audio
+   preserved, HUD Retry shown). **Retry** re-runs the batch `performTranscription` →
+   `transcribeWithRetry` — `withTimeout(60s)`, up to 3 attempts, `emptyResult`/`noAudioData`
+   rethrown immediately, `TimeoutError` fast-failed.
+7. **Cleanup — once, at stop, over the full transcript** (inside `session.finish()`):
    - The effective `CleanupLevel` is resolved against the record-start app
-     (`effectiveLevel(forBundleId:)` — per-app overrides, e.g. Off in a terminal).
-   - If level ≠ `.off` and word count ≥ `pack.minWordsForCleanup`, `cleanup.clean(CleanupRequest)`
-     runs. `FoundationModelsCleanup` calls the on-device model under a length-scaled timeout,
-     runs the output through `CleanupOutputSanitizer`, and applies the deterministic
+     (`effectiveLevel(forBundleId:)` — per-app overrides, e.g. Off in a terminal), captured when
+     the session was created.
+   - If level ≠ `.off`, `cleanup.clean(CleanupRequest)` runs **one** pass over the whole assembled
+     raw transcript. `FoundationModelsCleanup` calls the on-device model under a length-scaled
+     timeout, runs the output through `CleanupOutputSanitizer`, and applies the deterministic
      command/vocab/lexicon post-pass. **It never throws** — any failure falls back to
      `RuleBasedCleanup` with `usedFallback = true`.
-   - `finalText = cleanupResult?.cleanedText ?? rawText`.
+   - Cleanup is deliberately **not** per-sentence. The previous per-sentence pass fed the prior
+     cleaned sentence back as `priorContext`, which the small on-device model echoed — snowballing
+     into 3–4× repeated sentences (`qc/bugs/streaming/repeated-sentence.md`). The one-pass model has
+     no `priorContext`, so there is nothing to compound.
+   - `finalText = cleanedText` (falls back to the raw transcript if cleanup returns empty).
 8. **Paste** (`ClipboardPaster.writeAndPaste`, `JustTalk/ClipboardPaster.swift`):
    - Snapshots the user's clipboard, writes `finalText`, re-activates the target app, and
      `pasteWhenFocused` polls until the target is frontmost (up to ~0.6 s) before posting a
@@ -89,19 +106,23 @@ sequenceDiagram
     HK->>AS: hotkeyDidPress()
     AS->>AS: startRecording() (gate mic perm, capture target app)
     AS->>CL: prewarm()
-    AS->>RE: start()
+    AS->>RE: start() + startStreamingSession()
     loop while recording
-        RE-->>AS: didReceiveBuffer (16kHz mono) → BufferAccumulator
+        RE-->>AS: didReceiveBuffer (16kHz mono) → CapturedAudioStream
         RE-->>AS: didUpdateLevel → HUD + 10-min safety stop
+        RE-->>AS: didDetectSilence → flushStreamingSegment
+        AS->>WK: transcribe(segment) [single model]
+        WK-->>AS: raw segment text → grow HUD pill
     end
     U->>HK: release / second tap
     HK->>AS: hotkeyDidRelease() / toggle
     AS->>RE: stop()
-    AS->>AS: persistRecording() (FileRecordingStore, last 5)
-    AS->>WK: transcribe() under withTimeout(60s), ≤3 retries
-    WK-->>AS: TranscriptionResult (raw text)
-    AS->>CL: clean(CleanupRequest) [never throws]
+    AS->>AS: stopStreaming(): persistRecording (last 5) + ingest final tail
+    AS->>WK: transcribe(final tail)
+    WK-->>AS: raw text → assemble full transcript
+    AS->>CL: clean(full transcript, ONE pass) [never throws]
     CL-->>AS: CleanupResult (cleaned, usedFallback?)
+    Note over AS,WK: empty + substantial audio → handleEmpty → failWithRetry<br/>(Retry re-runs batch performTranscription: withTimeout 60s, ≤3 tries)
     AS->>CP: writeAndPaste(finalText, targetApp)
     CP->>U: synthetic ⌘V into target, restore clipboard
     AS->>TS: save(TranscriptRecord)
@@ -158,7 +179,6 @@ Recovers a junk/failed dictation without re-speaking.
    - `transcriber.load(onProgress:)` downloads (first run) and loads the WhisperKit model,
      streaming progress to the status line.
    - Opens `TelemetryStore`, runs the **30-day privacy purge**, and loads recent transcripts.
-   - Loads the tiny live-preview model in the background.
 3. The wizard's "press your key to test" step routes a press to
    `hotkeyDidReceiveConfiguredKey()` only (`HotkeyManager.isTesting`) to prove the key reaches
    the app — the definitive hotkey-conflict check.
@@ -169,6 +189,10 @@ Recovers a junk/failed dictation without re-speaking.
 
 Mirrors Flow 1 with the keyboard's constraints. Driven by `KeyboardViewModel` (the full
 implementation is in git history; current files on this branch are diagnostic stubs).
+
+> The macOS engine change to a single unified streaming path with once-at-stop cleanup was
+> **macOS-only**. iOS was not touched: it still legitimately uses the batch `performTranscription`
+> path described below (transcribe the whole buffer at stop, then one cleanup pass).
 
 1. The user enables the **Dictation** keyboard and grants **Allow Full Access** (microphone),
    then switches to it in any app.
