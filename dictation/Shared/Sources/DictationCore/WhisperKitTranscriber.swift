@@ -293,9 +293,10 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
 
         var options = DecodingOptions()
         options.clipTimestamps = [Float(agreement.lastConfirmedEnd)]
-        if let biasPrompt, let tokens = whisperKit.tokenizer?.encode(text: " " + biasPrompt) {
-            options.promptTokens = tokens
-        }
+        // NOTE: deliberately NO vocab-bias promptTokens here. WhisperKit echoes the prompt into the
+        // output on thin/near-silent windows, dumping the private vocab list onto the live pill (the
+        // F10 echo class). The pill is preview only; the accurate PASTED text is the batch pass, which
+        // keeps the bias. So spelling accuracy is unaffected — we just stop the echo on the pill.
 
         // Stream the running decode into the pill as the hypothesis (token-by-token) so growth is
         // smooth, not a per-pass jump. `confirmed` is stable during the pass — snapshot it.

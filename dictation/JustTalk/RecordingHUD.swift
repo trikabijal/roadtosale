@@ -11,8 +11,12 @@ final class RecordingHUDModel: ObservableObject {
     @Published var level: Float = 0          // 0…~1 mic RMS
     @Published var phase: RecordingHUDPhase = .recording
     @Published var label: String = "Listening…"
-    @Published var previewText: String = ""  // live partial transcript while recording (confirmed)
-    @Published var hypothesisText: String = ""  // tentative trailing words (streaming pill, dimmed)
+    @Published var previewText: String = ""  // live partial transcript while recording (confirmed) — TARGET
+    @Published var hypothesisText: String = ""  // tentative trailing words (streaming pill, dimmed) — TARGET
+    // How many characters of the combined live text are currently revealed. A reveal driver eases
+    // this toward the target length a few chars per frame, so the pill grows/shrinks GRADUALLY no
+    // matter how chunky the STT updates land (the "jumps" fix — PRD 0008).
+    @Published var revealedCount: Int = 0
     @Published var lowInput: Bool = false    // mic level too low to transcribe reliably
     // Failure actions, set when `phase == .failed`.
     var onRetry: (() -> Void)?
@@ -36,6 +40,44 @@ final class RecordingHUD {
     var onAppear: (() -> Void)?
     var onDisappear: (() -> Void)?
 
+    /// Per-frame driver that eases `revealedCount` toward the live text length — the "gradual, not
+    /// jumps" fix. Runs only while the live pill is up.
+    private var revealTask: Task<Void, Never>?
+
+    private func combinedLiveLength() -> Int {
+        let c = model.previewText, h = model.hypothesisText
+        if h.isEmpty { return c.count }
+        if c.isEmpty { return h.count }
+        return c.count + 1 + h.count   // + the joining space
+    }
+
+    private func ensureRevealRunning() {
+        guard revealTask == nil else { return }
+        revealTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                if let self {
+                    let target = self.combinedLiveLength()
+                    let cur = self.model.revealedCount
+                    if cur != target {
+                        // Ease: the further from target, the faster — so a big block still lands
+                        // smoothly over a few frames instead of snapping.
+                        let delta = target - cur
+                        let step = Swift.max(1, abs(delta) / 6)
+                        self.model.revealedCount = delta > 0 ? cur + Swift.min(delta, step)
+                                                             : cur - Swift.min(-delta, step)
+                    }
+                }
+                try? await Task.sleep(for: .milliseconds(16))   // ~60fps
+            }
+        }
+    }
+
+    private func stopReveal() {
+        revealTask?.cancel()
+        revealTask = nil
+        model.revealedCount = 0
+    }
+
     func show(phase: RecordingHUDPhase, label: String) {
         model.phase = phase
         model.label = label
@@ -43,6 +85,8 @@ final class RecordingHUD {
         model.previewText = ""
         model.hypothesisText = ""
         model.lowInput = false
+        model.revealedCount = 0
+        if phase == .recording { ensureRevealRunning() } else { stopReveal() }
         present()
     }
 
@@ -64,6 +108,8 @@ final class RecordingHUD {
         model.previewText = ""
         model.hypothesisText = ""
         model.lowInput = false
+        model.revealedCount = 0
+        if phase == .recording { ensureRevealRunning() } else { stopReveal() }
     }
 
     func update(level: Float) {
@@ -79,15 +125,18 @@ final class RecordingHUD {
     func update(previewText: String) {
         model.previewText = previewText
         model.hypothesisText = ""
+        ensureRevealRunning()
     }
 
     /// Streaming pill (PRD 0008): confirmed words render solid, the hypothesis tail dimmed.
     func update(confirmed: String, hypothesis: String) {
         model.previewText = confirmed
         model.hypothesisText = hypothesis
+        ensureRevealRunning()
     }
 
     func hide() {
+        stopReveal()
         panel?.orderOut(nil)
         if isVisible {
             isVisible = false
@@ -105,6 +154,7 @@ final class RecordingHUD {
         model.previewText = ""
         model.hypothesisText = ""
         model.lowInput = false
+        stopReveal()
         model.onMarkWrong = onMarkWrong
         present()
     }
@@ -117,6 +167,7 @@ final class RecordingHUD {
         model.level = 0
         model.previewText = ""
         model.hypothesisText = ""
+        stopReveal()
         model.onRetry = onRetry
         model.onDismiss = onDismiss
         present()
@@ -201,35 +252,47 @@ final class RecordingHUD {
 private struct HUDContentView: View {
     @ObservedObject var model: RecordingHUDModel
 
+    /// The full combined live text (confirmed + " " + hypothesis) — the TARGET the reveal eases toward.
+    private var liveFull: String {
+        let c = model.previewText, h = model.hypothesisText
+        if h.isEmpty { return c }
+        if c.isEmpty { return h }
+        return c + " " + h
+    }
+
+    /// Only the currently-revealed prefix — the typewriter grows this a few chars per frame, so the
+    /// pill moves gradually (the "no jumps" fix). Head-truncation keeps the newest (tail) visible.
+    private var shownLive: String { String(liveFull.prefix(model.revealedCount)) }
+
     /// Plain-string form of what the pill shows — used for the low-input branch, emptiness checks,
-    /// and as the `.animation` value so growth animates on any text change.
+    /// and as the `.animation` value so the capsule resizes smoothly as the reveal advances.
     private var displayText: String {
         if model.phase == .recording && model.lowInput {
             return "Speak up — I can barely hear you"
         }
-        let live = model.hypothesisText.isEmpty
-            ? model.previewText
-            : (model.previewText.isEmpty ? model.hypothesisText : model.previewText + " " + model.hypothesisText)
-        return (model.phase == .recording && !live.isEmpty) ? live : model.label
+        let shown = shownLive
+        return (model.phase == .recording && !shown.isEmpty) ? shown : model.label
     }
 
     /// Attributed live transcript for the roll-up pill: confirmed words solid, the tentative
     /// hypothesis tail dimmed (Whisper still revises the tail — never render it as final). Rendered
     /// as one line, head-truncated, so the newest words stay visible and the oldest scroll off.
     private var attributedLive: AttributedString {
-        var confirmed = AttributedString(model.previewText)
-        confirmed.foregroundColor = Theme.Palette.textPrimary
-        guard !model.hypothesisText.isEmpty else { return confirmed }
-        var tail = AttributedString((model.previewText.isEmpty ? "" : " ") + model.hypothesisText)
-        tail.foregroundColor = Theme.Palette.textPrimary.opacity(0.45)
-        confirmed.append(tail)
-        return confirmed
+        let shown = shownLive
+        let confirmedLen = min(shown.count, model.previewText.count)
+        var s = AttributedString(String(shown.prefix(confirmedLen)))
+        s.foregroundColor = Theme.Palette.textPrimary
+        if shown.count > confirmedLen {
+            var tail = AttributedString(String(shown.dropFirst(confirmedLen)))
+            tail.foregroundColor = Theme.Palette.textPrimary.opacity(0.45)
+            s.append(tail)
+        }
+        return s
     }
 
     /// Whether the pill should render the live transcript vs the status label / warning.
     private var showsLiveTranscript: Bool {
-        model.phase == .recording && !model.lowInput
-            && !(model.previewText.isEmpty && model.hypothesisText.isEmpty)
+        model.phase == .recording && !model.lowInput && !liveFull.isEmpty
     }
 
     private var micColor: Color {

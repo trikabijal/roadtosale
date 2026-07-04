@@ -453,7 +453,10 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Recording control (called by HotkeyManager)
 
     func startRecording() {
-        guard dictationState == .idle, engineLoaded else { return }
+        guard dictationState == .idle, engineLoaded else {
+            log.notice("startRecording ignored: state=\(String(describing: self.dictationState), privacy: .public) engineLoaded=\(self.engineLoaded, privacy: .public) correctionWindow=\(self.correctionWindowOpen, privacy: .public)")
+            return
+        }
         // Never start the audio engine without mic permission — doing so re-triggers the
         // system mic prompt on EVERY activation-key press (the "mic window 4 times" bug).
         // Surface onboarding so the user grants it once; the engine is the only thing that
