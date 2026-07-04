@@ -552,12 +552,10 @@ public final class AppState: NSObject, ObservableObject {
         streamingPill = nil
         streamTickTask = nil
         if streamingPillEnabled, let pill = transcriber.makeStreamingSession() {
-            // Stream the live decode into the pill token-by-token (smooth growth) — confirmed solid,
-            // running hypothesis dimmed. Guarded so a stale pass can't paint after stop / teardown.
-            pill.onLivePartial { [weak self] t in
-                guard let self, self.dictationState == .recording, self.streamingPill === pill else { return }
-                self.recordingHUD.update(confirmed: t.confirmed, hypothesis: t.hypothesis)
-            }
+            // Drive the pill from CONFIRMED text only — it is append-only (LocalAgreement never
+            // rewrites it), so the pill never re-renders / chatters. The per-token hypothesis was the
+            // chatter source (each pass re-decodes the whole unconfirmed window from scratch), so it
+            // is intentionally NOT shown. The reveal driver smooths confirmed's per-pass growth.
             streamingPill = pill
             startStreamTick()
         }
@@ -576,7 +574,7 @@ public final class AppState: NSObject, ObservableObject {
                 guard !samples.isEmpty else { continue }
                 let t = await pill.step(samples: samples)
                 guard dictationState == .recording, streamingPill === pill else { break }
-                recordingHUD.update(confirmed: t.confirmed, hypothesis: t.hypothesis)
+                recordingHUD.update(previewText: t.confirmed)   // confirmed only — append-only, no chatter
             }
         }
     }

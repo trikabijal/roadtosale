@@ -54,18 +54,24 @@ final class RecordingHUD {
     private func ensureRevealRunning() {
         guard revealTask == nil else { return }
         revealTask = Task { @MainActor [weak self] in
+            var exact = 0.0
+            // CONSTANT reveal speed (~1 char/frame ≈ 60 chars/s, roughly speech rate) so the pill
+            // types continuously — NOT proportional, which burst-typed each phrase then paused (the
+            // "5 jumps"). Only if we've fallen far behind (fast speech) do we speed up to catch up.
+            let steadyRate = 1.0
+            let catchUpBacklog = 50.0
             while !Task.isCancelled {
                 if let self {
-                    let target = self.combinedLiveLength()
-                    let cur = self.model.revealedCount
-                    if cur != target {
-                        // Ease: the further from target, the faster — so a big block still lands
-                        // smoothly over a few frames instead of snapping.
-                        let delta = target - cur
-                        let step = Swift.max(1, abs(delta) / 6)
-                        self.model.revealedCount = delta > 0 ? cur + Swift.min(delta, step)
-                                                             : cur - Swift.min(-delta, step)
+                    let target = Double(self.combinedLiveLength())
+                    if exact < target {
+                        let gap = target - exact
+                        let step = gap > catchUpBacklog ? gap / 12.0 : steadyRate
+                        exact = Swift.min(target, exact + step)
+                    } else if exact > target {
+                        // Text shrank (rare with confirmed-only) — ease back gradually, not a snap.
+                        exact = Swift.max(target, exact - 2.0)
                     }
+                    self.model.revealedCount = Int(exact)
                 }
                 try? await Task.sleep(for: .milliseconds(16))   // ~60fps
             }
@@ -327,7 +333,9 @@ private struct HUDContentView: View {
         .fixedSize(horizontal: true, vertical: false)   // hug content width (texts self-cap below)
         // Smoothly grow/shrink the pill as the transcript streams in (until the text cap), and on
         // state changes — matches the design's growing HUD.
-        .animation(.easeOut(duration: 0.15), value: displayText)
+        // Short linear so per-frame reveal steps blend without rubber-banding against each other
+        // (the reveal driver already provides the smooth growth).
+        .animation(.linear(duration: 0.05), value: displayText)
         .animation(.easeOut(duration: 0.15), value: model.phase)
         .frame(maxWidth: .infinity)                      // center the content-sized pill in the panel
     }
