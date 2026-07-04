@@ -27,7 +27,8 @@ the contract** (run on every platform that implements it) plus **once per platfo
 |---|---|---|---|---|
 | Activation | "start/stop dictation" signal | `HotkeyManager` (global key tap) | keyboard-extension mic key | IME mic key / button |
 | Capture | 16 kHz mono PCM float, **in order** | `RecordingEngine` (AVAudioEngine) | `RecordingEngine` (AVAudioEngine) | AudioRecord |
-| Transcription | `SpeechTranscriber` (`load`, `transcribe`, `setVocabularyBias`) | WhisperKit | Apple SpeechTranscriber / WhisperKit-lite | Argmax |
+| Transcription (batch) | `SpeechTranscriber` (`load`, `transcribe`, `setVocabularyBias`) | WhisperKit **+ Apple SpeechAnalyzer** | Apple SpeechTranscriber / WhisperKit-lite | Argmax |
+| Transcription (streaming) | `StreamingTranscriber` (`step`/`finish`, confirmed+hypothesis) — the live pill | WhisperKit `AudioStreamTranscriber` logic **+ Apple volatile/finalized** | Apple SpeechTranscriber | Argmax streaming |
 | Cleanup | `TextCleanup` (`clean`, `prewarm`) | Foundation Models → rule-based | Foundation Models → rule-based | on-device LLM → rule-based |
 | Insertion | "insert text into the focused field" | clipboard write + synthetic ⌘V (`ClipboardPaster`) | `UITextDocumentProxy.insertText` | `InputConnection.commitText` |
 | Persistence | `RecordingStore` (save/recent/load), telemetry store | files + GRDB SQLite | App Group container + SQLite | app-private dir + SQLite/Room |
@@ -104,6 +105,19 @@ These are the narrower, contract-level cases a failing journey decomposes into �
 - **T-STT-5 (Tier 2):** silence / near-silent input yields empty (not a hallucinated phantom phrase like "thank you for watching").
 - **T-STT-6 (Tier 3):** **multilingual** — a mixed-language (Hinglish, incl. Gujarati) clip transcribes correctly on a multilingual tier; English-only tiers are *not* offered as multilingual.
 - *Adapter notes:* run against each platform's engine (WhisperKit / Apple Speech / Argmax) with the **same fixtures + same assertions**. Gain normalization of quiet input is a contract-level behavior (assert a low-level clip still transcribes).
+
+### Streaming (live pill) — `StreamingTranscriber` + `StreamingAgreement` (PRD 0008)
+- **T-STR-1 (Tier 1):** `StreamingAgreement.integrate` confirms all-but-`requiredUnconfirmed` segments; a later pass that revises the tail **never rewrites confirmed** (append-only); `lastConfirmedEnd` is monotonic; no duplication on a whole-buffer re-decode. *(COVERED — `StreamingAgreementTests`, 8 model-free tests.)*
+- **T-STR-2 (Tier 2):** the WhisperKit sanitizer strips timestamp/special tokens (`<|5.90|>`) from segment text. *(COVERED — `StreamingAgreementTests.testSanitize…`.)*
+- **T-STR-3 (Tier 2, model-gated):** `WhisperKitTranscriber.makeStreamingSession()` re-decodes a growing fixture and its confirmed text grows monotonically and matches the batch transcript's prefix; the 0.5 s re-decode throttle holds. *(PENDING — needs weights.)*
+- **T-STR-4 (Tier 2, model-gated, macOS 26):** `AppleSpeechTranscriber` streaming session over a fixture emits finalized+volatile text; confirmed is append-only; `finish()` returns the full transcript. *(PENDING — needs Apple assets.)*
+- **T-STR-5 (Tier 1):** streaming is **preview only** — with a `MockStreamingTranscriber`, assert the pasted output still comes from batch `transcribe()` and is byte-identical regardless of `streamingPillEnabled`. *(PENDING — `AppState` seam.)*
+
+### Apple provider — `AppleSpeechTranscriber` (macOS 26)
+- **T-APL-1 (Tier 2, model-gated):** `load()` on a supported locale (en-US) installs assets and readies; `transcribe()` of an English fixture returns the sentence. *(PENDING.)*
+- **T-APL-2 (Tier 1):** `STTProvider.appleSpeech.isAvailable` is false below macOS 26 and the factory returns `UnavailableTranscriber` (graceful, no crash). *(PENDING — pure, easily automatable.)*
+- **T-APL-3 (Tier 2):** `load()` on an unsupported locale (e.g. `gu-IN`) throws `providerUnavailable` so `AppState` falls back to WhisperKit. *(PENDING.)*
+- **T-APL-4 (Tier 3):** `AppleAudioConverter` round-trips a 16 kHz mono buffer to Apple's format without loss/crash on format mismatch. *(PENDING — pure, automatable.)*
 
 ### Cleanup — `TextCleanup`
 - **T-CLN-1 (Tier 1):** `clean(level:.full)` removes fillers, fixes capitalization/punctuation, returns non-degenerate text.
@@ -203,11 +217,15 @@ These are the narrower, contract-level cases a failing journey decomposes into �
 > already exists. Cross-refs: [architecture.md](architecture.md) · [flows.md](flows.md) ·
 > [../../voice-engine/docs/model-contracts.md](../../voice-engine/docs/model-contracts.md).
 
-**The test files (49 test methods total):**
+**The test files (72 DictationCore test methods + 9 hotkey-config = 81 total):**
 
 | File | Tests | Layer |
 |---|---|---|
 | `Shared/Tests/DictationCoreTests/CleanupTests.swift` | 30 | Cleanup contract, hallucination filter, cleanup packs, output sanitizer, factory |
+| `Shared/Tests/DictationCoreTests/StreamingAgreementTests.swift` | 8 | **LocalAgreement-2 confirmed/hypothesis logic + token sanitizer (PRD 0008)** |
+| `Shared/Tests/DictationCoreTests/StreamingDictationTests.swift` | 8 | Streaming session assembly order + tail-only post-stop (mock STT/cleanup) |
+| `Shared/Tests/DictationCoreTests/FoundationModelsCleanupTests.swift` | 6 | FM cleanup sanitizer/degenerate guards |
+| `Shared/Tests/DictationCoreTests/CapturedAudioStreamTests.swift` | 5 | Order-preserving capture buffer |
 | `Shared/Tests/DictationCoreTests/RecordingStoreTests.swift` | 4 | Recording-store contract + audio bridge |
 | `Shared/Tests/DictationCoreTests/TimeoutTests.swift` | 3 | Timeout race utility |
 | `Shared/Tests/DictationCoreTests/PipelineTests.swift` | 2 | Contract-level dictate→clean (mock STT) |
@@ -231,6 +249,8 @@ real impl in commit `1554186`), so no iOS adapter test can run.
 | Cleanup packs (data-as-knowledge) | (§ architecture) | ✅ COVERED | `CleanupPackTests › testBundledPackResourceIsPresent`, `…testBundledPackLoads`, `…testBundledPackMatchesFallback` (drift guard), `…testRoadToSalePackLexiconLoads`, `…testRoadToSaleLexiconAppliesInCleanup`, `…testCatalogTermsMergeIntoLexicon` |
 | `SpeechTranscriber` — hallucination/junk filter | (part of T-STT-5) | ✅ COVERED | `HallucinationFilterTests › testJunkPhraseDroppedOnShortClip`, `…testJunkPhraseDroppedOnLowConfidence`, `…testRealSpeechKept`, `…testEmptyIsHallucination` |
 | `SpeechTranscriber` — real transcription | T-STT-1,2,3,4,6 | ⛔ PENDING | no test loads/transcribes real audio; `MockTranscriber` only stands in for the pipeline shape (`PipelineTests`). Ordered/complete output, long audio, vocab-bias efficacy, multilingual all unautomated |
+| `StreamingTranscriber` / `StreamingAgreement` (PRD 0008) | T-STR-1,2 | ✅ COVERED | `StreamingAgreementTests` — confirmed/hypothesis split, tail-revision-safe, monotonic, no-dup, token sanitizer (8 model-free tests). Live WhisperKit/Apple streaming (T-STR-3,4) + the batch-output-unchanged seam (T-STR-5) remain ⛔ PENDING |
+| `AppleSpeechTranscriber` (macOS 26) | T-APL-1..4 | ⛔ PENDING | no test; `isAvailable`-gating (T-APL-2) and `AppleAudioConverter` (T-APL-4) are pure and automatable now; live load/transcribe/locale-fallback need Apple assets on device |
 | `RecordingStore` | T-PERSIST-1,2 | ✅ COVERED | `RecordingStoreTests › testSaveThenLoadRoundTripsSamples`, `…testRetainsOnlyNewestFive`, `…testLoadMissingThrows`, `…testBufferBridgeRoundTrip` |
 | Telemetry store | T-TEL-1 (partial) | ⚠️ PARTIAL | retention/purge covered (`TelemetryRetentionTests › testPurgeRemovesRecordsOlderThanWindow`); **save→aggregate weekly stats** (T-TEL-1) and **shared App-Group cross-process** (T-TEL-2) are not tested |
 | Capture (`RecordingEngine`) | T-CAP-1..4 | ⛔ PENDING | no `RecordingEngine` test (needs an audio harness / capture seam); only the neutral `[Float]`⇄buffer bridge is exercised (`RecordingStoreTests › testBufferBridgeRoundTrip`) |
@@ -271,8 +291,9 @@ it is the prerequisite, not writing the tests.
 ### 8.4 Summary count
 
 - **✅ COVERED (well):** cleanup (rule-based + packs + sanitizer + factory), hallucination
-  filter, recording store + audio bridge, telemetry retention, hotkey config/conflict, timeout
-  primitive — **6 contract areas, 49 tests.**
+  filter, recording store + audio bridge, capture buffer ordering, telemetry retention, hotkey
+  config/conflict, timeout primitive, **streaming `StreamingAgreement` (LocalAgreement-2 + token
+  sanitizer)**, streaming-session assembly order — **~8 contract areas, 72 DictationCore tests.**
 - **⚠️ PARTIAL:** FM cleanup fallback path, telemetry save/aggregate, activation (config only,
   not the live tap), and journeys J2/J6/J7 (half automated at contract level) — **4 areas.**
 - **⛔ PENDING:** real STT, capture engine, insertion, permissions, `AppState` orchestrator,
@@ -305,6 +326,11 @@ surface it would drive.
 12. **Permissions gating (T-PERM-1,2,3).** Assert status reads are non-prompting, capture won't start without mic, onboarding gates correctly.
 13. **Low-input warning (T-CAP-3,4 / T-HUD-2 / J5).** Feed a low-gain fixture; assert the HUD "too quiet" warning toggles with level.
 14. **Vocab-bias efficacy (T-STT-4, model-gated).** Assert `setVocabularyBias` measurably improves exact-spelling rate on a clip.
+14a. **Apple availability gating (T-APL-2, pure — do now).** Assert `STTProvider.appleSpeech.isAvailable` matches OS and the factory returns `UnavailableTranscriber` below macOS 26 (no crash). Model-free.
+14b. **`AppleAudioConverter` round-trip (T-APL-4, pure — do now).** 16 kHz mono → Apple format → non-empty buffer; handles a format mismatch without crashing.
+14c. **Batch-output-unchanged seam (T-STR-5, `MockStreamingTranscriber`).** With streaming on vs off, the pasted text is byte-identical (streaming is preview only).
+14d. **Live streaming sessions (T-STR-3 WhisperKit, T-STR-4 Apple, model-gated).** Growing fixture → confirmed text grows monotonically, matches batch prefix; Apple emits finalized+volatile; `finish()` returns the full transcript.
+14e. **Apple locale fallback (T-APL-1,3, model-gated, macOS 26).** en-US loads+transcribes; an unsupported locale throws `providerUnavailable` so `AppState` falls back to WhisperKit.
 
 ### Tier 3 — edge / stress / quality (weekly / major release)
 15. **Long-audio + cleanup timeout (T-STT-3, T-CLN-7).** ~5-min fixture; assert full transcription and that cleanup either completes within the scaled timeout or falls back without collapse/balloon.
@@ -319,7 +345,7 @@ surface it would drive.
 21. **App-Group cross-process telemetry (T-TEL-2).** A record written by the host app is readable by the extension and vice-versa.
 22. **Keyboard-extension memory ceiling (§4).** The extension loads under its ~50 MB budget on the `tinyEn` tier without the heavy STT/LLM deps faulting it.
 
-**Backlog count:** **22 pending tests** — 5 Tier 1, 9 Tier 2, 5 Tier 3, 3 iOS-blocked.
+**Backlog count:** **27 pending tests** — 5 Tier 1, 14 Tier 2 (incl. streaming/Apple items 14a–14e), 5 Tier 3, 3 iOS-blocked. Highest-value quick wins that need no model: **14a, 14b, 14c** (Apple gating, converter, batch-output-unchanged seam) — all pure/mockable.
 Implementing #1–#5 would convert the Tier-1 journeys (J2, J6, J7) and the capture/STT
 contracts from ⚠️/⛔ to ✅ and is the highest-value next step. **No test code was added or
 changed in this revision.**

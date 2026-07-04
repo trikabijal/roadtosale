@@ -132,15 +132,25 @@ This is the strategy pattern mirrored from voice-engine.
 
 **`SpeechTranscriber`** (`SpeechTranscriber.swift`) — the speech-to-text model.
 - `load(onProgress:)`, `transcribe(buffers:audioStartDate:)`, optional `setVocabularyBias`,
-  `reset()`.
-- `STTProvider` (`whisperKit`, `appleSpeech` — contract-ready but not yet implemented, `mock`)
-  + `STTConfig {provider, model}` + `SpeechTranscriberFactory`.
-- **`WhisperKitTranscriber`** is the live implementation: downloads/loads by `ModelTier`
-  (split download → load for first-run progress), gain-normalizes quiet audio, filters
+  `reset()`, and `makeStreamingSession() -> StreamingTranscriber?` (the live pill — see below).
+- `STTProvider` (`whisperKit`, `appleSpeech`, `mock`) + `STTConfig {provider, model}` +
+  `SpeechTranscriberFactory`. **Two live providers now**, chosen by the user's dictation language:
+- **`WhisperKitTranscriber`** — the **multilingual / accuracy** provider: downloads/loads by
+  `ModelTier` (split download → load for first-run progress), gain-normalizes quiet audio, filters
   silence-hallucinations (peak floor + known-junk-phrase + low-confidence checks), and biases
-  custom vocabulary via `DecodingOptions.promptTokens`. Model files are cached under
-  **Application Support** (`com.trika.dictation/huggingface`), not `~/Documents`, to avoid a
-  burst of macOS Documents-folder TCC prompts.
+  custom vocabulary via `DecodingOptions.promptTokens`. Model files cached under **Application
+  Support** (`com.trika.dictation/huggingface`), not `~/Documents`, to avoid a burst of macOS
+  Documents-folder TCC prompts. **The only provider covering Hinglish/Gujarati** and best on
+  proper nouns (prompt-biasing).
+- **`AppleSpeechTranscriber`** (`AppleSpeechTranscriber.swift`, macOS 26+) — the **fast English**
+  provider, on Apple's on-device `SpeechAnalyzer`/`SpeechTranscriber`. ~2× faster than WhisperKit
+  large-v3-turbo, with native volatile/finalized streaming (its `AppleStreamingSession` powers a
+  smooth pill with no re-decode cost). `config.model` is a BCP-47 locale (e.g. `en-US`).
+  **Verified on-device: Apple ships NO Hindi/Gujarati model** (only en/de/es/fr/it/ja/ko/pt/zh), so
+  multilingual dictation stays on WhisperKit. `AppleAudioConverter` bridges our 16 kHz mono buffers
+  to Apple's required format; language assets auto-download via `AssetInventory`; Speech
+  authorization is requested on load. **Provider selection is the design lever: English → Apple,
+  Hinglish/Gujarati → WhisperKit** (PRD 0008 §Outcome).
 - `TranscriptionResult` is provider-agnostic (carries `provider` + `model`).
 
 **`TextCleanup`** (`TextCleanup.swift`) — the cleanup model (the on-device LLM that polishes

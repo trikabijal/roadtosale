@@ -50,11 +50,15 @@ The main flow. All orchestration lives in `JustTalk/AppState.swift` unless noted
      no cleanup runs yet.
    - **Per-word roll-up pill (PRD 0008, when `streamingPillEnabled`).** Instead of the per-segment
      preview above, a `StreamingTranscriber` (vended by the loaded transcriber, reusing its one
-     model) runs on a ~0.8 s tick over the growing buffer, applying LocalAgreement-2 to emit a
-     `confirmed` prefix + `hypothesis` tail. The HUD renders confirmed solid + hypothesis dimmed on
-     one head-truncated line, so words stream in per-word and the oldest scroll off the front. This
-     is the **live pill only** — the pasted text is still the batch pass at stop. Falls back to the
-     per-segment preview if the provider can't stream.
+     model) runs on a ~100 ms tick and drives the pill's confirmed text via a constant-rate reveal.
+     The HUD renders it on one head-truncated line, so words stream in and the oldest scroll off the
+     front. This is the **live pill only** — the pasted text is still the batch pass at stop. Falls
+     back to the per-segment preview if the provider can't stream.
+   - **Provider selection (PRD 0008 §Outcome).** The transcriber is chosen in Settings by dictation
+     language: **`AppleSpeechTranscriber`** (macOS 26, English — fast batch + native
+     volatile/finalized streaming) or **`WhisperKitTranscriber`** (multilingual/Hinglish/Gujarati —
+     LocalAgreement-2 window streaming). Both sit behind the same `SpeechTranscriber` /
+     `StreamingTranscriber` contracts, so this flow is identical either way; only the adapter changes.
 5. **Key release / second tap → stop.** `stopRecordingAndTranscribe()` routes to `stopStreaming()`:
    stops the engine, sets state `.transcribing`, snapshots the buffers, **persists the raw audio**
    (`persistRecording` → `FileRecordingStore`, last 5 kept), ingests the final tail (a no-pause
