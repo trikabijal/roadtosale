@@ -44,12 +44,18 @@ public protocol SpeechTranscriber: AnyObject {
     /// Release the loaded model so orphaned/timed-out work can't keep holding resources; the
     /// next `transcribe` reloads. Default: no-op (only heavyweight engines need it).
     func reset()
+    /// Vend a streaming session for the LIVE PILL (PRD 0008), reusing THIS transcriber's already-
+    /// loaded model — no second model, no second mic. Returns `nil` when the provider can't stream
+    /// (the caller then falls back to the per-segment preview). The accurate PASTED text always
+    /// comes from `transcribe(buffers:)`, never from the streaming session. Default: `nil`.
+    func makeStreamingSession() -> (any StreamingTranscriber)?
 }
 
 public extension SpeechTranscriber {
     func load() async throws { try await load(onProgress: nil) }
     func setVocabularyBias(_ terms: [String]) {}
     func reset() {}
+    func makeStreamingSession() -> (any StreamingTranscriber)? { nil }
 }
 
 // MARK: - Provider + config

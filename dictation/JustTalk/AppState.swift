@@ -65,6 +65,10 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var vocabulary: [String] = []
     @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
     @Published public var soundEnabled: Bool = false
+    /// Per-word roll-up live pill via LocalAgreement streaming STT (PRD 0008). When on, the pill
+    /// grows word-by-word from a streaming session; when off (or the provider can't stream), it
+    /// falls back to the per-segment preview. The PASTED text is the batch pass either way.
+    @Published public var streamingPillEnabled: Bool = true
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
 
@@ -156,6 +160,14 @@ public final class AppState: NSObject, ObservableObject {
     private var streamSession: StreamingDictationSession?
     private var streamFlushedCount = 0
     private var streamPump: Task<Void, Never>?
+    // Per-word roll-up pill (PRD 0008). `streamingPill` is a LocalAgreement streaming session vended
+    // by the loaded transcriber (reuses its model); `streamTickTask` re-transcribes the growing
+    // buffer on a throttle and drives the confirmed/hypothesis pill. Non-nil only while a streaming
+    // recording is live. When nil, the pill falls back to the per-segment `streamSession` preview.
+    private var streamingPill: (any StreamingTranscriber)?
+    private var streamTickTask: Task<Void, Never>?
+    /// Throttle between streaming passes. Tuned live for latency-vs-cost (PRD 0008 open question).
+    private static let streamTickInterval: Duration = .milliseconds(800)
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
@@ -229,6 +241,7 @@ public final class AppState: NSObject, ObservableObject {
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
+        self.streamingPillEnabled = defaults.object(forKey: "streamingPillEnabled") as? Bool ?? true
         self.launchAtLogin = LoginItem.isEnabled
         if let data = defaults.data(forKey: "appProfiles"),
            let profiles = try? JSONDecoder().decode([AppCleanupProfile].self, from: data) {
@@ -527,6 +540,35 @@ public final class AppState: NSObject, ObservableObject {
         streamSession = session
         streamFlushedCount = 0
         streamPump = nil
+
+        // Per-word roll-up pill (PRD 0008): vend a streaming session from the LOADED transcriber
+        // (reuses its model). If the provider can't stream (nil), the per-segment `streamSession`
+        // preview above remains the pill source — a clean fallback. The pasted text is the batch
+        // pass at stop either way, so the streaming pill can never corrupt output.
+        streamingPill = nil
+        streamTickTask = nil
+        if streamingPillEnabled, let pill = transcriber.makeStreamingSession() {
+            streamingPill = pill
+            startStreamTick()
+        }
+    }
+
+    /// Throttled loop that re-transcribes the growing audio and drives the confirmed/hypothesis pill.
+    /// Runs OFF the audio thread; non-reentrant by construction (one awaited step per tick). The
+    /// buffer append still happens on the audio render thread via `CapturedAudioStream`, so these
+    /// passes can't starve capture.
+    private func startStreamTick() {
+        streamTickTask = Task { @MainActor in
+            while dictationState == .recording, let pill = streamingPill {
+                try? await Task.sleep(for: Self.streamTickInterval)
+                guard dictationState == .recording, streamingPill === pill else { break }
+                let samples = AudioSampleBridge.flatten(audio.snapshot())
+                guard !samples.isEmpty else { continue }
+                let t = await pill.step(samples: samples)
+                guard dictationState == .recording, streamingPill === pill else { break }
+                recordingHUD.update(confirmed: t.confirmed, hypothesis: t.hypothesis)
+            }
+        }
     }
 
     /// On each VAD silence, hand the buffers captured since the last flush to the streaming session.
@@ -534,6 +576,10 @@ public final class AppState: NSObject, ObservableObject {
     /// session concurrently. Never auto-stops — the activation key still controls stop.
     private func flushStreamingSegment() {
         guard dictationState == .recording, let session = streamSession else { return }
+        // When the per-word streaming pill is active it owns the pill and re-transcribes on its own
+        // tick — running the per-segment preview too would put two transcribe loops on the one model
+        // (the Neural-Engine-starvation failure). So the per-segment path is the fallback only.
+        guard streamingPill == nil else { return }
         // `drain(after:)` returns the buffers captured since the last flush plus the new total —
         // one place owns the cursor math (no hand-rolled slicing).
         let (segment, newCount) = audio.drain(after: streamFlushedCount)
@@ -564,13 +610,18 @@ public final class AppState: NSObject, ObservableObject {
         let startDate = recordingStartDate ?? Date()
         logCaptureMetric(buffers: all, startDate: startDate)
         persistRecording(buffers: all, recordedAt: startDate)
-        // Tear down the preview session; the batch path owns the output.
+        // Tear down BOTH preview paths; the batch path owns the output. The streaming pill must be
+        // fully stopped before the batch pass so two transcribes don't hit the one model at once.
         let prev = streamPump
+        let tick = streamTickTask
         streamSession = nil
         streamFlushedCount = 0
         streamPump = nil
+        streamTickTask = nil
+        streamingPill = nil   // the tick loop sees this and exits; its `pill` ref keeps it alive to finish
         Task { @MainActor in
             await prev?.value   // let any in-flight preview flush settle (its result is discarded)
+            _ = await tick?.value  // let any in-flight streaming step finish before batch touches the model
             await performTranscription(buffers: all, audioStartDate: startDate)
         }
     }
@@ -1062,6 +1113,11 @@ public final class AppState: NSObject, ObservableObject {
     func setSoundEnabled(_ value: Bool) {
         soundEnabled = value
         UserDefaults.standard.set(value, forKey: "soundEnabled")
+    }
+
+    func setStreamingPillEnabled(_ value: Bool) {
+        streamingPillEnabled = value
+        UserDefaults.standard.set(value, forKey: "streamingPillEnabled")
     }
 
     func setLaunchAtLogin(_ value: Bool) {

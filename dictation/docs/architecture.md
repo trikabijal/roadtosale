@@ -107,6 +107,16 @@ Owns the `AVAudioEngine` session.
   3–4× repeats (`qc/bugs/streaming/repeated-sentence.md`); one pass has no `priorContext` to
   compound. There is no second (preview) model — running two models starved the Neural Engine and
   dropped mic buffers, so the tiny live-preview transcriber was deleted.
+- **`StreamingTranscriber` + `StreamingAgreement` + `WhisperKitStreamingSession`** (PRD 0008) — the
+  **per-word roll-up pill**. A LocalAgreement-2 streaming session (vended by the loaded transcriber
+  via `makeStreamingSession()`, reusing its **one** model) re-transcribes the growing buffer on a
+  throttled tick and emits a stable `confirmed` prefix + tentative `hypothesis` tail. `AppState`
+  drives the pill from it (confirmed solid, hypothesis dimmed, head-truncated single line — words
+  stream in, oldest scroll off). It is the **live pill only**: the pasted text is still the batch
+  pass, so the streaming pill can never corrupt output. Gated by `streamingPillEnabled` with a clean
+  fallback to the per-segment preview. `StreamingAgreement` is pure/unit-tested; the confirm logic
+  and `clipTimestamps` windowing are procured from WhisperKit's `AudioStreamTranscriber` (which owns
+  its own mic and so couldn't be dropped in — see PRD 0008 §0).
 - **`DictationState.swift`** — the forward-looking **semantic state** surface. Two orthogonal enums
   replace the tangled `dictationState` / `engineLoaded` / free-floating `statusMessage`:
   `DictationPhase { idle, capturing, finishing, inserted, failed(FailReason) }` (what THIS

@@ -216,6 +216,17 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         )
     }
 
+    // MARK: - Streaming session (PRD 0008 — the live pill)
+
+    /// Vend a LocalAgreement streaming session that reuses THIS transcriber's already-loaded model
+    /// (no second model, no second mic). Returns nil until the model is loaded — the caller then
+    /// falls back to the per-segment preview. Only ever drives the live pill; the pasted text still
+    /// comes from `transcribe(buffers:)`.
+    public func makeStreamingSession() -> (any StreamingTranscriber)? {
+        guard let wk = whisperKit else { return nil }
+        return WhisperKitStreamingSession(whisperKit: wk, biasPrompt: biasPrompt)
+    }
+
     // MARK: - Hallucination filter
 
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
@@ -237,5 +248,84 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         guard !normalized.isEmpty else { return true }
         guard junkPhrases.contains(normalized) else { return false }
         return durationMs < 1500 || confidence < 0.5
+    }
+}
+
+// MARK: - WhisperKit streaming session (LocalAgreement-2, PRD 0008)
+
+/// Streaming transcriber backing the live pill. Reuses a loaded `WhisperKit` instance (shared with
+/// the `WhisperKitTranscriber` that vended it) and re-transcribes the growing audio each `step`,
+/// applying `StreamingAgreement` to split stable confirmed text from the revisable hypothesis tail.
+///
+/// The confirmed/hypothesis logic and the `clipTimestamps=[lastConfirmedEnd]` windowing are the same
+/// as WhisperKit's own `AudioStreamTranscriber` (see PRD 0008 §0) — we run them over OUR fed buffers
+/// instead of WhisperKit's self-owned microphone, so `RecordingEngine`'s capture/retry/VAD/metering
+/// stay intact.
+@MainActor
+public final class WhisperKitStreamingSession: StreamingTranscriber {
+    private let whisperKit: WhisperKit
+    private let biasPrompt: String?
+    private var agreement = StreamingAgreement(requiredUnconfirmed: 2)
+    private var last = StreamingTranscript.empty
+    /// Guard against the O(n²) re-encode blow-up: past this much audio we stop running new streaming
+    /// passes (the pill freezes at the last confirmed text) — the accurate pasted text is the batch
+    /// pass at stop regardless, so long dictations lose only live-pill motion, not correctness.
+    private static let maxStreamSeconds: Double = 45
+
+    public init(whisperKit: WhisperKit, biasPrompt: String?) {
+        self.whisperKit = whisperKit
+        self.biasPrompt = biasPrompt
+    }
+
+    public func step(samples: [Float]) async -> StreamingTranscript {
+        guard !samples.isEmpty else { return last }
+        let seconds = Double(samples.count) / RecordingEngine.targetSampleRate
+        // Stop feeding new audio once past the guard, but let the tail finish confirming.
+        guard seconds <= Self.maxStreamSeconds else { return last }
+        // Silence floor — don't let WhisperKit hallucinate a phantom phrase into the pill.
+        let peak = samples.reduce(Float(0)) { Swift.max($0, abs($1)) }
+        guard peak >= WhisperKitTranscriber.silenceFloor else { return last }
+
+        var options = DecodingOptions()
+        options.clipTimestamps = [Float(agreement.lastConfirmedEnd)]
+        if let biasPrompt, let tokens = whisperKit.tokenizer?.encode(text: " " + biasPrompt) {
+            options.promptTokens = tokens
+        }
+
+        let start = Date()
+        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options),
+              !results.isEmpty else {
+            return last   // a failed pass is a no-op for the preview — never abort the dictation
+        }
+        let latencyMs = Int(Date().timeIntervalSince(start) * 1000)
+
+        let segs = results.flatMap { $0.segments }
+        let fresh = segs.map { AgreedSegment(text: $0.text, start: Double($0.start), end: Double($0.end)) }
+        agreement.integrate(fresh)
+
+        let confidence: Double
+        if segs.isEmpty {
+            confidence = last.confidence
+        } else {
+            let avg = segs.reduce(0.0) { $0 + Double($1.avgLogprob) } / Double(segs.count)
+            confidence = max(0, min(1, exp(avg)))
+        }
+        last = StreamingTranscript(confirmed: agreement.confirmedText,
+                                   hypothesis: agreement.hypothesisText,
+                                   confidence: confidence, latencyMs: latencyMs)
+        return last
+    }
+
+    public func finish(samples: [Float]?) async -> StreamingTranscript {
+        if let samples { _ = await step(samples: samples) }
+        let confirmed = agreement.flushHypothesis()
+        last = StreamingTranscript(confirmed: confirmed, hypothesis: "",
+                                   confidence: last.confidence, latencyMs: last.latencyMs)
+        return last
+    }
+
+    public func reset() {
+        agreement = StreamingAgreement(requiredUnconfirmed: 2)
+        last = .empty
     }
 }

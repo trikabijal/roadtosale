@@ -11,7 +11,8 @@ final class RecordingHUDModel: ObservableObject {
     @Published var level: Float = 0          // 0…~1 mic RMS
     @Published var phase: RecordingHUDPhase = .recording
     @Published var label: String = "Listening…"
-    @Published var previewText: String = ""  // live partial transcript while recording
+    @Published var previewText: String = ""  // live partial transcript while recording (confirmed)
+    @Published var hypothesisText: String = ""  // tentative trailing words (streaming pill, dimmed)
     @Published var lowInput: Bool = false    // mic level too low to transcribe reliably
     // Failure actions, set when `phase == .failed`.
     var onRetry: (() -> Void)?
@@ -40,6 +41,7 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
+        model.hypothesisText = ""
         model.lowInput = false
         present()
     }
@@ -60,6 +62,7 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
+        model.hypothesisText = ""
         model.lowInput = false
     }
 
@@ -72,8 +75,16 @@ final class RecordingHUD {
         if model.lowInput != low { model.lowInput = low }
     }
 
+    /// Per-segment preview (fallback path): all confirmed, no hypothesis tail.
     func update(previewText: String) {
         model.previewText = previewText
+        model.hypothesisText = ""
+    }
+
+    /// Streaming pill (PRD 0008): confirmed words render solid, the hypothesis tail dimmed.
+    func update(confirmed: String, hypothesis: String) {
+        model.previewText = confirmed
+        model.hypothesisText = hypothesis
     }
 
     func hide() {
@@ -92,6 +103,7 @@ final class RecordingHUD {
         model.label = "Inserted"
         model.level = 0
         model.previewText = ""
+        model.hypothesisText = ""
         model.lowInput = false
         model.onMarkWrong = onMarkWrong
         present()
@@ -104,6 +116,7 @@ final class RecordingHUD {
         model.label = message
         model.level = 0
         model.previewText = ""
+        model.hypothesisText = ""
         model.onRetry = onRetry
         model.onDismiss = onDismiss
         present()
@@ -188,11 +201,35 @@ final class RecordingHUD {
 private struct HUDContentView: View {
     @ObservedObject var model: RecordingHUDModel
 
+    /// Plain-string form of what the pill shows — used for the low-input branch, emptiness checks,
+    /// and as the `.animation` value so growth animates on any text change.
     private var displayText: String {
         if model.phase == .recording && model.lowInput {
             return "Speak up — I can barely hear you"
         }
-        return (model.phase == .recording && !model.previewText.isEmpty) ? model.previewText : model.label
+        let live = model.hypothesisText.isEmpty
+            ? model.previewText
+            : (model.previewText.isEmpty ? model.hypothesisText : model.previewText + " " + model.hypothesisText)
+        return (model.phase == .recording && !live.isEmpty) ? live : model.label
+    }
+
+    /// Attributed live transcript for the roll-up pill: confirmed words solid, the tentative
+    /// hypothesis tail dimmed (Whisper still revises the tail — never render it as final). Rendered
+    /// as one line, head-truncated, so the newest words stay visible and the oldest scroll off.
+    private var attributedLive: AttributedString {
+        var confirmed = AttributedString(model.previewText)
+        confirmed.foregroundColor = Theme.Palette.textPrimary
+        guard !model.hypothesisText.isEmpty else { return confirmed }
+        var tail = AttributedString((model.previewText.isEmpty ? "" : " ") + model.hypothesisText)
+        tail.foregroundColor = Theme.Palette.textPrimary.opacity(0.45)
+        confirmed.append(tail)
+        return confirmed
+    }
+
+    /// Whether the pill should render the live transcript vs the status label / warning.
+    private var showsLiveTranscript: Bool {
+        model.phase == .recording && !model.lowInput
+            && !(model.previewText.isEmpty && model.hypothesisText.isEmpty)
     }
 
     private var micColor: Color {
@@ -245,14 +282,21 @@ private struct HUDContentView: View {
             )
             .frame(width: 78, height: 18)
 
-            // Live partial transcript (truncates from the head so the latest words show);
-            // replaced by the low-input warning when the mic is too quiet.
-            Text(displayText)
-                .font(.callout)
-                .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.head)
-                .frame(maxWidth: 300, alignment: .leading)   // grows with the transcript; caps + truncates long
+            // Live transcript roll-up (PRD 0008): confirmed solid + hypothesis dimmed, one line,
+            // head-truncated so the newest words show and the oldest scroll off the front. Falls
+            // back to the status label / low-input warning when there's no live text.
+            Group {
+                if showsLiveTranscript {
+                    Text(attributedLive)
+                } else {
+                    Text(displayText)
+                        .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
+                }
+            }
+            .font(.callout)
+            .lineLimit(1)
+            .truncationMode(.head)
+            .frame(maxWidth: 300, alignment: .leading)   // grows with the transcript; caps + truncates long
         }
     }
 

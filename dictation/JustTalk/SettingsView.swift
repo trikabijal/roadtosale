@@ -80,9 +80,14 @@ struct SettingsView: View {
                 ))
                 .tint(Theme.Palette.accent)
 
-                // Live text (words appear as you speak) is now always on — there is a single
-                // capture→transcribe path, so no toggle. The former "Streaming (BETA)" switch was
-                // removed when the second (preview) model was deleted.
+                // Per-word roll-up pill (PRD 0008): the live pill grows word-by-word from a
+                // LocalAgreement streaming session instead of only on speech pauses. Preview only —
+                // the pasted text is the accurate batch pass either way, so this can't affect output.
+                Toggle("Live pill grows word-by-word (beta)", isOn: Binding(
+                    get: { appState.streamingPillEnabled },
+                    set: { appState.setStreamingPillEnabled($0) }
+                ))
+                .tint(Theme.Palette.accent)
             } header: {
                 sectionHeader("Dictation")
             }

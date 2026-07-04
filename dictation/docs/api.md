@@ -27,11 +27,17 @@ public protocol SpeechTranscriber: AnyObject {
     func transcribe(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async throws -> TranscriptionResult
     func setVocabularyBias(_ terms: [String])   // optional; default no-op
     func reset()                                 // release the loaded model; default no-op
+    func makeStreamingSession() -> (any StreamingTranscriber)?   // live pill; default nil
 }
 public extension SpeechTranscriber {
     func load() async throws                     // convenience: load(onProgress: nil)
 }
 ```
+
+- `makeStreamingSession()` vends a **streaming** session for the live pill (PRD 0008) that reuses
+  this transcriber's already-loaded model — no second model, no second mic. Returns `nil` when the
+  provider can't stream (the caller falls back to the per-segment preview). The accurate **pasted**
+  text always comes from `transcribe(buffers:)`, never from the streaming session. See §8.
 
 - `load(onProgress:)` reports download completion (0.0–1.0) on the main actor — the first run
   fetches a ~40 MB–1 GB model.
@@ -410,6 +416,42 @@ public final class StreamingDictationSession {
 raw text (errors are swallowed so a bad segment can't abort the dictation). `finish` assembles the
 full raw transcript and runs **one** `cleanup.clean(...)` pass — no `priorContext`, no per-sentence
 session. There is no second (preview) model.
+
+### Streaming transcriber — `StreamingTranscriber.swift` (PRD 0008, live pill)
+
+The streaming sibling of `SpeechTranscriber` — feeds a growing audio buffer and emits a
+LocalAgreement-2 confirmed/hypothesis split for the **per-word roll-up pill**. It drives the live
+HUD only; the pasted text is still the batch `transcribe(buffers:)` pass.
+
+```swift
+public struct StreamingTranscript: Sendable, Equatable {
+    public let confirmed: String     // stable prefix — render solid, won't change
+    public let hypothesis: String    // tentative tail — render dimmed, may still change
+    public let confidence: Double
+    public let latencyMs: Int
+    public var display: String { get }   // confirmed + " " + hypothesis
+    public static let empty: StreamingTranscript
+}
+
+@MainActor
+public protocol StreamingTranscriber: AnyObject {
+    func step(samples: [Float]) async -> StreamingTranscript      // one incremental pass over audio-so-far
+    func finish(samples: [Float]?) async -> StreamingTranscript   // promote hypothesis → confirmed
+    func reset()
+}
+
+@MainActor public final class MockStreamingTranscriber: StreamingTranscriber { ... }   // deterministic, no model
+```
+
+- **`StreamingAgreement`** (`StreamingAgreement.swift`) — the pure, model-free LocalAgreement-2 logic
+  (confirmed/unconfirmed split + `lastConfirmedEnd` windowing), lifted from WhisperKit's
+  `AudioStreamTranscriber` so it can run over our own fed buffers. Unit-tested with synthetic
+  segments (`StreamingAgreementTests`).
+- **`WhisperKitStreamingSession`** (in `WhisperKitTranscriber.swift`) — vended by
+  `WhisperKitTranscriber.makeStreamingSession()`; reuses the loaded `WhisperKit` instance, decodes
+  with `clipTimestamps=[lastConfirmedEnd]` + the vocab-bias prompt, and stops running new passes past
+  a `maxStreamSeconds` guard (caps the re-encode cost on long dictations — the pill freezes, the
+  batch output is unaffected).
 
 ## 9. Semantic dictation state — `DictationState.swift`
 
