@@ -64,6 +64,15 @@ func sentenceNumbers(_ text: String) -> Set<Int> {
 let pack = CleanupPackLoader.load()
 let ruleEngine = RuleBasedCleanup(pack: pack)
 
+func makeCleanupEngine() -> any TextCleanup {
+    #if canImport(FoundationModels)
+    if #available(macOS 26.0, *) {
+        return FoundationModelsCleanup(pack: pack, fallback: ruleEngine)
+    }
+    #endif
+    return ruleEngine
+}
+
 func cleanupRequest(_ text: String) -> CleanupRequest {
     CleanupRequest(rawText: text, level: .full, vocab: [:], commandGrammar: [:], profile: "dictation")
 }
@@ -210,6 +219,36 @@ struct Bench {
             let fm = await timeBatchCleanupFM(batchText)
             let rule = await timeBatchCleanupRule(batchText)
             let chunkedClean = await timeChunkedCleanupFM(batchText)
+
+            // REAL committed pipeline: drive StreamingDictationSession end-to-end (real WhisperKit
+            // per-segment + ONE real FM cleanup pass at stop, no rolling context). Feed all-but-last
+            // segment as "during speech" (untimed), then measure the last segment + finish() as the
+            // post-stop wait, and check the assembled text is complete.
+            let cleanupEngine: any TextCleanup = makeCleanupEngine()
+            let session = StreamingDictationSession(transcriber: stt, cleanup: cleanupEngine, level: .full)
+            session.prewarm()
+            let segLen = Int(8.0 * sr)   // ~8s pseudo-VAD segments
+            var segStarts: [Int] = []
+            var p = 0; while p < samples.count { segStarts.append(p); p += segLen }
+            for s in segStarts.dropLast() {
+                let e = min(s + segLen, samples.count)
+                _ = await session.ingest(segment: [makeBuffer(samples[s..<e])], audioStartDate: now())
+            }
+            let psStart = now()
+            if let lastStart = segStarts.last {
+                let e = min(lastStart + segLen, samples.count)
+                _ = await session.ingest(segment: [makeBuffer(samples[lastStart..<e])], audioStartDate: now())
+            }
+            let streamFinal = await session.finish()
+            let streamPostStopMs = msSince(psStart)
+            let streamCov = codewordsPresent(streamFinal.cleanedText)
+            let streamWords = streamFinal.cleanedText.split(separator: " ").count
+            if let outfile {
+                let base = (outfile as NSString).deletingLastPathComponent
+                try? streamFinal.cleanedText.write(toFile: "\(base)/text_\(name)_stream.txt", atomically: true, encoding: .utf8)
+            }
+            print("  STREAM realSession postStop=\(streamPostStopMs)ms words=\(streamWords) codewords=\(streamCov)")
+
             let fmMs = fm?.ms ?? -1
             let fmLast = chunkedClean?.lastMs ?? -1
             let ruleMs = rule.ms

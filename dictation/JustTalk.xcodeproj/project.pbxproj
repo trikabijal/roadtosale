@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05E7CE5A84496D5CE08D8148 /* ClipboardPaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */; };
 		27ED2AFF7B461210B306C66B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A732C99F4CC32FEAC6D6762 /* AppState.swift */; };
+		2A08240AFDBAC11C579986B4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE9AA6B82BF95DEE8368937 /* Theme.swift */; };
 		31FD2E192660FDA86DFB389C /* HotkeyConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */; };
 		33433838F497E5B26ED117D0 /* DictationContainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9400B0D4896004BF8C91126D /* DictationContainerApp.swift */; };
 		362649B8F95B44E35066B5D1 /* HotkeyManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081E925FBC74EB1B9A3F02B5 /* HotkeyManager.swift */; };
@@ -91,6 +92,7 @@
 		9400B0D4896004BF8C91126D /* DictationContainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationContainerApp.swift; sourceTree = "<group>"; };
 		993BC46DBE7A4778A9C4FE18 /* PermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsService.swift; sourceTree = "<group>"; };
 		9989335E128E025C92F4A1B9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		AFE9AA6B82BF95DEE8368937 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		BEC0F0210BB98D90297A4066 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C2529F3629EBE1A1EB5E16E0 /* JustTalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JustTalk.entitlements; sourceTree = "<group>"; };
 		DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConflict.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 				993BC46DBE7A4778A9C4FE18 /* PermissionsService.swift */,
 				7E4169A37D9C2D1977D6B169 /* RecordingHUD.swift */,
 				6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */,
+				AFE9AA6B82BF95DEE8368937 /* Theme.swift */,
 			);
 			path = JustTalk;
 			sourceTree = "<group>";
@@ -389,6 +392,7 @@
 				87DB9C88ABAEBE0CA6D5D1C2 /* PermissionsService.swift in Sources */,
 				A1B2AEF4E14138FE4601A9E2 /* RecordingHUD.swift in Sources */,
 				E039C21DEE4C6CDA55AA70C2 /* SettingsView.swift in Sources */,
+				2A08240AFDBAC11C579986B4 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

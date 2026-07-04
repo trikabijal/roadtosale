@@ -154,6 +154,7 @@ public struct CleanupRequest: Sendable {
     public var vocab: [String: String]            // forced spellings, applied AFTER cleanup
     public var commandGrammar: [String: String]   // e.g. "new paragraph" → "\n\n"
     public var profile: String                    // "dictation" | "road-to-sale"
+    public var priorContext: String               // LEGACY, unused — see note below
 }
 
 public struct CleanupResult: Sendable {
@@ -170,6 +171,12 @@ public struct CleanupConfig: Sendable, Equatable {
     public static let `default`                   // foundationModels + full
 }
 ```
+
+> **`priorContext` is legacy and unused.** It once threaded the previously-cleaned sentence into
+> the `FoundationModelsCleanup` prompt for per-sentence cleanup; the small on-device model echoed
+> it, snowballing into 3–4× repeated sentences (`qc/bugs/streaming/repeated-sentence.md`). Cleanup
+> now runs **once over the whole transcript**, so the FM `taskPrompt` no longer takes or uses it.
+> The field remains (defaulting to `""`) only for source compatibility — ignore it.
 
 ### Cleanup packs (knowledge as data)
 
@@ -351,6 +358,86 @@ public func withTimeout<T: Sendable>(
 An unstructured race — throws `TimeoutError` at the deadline regardless of whether `operation`
 honors cancellation, so a hung model call can't block fallback/paste. Used by `AppState` to cap
 transcription and by `FoundationModelsCleanup` to cap the LLM call.
+
+---
+
+## 8. Streaming dictation & capture buffer
+
+The macOS dictation flow runs a **single streaming path**: STT streams per VAD-delimited segment
+during speech (for the live pill), then cleanup runs **once at stop** over the whole transcript.
+
+### Captured audio stream — `CapturedAudioStream.swift`
+
+```swift
+public final class CapturedAudioStream: @unchecked Sendable {
+    public init()
+    public func append(_ buffer: AVAudioPCMBuffer)                    // O(1), no syscall — audio render thread
+    public func snapshot() -> [AVAudioPCMBuffer]                      // all buffers, in order (COW retain)
+    public func drain(after index: Int) -> (buffers: [AVAudioPCMBuffer], count: Int)  // new tail only
+    public var count: Int { get }
+    public func reset()
+}
+```
+
+Order-preserving, thread-safe hold for captured buffers, backed by an `os_unfair_lock` with a
+strictly O(1) critical section so the audio render thread is never meaningfully blocked. Replaces
+the old `NSLock`-based `BufferAccumulator` (a syscall per append). Appending synchronously in
+arrival order on the serial audio thread is what keeps long recordings in temporal order.
+
+### Streaming session — `StreamingDictationSession.swift`
+
+```swift
+public struct StreamingResult: Sendable {
+    public let cleanedText: String     // what gets pasted
+    public let rawText: String         // concatenated raw STT (telemetry / learnings dataset)
+}
+
+@MainActor
+public final class StreamingDictationSession {
+    public init(transcriber: any SpeechTranscriber, cleanup: any TextCleanup, level: CleanupLevel,
+                vocab: [String: String] = [:], commandGrammar: [String: String] = [:],
+                profile: String = "dictation")
+    public var confirmedText: String { get }   // raw transcript assembled so far (the live pill)
+    public var partialText: String { get }     // always "" in the once-at-stop model (HUD API compat)
+    public func prewarm()
+    @discardableResult
+    public func ingest(segment: [AVAudioPCMBuffer], audioStartDate: Date) async -> String
+    public func finish() async -> StreamingResult
+}
+```
+
+`ingest` transcribes one VAD-delimited segment with the **single** main transcriber and appends its
+raw text (errors are swallowed so a bad segment can't abort the dictation). `finish` assembles the
+full raw transcript and runs **one** `cleanup.clean(...)` pass — no `priorContext`, no per-sentence
+session. There is no second (preview) model.
+
+## 9. Semantic dictation state — `DictationState.swift`
+
+The semantic state surface. `AppState` exposes computed `phase`/`availability` derived from its
+existing published fields; the **menu bar reads them** (status glyph + warming spinner) instead of
+poking `engineLoaded`/`dictationState`. Those underlying fields remain the source until the
+`DictationEngine` facade emits these directly — at which point the `.inserted`/`.failed` terminals
+(which the derivation can't yet produce) light up too.
+
+```swift
+public enum DictationPhase: Equatable {
+    case idle, capturing, finishing, inserted
+    case failed(FailReason)
+    public enum FailReason: Equatable { case transcription, cleanup, noSpeech, timeout }
+}
+
+public enum EngineAvailability: Equatable {
+    case warmingUp, ready
+    case blocked(BlockReason)
+    public enum BlockReason: Equatable { case microphoneDenied, accessibilityDenied, modelUnavailable }
+}
+```
+
+`DictationPhase` answers "what is THIS dictation doing right now" (the semantic successor to
+`dictationState`, with success `inserted` and `failed(reason)` terminals made explicit);
+`EngineAvailability` answers "can the system work at all right now" (the successor to
+`engineLoaded: Bool` + load-related `statusMessage`, composing mic-permission, Accessibility, and
+model-warmth — something a single `Bool` can't express).
 
 ---
 

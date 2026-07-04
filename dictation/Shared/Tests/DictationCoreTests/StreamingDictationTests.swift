@@ -2,54 +2,8 @@ import AVFoundation
 import XCTest
 @testable import DictationCore
 
-// Streaming dictation (PRD 0007): the SentenceBuffer boundary logic and the
-// StreamingDictationSession assembly. Fully deterministic — mock STT + mock cleanup, no model.
-
-final class SentenceBufferTests: XCTestCase {
-
-    func testEmitsCompletedSentenceHoldsPartial() {
-        var b = SentenceBuffer()
-        b.append("Hello world. How are")
-        XCTAssertEqual(b.drainCompleteSentences(), ["Hello world."])
-        XCTAssertEqual(b.partial, "How are")
-        b.append("you?")
-        XCTAssertEqual(b.drainCompleteSentences(), ["How are you?"])
-        XCTAssertEqual(b.partial, "")
-    }
-
-    func testMultipleSentencesInOneFragment() {
-        var b = SentenceBuffer()
-        b.append("One. Two! Three?")
-        XCTAssertEqual(b.drainCompleteSentences(), ["One.", "Two!", "Three?"])
-        XCTAssertEqual(b.partial, "")
-    }
-
-    func testPartialAccumulatesAcrossFragments() {
-        var b = SentenceBuffer()
-        b.append("I think")
-        XCTAssertEqual(b.drainCompleteSentences(), [])
-        b.append("we should ship it.")
-        XCTAssertEqual(b.drainCompleteSentences(), ["I think we should ship it."])
-    }
-
-    func testRunawayPartialForceEmitted() {
-        var b = SentenceBuffer(maxWordsBeforeFlush: 4)
-        b.append("one two three four five")   // no terminator, over the guard
-        XCTAssertEqual(b.drainCompleteSentences(), ["one two three four five"])
-        XCTAssertEqual(b.partial, "")
-    }
-
-    func testDecimalNotTreatedAsBoundary() {
-        var b = SentenceBuffer()
-        b.append("It costs 3.50 dollars today.")   // "3.50" has no space after the dot
-        XCTAssertEqual(b.drainCompleteSentences(), ["It costs 3.50 dollars today."])
-    }
-
-    func testFlushAllEmptyIsEmpty() {
-        var b = SentenceBuffer()
-        XCTAssertEqual(b.flushAll(), [])
-    }
-}
+// Streaming dictation (PRD 0007): StreamingDictationSession assembly — raw during speech, one
+// cleanup pass at stop, and the segment-failure safety net. Deterministic — mock STT + cleanup.
 
 // MARK: - Mocks
 
@@ -75,6 +29,28 @@ private final class RecordingCleanup: TextCleanup, @unchecked Sendable {
     }
 }
 
+private enum ScriptedError: Error { case boom }
+
+/// STT mock with a per-call script: emit text, a legitimate empty/silence throw, or a transient
+/// failure throw — so we can prove how the session distinguishes silence from a real failure.
+@MainActor
+private final class ScriptedTranscriber: SpeechTranscriber {
+    enum Step { case text(String); case silence; case fail }
+    var isLoaded = true
+    private var steps: [Step]
+    init(_ steps: [Step]) { self.steps = steps }
+    func load(onProgress: (@MainActor (Double) -> Void)?) async throws {}
+    func transcribe(buffers: [AVAudioPCMBuffer], audioStartDate: Date) async throws -> TranscriptionResult {
+        switch steps.isEmpty ? .silence : steps.removeFirst() {
+        case .text(let t):
+            return TranscriptionResult(text: t, confidence: 1, audioDurationMs: 1000,
+                                       latencyMs: 1, provider: .mock, model: "mock")
+        case .silence: throw TranscriptionError.emptyResult
+        case .fail:    throw ScriptedError.boom
+        }
+    }
+}
+
 @MainActor
 final class StreamingDictationSessionTests: XCTestCase {
 
@@ -83,52 +59,51 @@ final class StreamingDictationSessionTests: XCTestCase {
         StreamingDictationSession(transcriber: QueuedTranscriber(segments), cleanup: cleanup, level: level)
     }
 
-    func testAssemblesCleanedSentencesInOrder() async {
+    func testAssemblesRawThenCleansOnceAtFinish() async {
         let cleanup = RecordingCleanup()
         let s = makeSession(["Hello world.", "How are you?"], cleanup: cleanup)
         await s.ingest(segment: [], audioStartDate: Date())
         await s.ingest(segment: [], audioStartDate: Date())
         let result = await s.finish()
-        XCTAssertEqual(result.cleanedText, "[Hello world.] [How are you?]")
+        // ONE cleanup pass over the full raw transcript — not per sentence.
+        XCTAssertEqual(cleanup.calls.count, 1)
+        XCTAssertEqual(cleanup.calls[0].raw, "Hello world. How are you?")
+        XCTAssertEqual(result.cleanedText, "[Hello world. How are you?]")
         XCTAssertEqual(result.rawText, "Hello world. How are you?")
     }
 
-    func testRollingContextThreadsPreviousCleanedSentence() async {
+    func testNeverPassesPriorContext() async {
+        // The repeat-bug guard: no code path may thread a rolling priorContext into cleanup.
         let cleanup = RecordingCleanup()
         let s = makeSession(["First one.", "Second two."], cleanup: cleanup)
         await s.ingest(segment: [], audioStartDate: Date())
         await s.ingest(segment: [], audioStartDate: Date())
         _ = await s.finish()
-        XCTAssertEqual(cleanup.calls.count, 2)
-        XCTAssertEqual(cleanup.calls[0].context, "")               // first sentence: no prior
-        XCTAssertEqual(cleanup.calls[1].context, "[First one.]")   // second: prior cleaned sentence
+        XCTAssertEqual(cleanup.calls.count, 1)
+        XCTAssertEqual(cleanup.calls[0].context, "")   // always empty — nothing to echo/snowball
     }
 
-    func testPartialSentenceOnlyCleanedAtFinish() async {
+    func testNoCleanupDuringSpeechOnlyAtFinish() async {
         let cleanup = RecordingCleanup()
-        // Two segments form ONE sentence; nothing completes until finish.
-        let s = makeSession(["I think", "we ship"], cleanup: cleanup)
+        let s = makeSession(["I think", "we ship it."], cleanup: cleanup)
         await s.ingest(segment: [], audioStartDate: Date())
-        XCTAssertEqual(cleanup.calls.count, 0)   // no boundary yet -> no cleanup during speech
+        XCTAssertEqual(cleanup.calls.count, 0)   // ingest never cleans
         await s.ingest(segment: [], audioStartDate: Date())
         XCTAssertEqual(cleanup.calls.count, 0)
-        let result = await s.finish()            // flushAll emits the partial
-        XCTAssertEqual(cleanup.calls.count, 1)
-        XCTAssertEqual(result.cleanedText, "[I think we ship]")
+        let result = await s.finish()
+        XCTAssertEqual(cleanup.calls.count, 1)   // exactly one pass, at stop
+        XCTAssertEqual(result.cleanedText, "[I think we ship it.]")
     }
 
-    func testMidStreamSentencesCleanedDuringSpeechNotAtStop() async {
+    func testEmptySegmentsProduceEmptyResult() async {
         let cleanup = RecordingCleanup()
-        // First segment completes a sentence (cleaned live); second is a trailing partial.
-        let s = makeSession(["Done sentence. Trailing", "words here"], cleanup: cleanup)
+        let s = makeSession(["", ""], cleanup: cleanup)   // transcriber returns empty
         await s.ingest(segment: [], audioStartDate: Date())
-        XCTAssertEqual(cleanup.calls.count, 1)                  // "Done sentence." cleaned live
-        XCTAssertEqual(cleanup.calls[0].raw, "Done sentence.")
         await s.ingest(segment: [], audioStartDate: Date())
-        XCTAssertEqual(cleanup.calls.count, 1)                  // still just the partial pending
         let result = await s.finish()
-        XCTAssertEqual(cleanup.calls.count, 2)                  // only the tail processed post-stop
-        XCTAssertEqual(result.cleanedText, "[Done sentence.] [Trailing words here]")
+        XCTAssertEqual(cleanup.calls.count, 0)   // nothing to clean
+        XCTAssertEqual(result.cleanedText, "")
+        XCTAssertEqual(result.rawText, "")
     }
 
     func testLevelOffSkipsCleanup() async {
@@ -138,5 +113,44 @@ final class StreamingDictationSessionTests: XCTestCase {
         let result = await s.finish()
         XCTAssertEqual(cleanup.calls.count, 0)
         XCTAssertEqual(result.cleanedText, "Raw text here.")
+    }
+
+    // MARK: - Segment-failure safety net (the "middle dropped" guard)
+
+    /// A segment whose transcription THROWS leaves a hole in the disjoint raw. `finish()` must
+    /// report `incomplete` so the caller re-transcribes the full audio instead of pasting a
+    /// silently-truncated result. This is the regression test for the blocker.
+    func testThrownSegmentMarksResultIncomplete() async {
+        let cleanup = RecordingCleanup()
+        let stt = ScriptedTranscriber([.text("First one."), .fail, .text("Third three.")])
+        let s = StreamingDictationSession(transcriber: stt, cleanup: cleanup, level: .full)
+        await s.ingest(segment: [], audioStartDate: Date())   // ok
+        await s.ingest(segment: [], audioStartDate: Date())   // throws → hole
+        await s.ingest(segment: [], audioStartDate: Date())   // ok
+        let r = await s.finish()
+        XCTAssertTrue(r.incomplete, "a thrown segment must flag the result incomplete")
+        XCTAssertEqual(r.rawText, "First one. Third three.")   // middle is missing from the raw
+    }
+
+    /// A legitimately-empty/silent segment is NOT a failure — it must not flag incomplete.
+    func testSilentSegmentDoesNotMarkIncomplete() async {
+        let cleanup = RecordingCleanup()
+        let stt = ScriptedTranscriber([.text("Hello."), .silence, .text("World.")])
+        let s = StreamingDictationSession(transcriber: stt, cleanup: cleanup, level: .full)
+        for _ in 0..<3 { await s.ingest(segment: [], audioStartDate: Date()) }
+        let r = await s.finish()
+        XCTAssertFalse(r.incomplete, "silence is not a transient failure")
+        XCTAssertEqual(r.rawText, "Hello. World.")
+    }
+
+    /// Below `minWordsForCleanup`, streaming skips the LLM pass (parity with the batch path).
+    func testShortClipSkipsCleanupBelowMinWords() async {
+        let cleanup = RecordingCleanup()
+        let s = StreamingDictationSession(transcriber: QueuedTranscriber(["Hi there."]),
+                                          cleanup: cleanup, level: .full, minWordsForCleanup: 5)
+        await s.ingest(segment: [], audioStartDate: Date())
+        let r = await s.finish()
+        XCTAssertEqual(cleanup.calls.count, 0, "2 words < 5 → no cleanup pass")
+        XCTAssertEqual(r.cleanedText, "Hi there.")   // raw returned unchanged
     }
 }

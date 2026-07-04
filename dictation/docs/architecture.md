@@ -84,9 +84,36 @@ Owns the `AVAudioEngine` session.
   (mid-session device change), turning an otherwise process-aborting `installTap` into a
   recoverable `RecordingError`.
 - Energy-threshold **VAD**: per-buffer RMS, fires `recordingEngineDidDetectSilence` after
-  `silenceDurationMs` of continuous silence. **The VAD signal is retained but deliberately
-  NOT used to auto-stop** — auto-stopping on a pause chopped sentences mid-thought. Recording
-  is controlled by the activation key (and a hard 10-minute safety stop).
+  `silenceDurationMs` of continuous silence. **The VAD signal is deliberately NOT used to
+  auto-stop** — auto-stopping on a pause chopped sentences mid-thought. Recording is controlled
+  by the activation key (and a hard 10-minute safety stop). A pause is instead treated as a
+  **segment boundary**: the coordinator flushes the buffers since the last flush to the streaming
+  session for incremental STT (the live HUD pill).
+
+### Capture buffer, streaming session & semantic state
+
+- **`CapturedAudioStream.swift`** — the thread-safe, order-preserving hold for captured buffers.
+  The mic tap appends here synchronously on its render thread under an `os_unfair_lock` with a
+  strictly O(1) critical section (no syscall), and `snapshot`/`drain` are O(1) too (Array
+  copy-on-write is a retain, not an element copy) — so the audio render thread is never
+  meaningfully blocked. It replaced `BufferAccumulator` (an `NSLock`-per-append store); appending
+  in arrival order on the serial audio thread is what keeps long recordings from scrambling.
+- **`StreamingDictationSession.swift`** — the single capture→transcribe path. As the recording
+  engine flushes VAD-delimited segments during speech, `ingest(segment:)` transcribes each with the
+  **one** main `transcriber` and appends the raw words (driving the live HUD pill); it assembles
+  **raw STT only** while speaking. `finish()` runs **one** `cleanup.clean(...)` pass over the whole
+  transcript at stop. Cleanup is deliberately not per-sentence: the previous per-sentence pass fed
+  the prior cleaned sentence back as `priorContext`, which the small on-device model echoed into
+  3–4× repeats (`qc/bugs/streaming/repeated-sentence.md`); one pass has no `priorContext` to
+  compound. There is no second (preview) model — running two models starved the Neural Engine and
+  dropped mic buffers, so the tiny live-preview transcriber was deleted.
+- **`DictationState.swift`** — the forward-looking **semantic state** surface. Two orthogonal enums
+  replace the tangled `dictationState` / `engineLoaded` / free-floating `statusMessage`:
+  `DictationPhase { idle, capturing, finishing, inserted, failed(FailReason) }` (what THIS
+  dictation is doing) and `EngineAvailability { warmingUp, ready, blocked(BlockReason) }` (can the
+  system work at all — composing the mic-permission fact with model-warmth, which a single `Bool`
+  can't express). Currently **additive**: `AppState` exposes computed `phase`/`availability` derived
+  from the old published fields; views still bind the old fields until a later phase flips them over.
 
 ### Two pluggable model contracts
 
@@ -176,9 +203,12 @@ This UI/permission/input layer is macOS-only and lives entirely in
   changes with dictation state, plus a `Settings` scene and a "History" window.
 - **`AppState.swift`** — the macOS coordinator (`@MainActor`, `ObservableObject`). Owns the
   `RecordingEngine`, transcriber, cleanup, stores, HUD, and `HotkeyManager`; drives the whole
-  record → transcribe → clean → paste flow; manages settings, retries, the correction window,
-  and resource release after a timeout. `BufferAccumulator` (a lock-guarded, order-preserving
-  buffer store) is what fixed long recordings scrambling into garbage.
+  record → transcribe → clean → paste flow through a **single streaming path** (per-segment STT
+  during speech, one cleanup pass at stop); manages settings, retries, the correction window, and
+  resource release after a timeout. Captured buffers live in `CapturedAudioStream` (DictationCore),
+  whose order-preserving audio-thread append is what fixed long recordings scrambling into garbage.
+  `AppState` also exposes the derived `phase` / `availability` (see `DictationState.swift`) as the
+  forward-looking state surface.
 - **`PermissionsService.swift`** — single source of truth for the three required permissions:
   **Microphone**, **Accessibility** (to paste), **Input Monitoring** (for the keyboard event
   tap). All status reads are **non-prompting** (`AVCaptureDevice.authorizationStatus`,
@@ -201,8 +231,9 @@ This UI/permission/input layer is macOS-only and lives entirely in
   If the target never becomes frontmost it refuses to paste and leaves the text on the
   clipboard.
 - **`RecordingHUD.swift`** — a floating, non-activating, click-through `NSPanel` near the
-  bottom of the screen showing the live mic level, partial preview, "too quiet" warning,
-  retry/dismiss on failure, and the post-insert "mark wrong" correction button. Floats above
+  bottom of the screen showing the live mic level, the **growing live pill** (raw STT from the
+  single streaming session's own transcription — not a separate preview model), the "too quiet"
+  warning, retry/dismiss on failure, and the post-insert "mark wrong" correction button. Floats above
   full-screen apps; remembers a dragged position. Fires open/close chimes (Wispr-style).
 - **`OnboardingView.swift`** — the card-based setup wizard (live ticks), shown on first launch
   or whenever a required permission is missing; reopenable from the menu bar.

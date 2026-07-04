@@ -120,17 +120,19 @@ struct MenuBarView: View {
                 .font(.system(size: 14, weight: .medium))
                 .foregroundStyle(Theme.Palette.textPrimary)
             Spacer()
-            if !appState.engineLoaded {
+            if appState.availability == .warmingUp {
                 ProgressView().scaleEffect(0.7)
             }
         }
     }
 
     private var statusColor: Color {
-        switch appState.dictationState {
-        case .idle:         return appState.engineLoaded ? Theme.Palette.success : Theme.Palette.textTertiary
-        case .recording:    return Theme.Palette.recording
-        case .transcribing: return Theme.Palette.warning
+        switch appState.phase {
+        case .idle:      return appState.availability == .ready ? Theme.Palette.success : Theme.Palette.textTertiary
+        case .capturing: return Theme.Palette.recording
+        case .finishing: return Theme.Palette.warning
+        case .inserted:  return Theme.Palette.success
+        case .failed:    return Theme.Palette.warning
         }
     }
 

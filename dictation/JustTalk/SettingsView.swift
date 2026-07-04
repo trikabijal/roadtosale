@@ -80,32 +80,9 @@ struct SettingsView: View {
                 ))
                 .tint(Theme.Palette.accent)
 
-                // Streaming — label + BETA pill, with an explainer subtitle.
-                VStack(alignment: .leading, spacing: Theme.Space.xs) {
-                    Toggle(isOn: Binding(
-                        get: { appState.streamingEnabled },
-                        set: { appState.setStreamingEnabled($0) }
-                    )) {
-                        HStack(spacing: Theme.Space.sm) {
-                            Text("Streaming")
-                                .foregroundStyle(Theme.Palette.textPrimary)
-                            Text("BETA")
-                                .font(Theme.Font.mono(8, .semibold))
-                                .foregroundStyle(Theme.Palette.accent)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(
-                                    Theme.Palette.accent.opacity(0.2),
-                                    in: RoundedRectangle(cornerRadius: Theme.Radius.chip)
-                                )
-                        }
-                    }
-                    .tint(Theme.Palette.accent)
-
-                    Text("Insert words as you speak")
-                        .font(.caption)
-                        .foregroundStyle(Theme.Palette.textTertiary)
-                }
+                // Live text (words appear as you speak) is now always on — there is a single
+                // capture→transcribe path, so no toggle. The former "Streaming (BETA)" switch was
+                // removed when the second (preview) model was deleted.
             } header: {
                 sectionHeader("Dictation")
             }
@@ -160,7 +137,7 @@ struct SettingsView: View {
                     .tint(Theme.Palette.accent)
                 }
 
-                if !appState.engineLoaded {
+                if appState.availability == .warmingUp {
                     HStack(spacing: Theme.Space.sm) {
                         ProgressView().scaleEffect(0.7)
                         Text(appState.statusMessage)

@@ -34,27 +34,10 @@ public struct AppCleanupProfile: Codable, Identifiable, Equatable {
     public var id: String { bundleId }
 }
 
-// MARK: - BufferAccumulator
+// MARK: - Captured audio
 
-/// Thread-safe, ORDER-PRESERVING store for captured audio buffers. The audio tap delivers
-/// buffers serially on its render thread, so appending under a lock keeps them in temporal
-/// order. This replaces a `Task { @MainActor in append }` per buffer, which did NOT preserve
-/// order — independent tasks can run out of sequence on the actor, scrambling long recordings
-/// into garbage audio (short ones happened to stay ordered, hence "short worked, long failed").
-final class BufferAccumulator: @unchecked Sendable {
-    private let lock = NSLock()
-    private var buffers: [AVAudioPCMBuffer] = []
-
-    func append(_ buffer: AVAudioPCMBuffer) {
-        lock.lock(); buffers.append(buffer); lock.unlock()
-    }
-    func snapshot() -> [AVAudioPCMBuffer] {
-        lock.lock(); defer { lock.unlock() }; return buffers
-    }
-    func reset() {
-        lock.lock(); buffers.removeAll(); lock.unlock()
-    }
-}
+// Captured audio is held in `CapturedAudioStream` (DictationCore) — an os_unfair_lock-backed,
+// order-preserving, audio-thread-friendly buffer. See that type for the threading rationale.
 
 // MARK: - AppState
 
@@ -81,10 +64,6 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
     @Published public private(set) var vocabulary: [String] = []
     @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
-    /// Streaming dictation (PRD 0007): transcribe + clean per VAD segment during speech so the
-    /// post-stop wait is ~constant regardless of length. Beta — default OFF; the batch path is
-    /// the fallback and stays the default. See `StreamingDictationSession`.
-    @Published public private(set) var streamingEnabled: Bool = false
     @Published public var soundEnabled: Bool = false
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
@@ -98,6 +77,29 @@ public final class AppState: NSObject, ObservableObject {
     @Published public var inputMonitoringGranted: Bool = false
     /// Set true the moment the configured key is received during the wizard "test" step.
     @Published public var hotkeyTestPassed: Bool = false
+
+    // MARK: - Semantic state (derived — the `onState` rename)
+
+    /// The current dictation's lifecycle, derived from `dictationState`. The menu bar reads this
+    /// (not `dictationState`) for its status glyph; `dictationState` remains the underlying source
+    /// until the `DictationEngine` facade emits `DictationPhase` directly (incl. `.inserted`/`.failed`).
+    public var phase: DictationPhase {
+        switch dictationState {
+        case .idle:         return .idle
+        case .recording:    return .capturing
+        case .transcribing: return .finishing
+        }
+    }
+
+    /// Whether the system can dictate at all right now — composed from the two things that gate it:
+    /// permissions (a capture fact) and model load (an engine fact). This is what the UI reads
+    /// instead of poking `engineLoaded` directly (see `EngineAvailability`).
+    public var availability: EngineAvailability {
+        if !micGranted { return .blocked(.microphoneDenied) }
+        if !accessibilityGranted { return .blocked(.accessibilityDenied) }
+        if !sttConfig.provider.isAvailable { return .blocked(.modelUnavailable) }
+        return engineLoaded ? .ready : .warmingUp
+    }
 
     // MARK: - Permissions / onboarding
 
@@ -144,9 +146,9 @@ public final class AppState: NSObject, ObservableObject {
     /// the app is on the observe-only NSEvent fallback. False until proven otherwise.
     private var suppressingTapActive = false
 
-    // Audio buffer accumulation — order-preserving + thread-safe (see BufferAccumulator).
+    // Audio buffer accumulation — order-preserving + thread-safe (see CapturedAudioStream).
     // nonisolated so the audio-thread delegate can append without an actor hop.
-    private nonisolated let audio = BufferAccumulator()
+    private nonisolated let audio = CapturedAudioStream()
     // Streaming dictation state (PRD 0007). `streamSession` is live only while a streaming
     // recording is in flight; `streamFlushedCount` marks how many accumulated buffers have already
     // been handed to it, so each VAD flush ingests only the new tail. `streamPump` chains ingests
@@ -164,10 +166,6 @@ public final class AppState: NSObject, ObservableObject {
     /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
     /// audio unbounded — recording auto-stops at this length.
     private static let maxRecordingSeconds: Double = 600
-    /// Live preview only transcribes the most recent audio, so it doesn't re-run on an
-    /// ever-growing buffer (O(n²) CPU) during long recordings. The final transcription still
-    /// uses the full audio.
-    private static let previewWindowSeconds: Double = 30
     // `.holdLatch` gesture tuning. A press shorter than `tapThreshold` counts as a "quick tap";
     // two quick taps whose DOWN edges fall within `doubleTapWindow` latch recording hands-free.
     // A longer press is an ordinary hold (push-to-talk).
@@ -191,11 +189,6 @@ public final class AppState: NSObject, ObservableObject {
     // Audio preserved when transcription fails, so the dictation can be retried instead of
     // silently lost (Wispr-style). Cleared on success or explicit discard.
     private var pendingAudio: (buffers: [AVAudioPCMBuffer], startDate: Date)?
-
-    // Live HUD preview (E1): a separate tiny model transcribes accumulated audio while
-    // recording, for display only. The batch path remains the source of truth.
-    private var previewTranscriber: WhisperKitTranscriber?
-    private var previewTask: Task<Void, Never>?
 
     // Correction window: after a transcript lands, ⌘⇧Z marks it corrected for 5s
     private var correctionWindowTask: Task<Void, Never>?
@@ -234,7 +227,6 @@ public final class AppState: NSObject, ObservableObject {
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
-        self.streamingEnabled = defaults.bool(forKey: "streamingEnabled")   // default false
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
         self.launchAtLogin = LoginItem.isEnabled
@@ -312,13 +304,6 @@ public final class AppState: NSObject, ObservableObject {
         } catch {
             telemetryStore = nil
             log.error("Telemetry store failed to open — History will stay empty: \(error.localizedDescription, privacy: .public)")
-        }
-
-        // 7. Load the tiny live-preview model in the background (best-effort).
-        Task { [weak self] in
-            let preview = WhisperKitTranscriber(modelTier: .tinyEn)
-            try? await preview.load()
-            if preview.isLoaded { self?.previewTranscriber = preview }
         }
     }
 
@@ -479,15 +464,11 @@ public final class AppState: NSObject, ObservableObject {
             dictationState = .recording
             statusMessage = "Recording…"
             recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
-            // HUD live text (the growing pill) is identical in both modes; only its source differs
-            // internally: batch uses the tiny-model preview loop; streaming reuses the text the
-            // session is ALREADY transcribing (no second model — running both starves the Neural
-            // Engine, which showed up as "no live text + slow").
-            if streamingEnabled {
-                startStreamingSession()
-            } else {
-                startPreviewLoop()
-            }
+            // ONE capture→transcribe path. The live pill (growing HUD text) always comes from the
+            // streaming session's own STT — the single `transcriber` model. The old second
+            // (tiny preview) model was deleted: running two models starved the Neural Engine and
+            // dropped mic-tap buffers ("no live text + slow", "middle got dropped").
+            startStreamingSession()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -495,21 +476,10 @@ public final class AppState: NSObject, ObservableObject {
 
     func stopRecordingAndTranscribe() {
         guard dictationState == .recording else { return }
-        if streamingEnabled, streamSession != nil {
-            stopStreaming()
-            return
-        }
-        recordingEngine.stop()
-        previewTask?.cancel()
-        previewTask = nil
-        dictationState = .transcribing
-        statusMessage = "Transcribing…"
-        recordingHUD.setPhase(.processing, label: "Transcribing…")
-        let buffers = audio.snapshot()
-        let startDate = recordingStartDate ?? Date()
-        logCaptureMetric(buffers: buffers, startDate: startDate)
-        persistRecording(buffers: buffers, recordedAt: startDate)
-        Task { await performTranscription(buffers: buffers, audioStartDate: startDate) }
+        // ONE stop path: every recording runs through the streaming session (started in
+        // startRecording). No-pause recordings simply ingest the whole buffer as the final tail
+        // in stopStreaming; the retry/timeout safety net lives in finalizeStreaming → failWithRetry.
+        stopStreaming()
     }
 
     /// Diagnostic for the "middle got skipped" report: compare the WALL-CLOCK recording time
@@ -540,8 +510,8 @@ public final class AppState: NSObject, ObservableObject {
 
     // MARK: - Streaming dictation (PRD 0007, beta)
 
-    /// Spin up a streaming session for this recording. Uses the same transcriber + cleanup engines
-    /// as the batch path, cleaning per completed sentence with rolling context.
+    /// Spin up a streaming session for this recording. Transcribes each VAD segment during speech
+    /// (growing the live pill) and runs ONE cleanup pass over the whole transcript at stop.
     private func startStreamingSession() {
         let level = effectiveLevel(forBundleId: recordingFrontmostApp)
         let session = StreamingDictationSession(
@@ -550,7 +520,8 @@ public final class AppState: NSObject, ObservableObject {
             level: level,
             vocab: vocabularyMap,
             commandGrammar: cleanupPack.commandGrammar,
-            profile: "dictation"
+            profile: "dictation",
+            minWordsForCleanup: cleanupPack.minWordsForCleanup
         )
         session.prewarm()
         streamSession = session
@@ -562,110 +533,85 @@ public final class AppState: NSObject, ObservableObject {
     /// Ingests are chained through `streamPump` so overlapping silences can't run the non-reentrant
     /// session concurrently. Never auto-stops — the activation key still controls stop.
     private func flushStreamingSegment() {
-        guard streamingEnabled, dictationState == .recording, let session = streamSession else { return }
-        let all = audio.snapshot()
-        guard all.count > streamFlushedCount else { return }
-        let segment = Array(all[streamFlushedCount..<all.count])
-        streamFlushedCount = all.count
+        guard dictationState == .recording, let session = streamSession else { return }
+        // `drain(after:)` returns the buffers captured since the last flush plus the new total —
+        // one place owns the cursor math (no hand-rolled slicing).
+        let (segment, newCount) = audio.drain(after: streamFlushedCount)
+        guard !segment.isEmpty else { return }
+        streamFlushedCount = newCount
         let startDate = recordingStartDate ?? Date()
         let prev = streamPump
         streamPump = Task { @MainActor in
             await prev?.value
             _ = await session.ingest(segment: segment, audioStartDate: startDate)
-            // Drive the growing HUD text from the session's own transcription (no second model).
+            // Drive the growing HUD pill from the session's own raw transcription (no second model).
             guard self.dictationState == .recording else { return }
-            let shown = [session.confirmedText, session.partialText]
-                .filter { !$0.isEmpty }
-                .joined(separator: " ")
+            let shown = session.confirmedText
             if !shown.isEmpty { self.recordingHUD.update(previewText: shown) }
         }
     }
 
-    /// Stop a streaming recording: flush the final tail, finish the session, paste + record.
+    /// Stop recording. The streaming session was only ever the LIVE PILL PREVIEW — the final pasted
+    /// text comes from ONE full-audio batch transcription, which is accurate. Transcribing the whole
+    /// clip in one piece avoids the segment-boundary word drops AND the short-segment hallucinations
+    /// ("random words") that per-segment streaming STT produces.
     private func stopStreaming() {
         recordingEngine.stop()
-        previewTask?.cancel()
-        previewTask = nil
         dictationState = .transcribing
         statusMessage = "Transcribing…"
-        recordingHUD.setPhase(.processing, label: "Finishing…")
+        recordingHUD.setPhase(.processing, label: "Transcribing…")
         let all = audio.snapshot()
         let startDate = recordingStartDate ?? Date()
         logCaptureMetric(buffers: all, startDate: startDate)
         persistRecording(buffers: all, recordedAt: startDate)
-        let audioMs = Int(Double(all.reduce(0) { $0 + Int($1.frameLength) })
-                          / RecordingEngine.targetSampleRate * 1000)
-        let session = streamSession
-        let flushed = streamFlushedCount
-        let frontApp = recordingFrontmostApp
+        // Tear down the preview session; the batch path owns the output.
         let prev = streamPump
         streamSession = nil
         streamFlushedCount = 0
         streamPump = nil
         Task { @MainActor in
-            await prev?.value
-            if all.count > flushed {
-                _ = await session?.ingest(segment: Array(all[flushed..<all.count]), audioStartDate: startDate)
-            }
-            let result = await session?.finish()
-            await self.finalizeStreaming(result: result, audioMs: audioMs, frontmostApp: frontApp)
+            await prev?.value   // let any in-flight preview flush settle (its result is discarded)
+            await performTranscription(buffers: all, audioStartDate: startDate)
         }
     }
 
     /// Paste + persist a completed streaming dictation. Mirrors the tail of `performTranscription`
-    /// (paste, History record, correction window) with streaming-derived values.
-    private func finalizeStreaming(result: StreamingResult?, audioMs: Int, frontmostApp: String?) async {
+    /// (paste, History record, correction window) with streaming-derived values. On an empty
+    /// result it applies the same safety net as the batch `handleEmpty`: if there was substantial
+    /// audio the user likely spoke and STT dropped it, so preserve the audio and offer a retry
+    /// (which re-runs through `performTranscription` with full retry + timeout); only truly quiet
+    /// clips reset silently.
+    private func finalizeStreaming(result: StreamingResult?, buffers: [AVAudioPCMBuffer],
+                                   audioStartDate: Date, audioMs: Int, frontmostApp: String?) async {
+        // A segment's transcription threw mid-stream → the streamed text is missing a disjoint
+        // slice (the "middle dropped" failure). Don't paste a silently-truncated result: re-run the
+        // FULL audio through the batch path (3× retry + timeout), which recovers the lost segment.
+        if result?.incomplete == true {
+            log.notice("streaming had a failed segment — re-transcribing full audio for completeness")
+            await performTranscription(buffers: buffers, audioStartDate: audioStartDate)
+            return
+        }
         let finalText = result?.cleanedText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         guard !finalText.isEmpty else {
-            statusMessage = "No speech detected"
-            pendingAudio = nil
-            finishIdle()
+            // Same safety net as the batch path: substantial audio but no text → preserve + retry.
+            handleEmpty(buffers: buffers, audioStartDate: audioStartDate)
             return
         }
         let rawText = result?.rawText ?? finalText
         let level = effectiveLevel(forBundleId: frontmostApp)
-
-        clipboardPaster.writeAndPaste(text: finalText, autoPaste: autoPaste, targetApp: recordingTargetApp) { [weak self] in
-            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
-        }
-
         let record = TranscriptRecord(
             platform: "mac",
             audioDurationMs: audioMs,
             transcriptText: finalText,
-            whisperkitConfidence: 0,
-            latencyMs: 0,
+            whisperkitConfidence: result?.confidence ?? 0,
+            latencyMs: result?.latencyMs ?? 0,
             modelTier: "\(sttConfig.provider.rawValue)/\(sttConfig.model)+streaming",
             frontmostApp: frontmostApp,
             rawText: rawText,
             cleanupLevel: level.rawValue,
             cleanupProvider: cleanupConfig.provider.rawValue
         )
-        var historyWarning: String?
-        if let store = telemetryStore {
-            do { try await store.save(record) }
-            catch {
-                log.error("Failed to save streaming transcript to History: \(error.localizedDescription, privacy: .public)")
-                historyWarning = "Saved to clipboard, but couldn't write to History"
-            }
-        } else {
-            historyWarning = "Pasted — History unavailable (text not saved)"
-        }
-        recentTranscripts.insert(record, at: 0)
-        if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
-        await refreshStats()
-
-        correctionWindowTask?.cancel()
-        correctionWindowOpen = true
-        correctionWindowTask = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(5)) } catch { return }
-            self?.correctionWindowOpen = false
-            if self?.dictationState == .idle { self?.recordingHUD.hide() }
-        }
-        pendingAudio = nil
-        dictationState = .idle
-        statusMessage = historyWarning ?? readyMessage
-        recordingHUD.showCorrectionPrompt { [weak self] in self?.markLastTranscriptCorrected() }
+        await finalizeInsertion(finalText: finalText, record: record)
     }
 
     /// Persist the raw audio (last 5 kept) so a junk/failed transcription is recoverable via
@@ -757,8 +703,10 @@ public final class AppState: NSObject, ObservableObject {
     private func discardRecording() {
         guard dictationState == .recording else { return }
         recordingEngine.stop()
-        previewTask?.cancel()
-        previewTask = nil
+        streamSession = nil
+        streamFlushedCount = 0
+        streamPump?.cancel()
+        streamPump = nil
         audio.reset()
         finishIdle()
     }
@@ -766,53 +714,6 @@ public final class AppState: NSObject, ObservableObject {
     private func playSound(_ name: String) {
         guard soundEnabled, let sound = NSSound(named: name) else { return }
         sound.play()
-    }
-
-    // MARK: - Live HUD preview (E1)
-
-    /// While recording, periodically transcribe the accumulated audio with the tiny
-    /// preview model and show it in the HUD. Display only — never touches the paste path.
-    private func startPreviewLoop() {
-        guard previewTranscriber != nil else { return }
-        previewTask?.cancel()
-        previewTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(1200))
-                if Task.isCancelled { return }
-                await self?.runPreview()
-            }
-        }
-    }
-
-    /// The most recent `maxSeconds` of captured audio (tail of the ordered buffer), so the live
-    /// preview transcribes a bounded window instead of the whole growing recording.
-    private func recentBuffers(maxSeconds: Double) -> [AVAudioPCMBuffer] {
-        let all = audio.snapshot()
-        let maxFrames = Int(RecordingEngine.targetSampleRate * maxSeconds)
-        var tail: [AVAudioPCMBuffer] = []
-        var frames = 0
-        for buffer in all.reversed() {
-            tail.append(buffer)
-            frames += Int(buffer.frameLength)
-            if frames >= maxFrames { break }
-        }
-        return tail.reversed()
-    }
-
-    private func runPreview() async {
-        guard dictationState == .recording,
-              let preview = previewTranscriber, preview.isLoaded else { return }
-        // Only the most recent audio — bounds preview cost on long recordings.
-        let buffers = recentBuffers(maxSeconds: Self.previewWindowSeconds)
-        // Need ~0.6s of audio before a preview is meaningful.
-        let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
-        guard Double(frames) > RecordingEngine.targetSampleRate * 0.6 else { return }
-
-        let result = try? await preview.transcribe(buffers: buffers, audioStartDate: recordingStartDate ?? Date())
-        // Ignore a result that arrives after the loop was cancelled (recording ended).
-        if let text = result?.text, !Task.isCancelled, dictationState == .recording {
-            recordingHUD.update(previewText: text)
-        }
     }
 
     // MARK: - Transcription
@@ -889,15 +790,6 @@ public final class AppState: NSObject, ObservableObject {
         // Read with: log show --predicate 'subsystem == "com.trika.dictation"' --info | grep TIMING
         log.notice("TIMING stt=\(result.latencyMs, privacy: .public)ms cleanup=\(cleanupResult?.latencyMs ?? 0, privacy: .public)ms words=\(wordCount, privacy: .public) audioMs=\(result.audioDurationMs, privacy: .public) level=\(level.rawValue, privacy: .public) fallback=\(cleanupResult?.usedFallback ?? false, privacy: .public)")
 
-        // Write to clipboard and optionally paste
-        let ap = autoPaste
-        clipboardPaster.writeAndPaste(text: finalText, autoPaste: ap, targetApp: recordingTargetApp) { [weak self] in
-            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
-            // the text is waiting on the clipboard.
-            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
-        }
-        // (Close cue is fired by HUD.onDisappear when the pill goes away — no per-paste sound here.)
-
         // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
         // STT output for the cross-platform learnings dataset.
         let record = TranscriptRecord(
@@ -912,9 +804,24 @@ public final class AppState: NSObject, ObservableObject {
             cleanupLevel: shouldClean ? level.rawValue : CleanupLevel.off.rawValue,
             cleanupProvider: cleanupResult.map { $0.usedFallback ? "\($0.provider.rawValue)+fallback" : $0.provider.rawValue }
         )
-        // Persist to History. Was `try?` — a throw here pasted the text but silently dropped it
-        // from History (exactly the reported bug). Now: a nil store and a failed write are both
-        // logged + surfaced, so a persistence failure is visible instead of looking like success.
+        await finalizeInsertion(finalText: finalText, record: record)
+    }
+
+    /// Shared insertion tail for BOTH the batch and streaming paths: paste into the target app,
+    /// persist to History (surfacing any save failure), update the recents list, arm the 5-second
+    /// correction window, and return to idle. Callers build their own `TranscriptRecord` and hand it
+    /// in — keeping paste/History/correction logic in ONE place so the two paths can't drift.
+    private func finalizeInsertion(finalText: String, record: TranscriptRecord) async {
+        // Write to clipboard and optionally paste into the app frontmost at record start.
+        clipboardPaster.writeAndPaste(text: finalText, autoPaste: autoPaste, targetApp: recordingTargetApp) { [weak self] in
+            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
+            // the text is waiting on the clipboard.
+            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
+        }
+        // (Close cue is fired by HUD.onDisappear when the pill goes away — no per-paste sound here.)
+
+        // Persist to History. A nil store and a failed write are both logged + surfaced, so a
+        // persistence failure is visible instead of looking like success (was a silent `try?`).
         var historyWarning: String?
         if let store = telemetryStore {
             do {
@@ -932,22 +839,18 @@ public final class AppState: NSObject, ObservableObject {
         if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
         await refreshStats()
 
-        // Open 5-second correction window (recentTranscripts.first is this record; nothing
-        // between the insert and here mutates recentTranscripts).
+        // Open the 5-second correction window (recentTranscripts.first is this record).
         correctionWindowTask?.cancel()
         correctionWindowOpen = true
         correctionWindowTask = Task { [weak self] in
             do { try await Task.sleep(for: .seconds(5)) } catch { return }
             self?.correctionWindowOpen = false
-            // Hide the correction prompt when the window closes (unless a new recording took over).
             if self?.dictationState == .idle { self?.recordingHUD.hide() }
         }
 
-        // Success — drop preserved audio, go idle, and show the post-insert correction prompt in
-        // the HUD for the correction window (the in-HUD "mark wrong" replaces the global ⌘⇧Z key).
+        // Success — drop preserved audio, go idle, show the post-insert correction prompt.
         pendingAudio = nil
         dictationState = .idle
-        // Keep a persistence warning visible; otherwise return to the normal ready prompt.
         statusMessage = historyWarning ?? readyMessage
         recordingHUD.showCorrectionPrompt { [weak self] in self?.markLastTranscriptCorrected() }
     }
@@ -1143,10 +1046,6 @@ public final class AppState: NSObject, ObservableObject {
         UserDefaults.standard.set(mode.rawValue, forKey: "hotkeyMode")
     }
 
-    func setStreamingEnabled(_ on: Bool) {
-        streamingEnabled = on
-        UserDefaults.standard.set(on, forKey: "streamingEnabled")
-    }
 
     /// Switch the activation key. Persists, reconfigures the live listener, and resets the
     /// wizard test state so the user re-confirms the new key.
@@ -1249,9 +1148,9 @@ extension AppState: RecordingEngineDelegate {
     /// activation key — release in hold mode, a second tap in sticky/toggle mode. Auto-stopping
     /// on a pause chopped sentences off mid-thought while the user was still holding the key.
     public nonisolated func recordingEngineDidDetectSilence(_ engine: RecordingEngine) {
-        // Batch mode: intentionally NOT used to auto-stop (that chopped sentences mid-thought).
-        // Streaming mode (PRD 0007): a pause is a natural segment boundary — flush the audio since
-        // the last flush for incremental STT + cleanup. Does not stop; the key still controls stop.
+        // A pause is NOT an auto-stop (that chopped sentences mid-thought) — it's a natural segment
+        // boundary: flush the audio since the last flush for incremental STT (the live pill). Cleanup
+        // still runs once at stop, not here. The activation key controls stop.
         Task { @MainActor in self.flushStreamingSegment() }
     }
 
