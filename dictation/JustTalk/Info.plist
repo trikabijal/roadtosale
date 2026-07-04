@@ -28,5 +28,7 @@
 	<string>Just Talk sends keyboard events to paste transcribed text into the app you're using.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Just Talk uses the microphone to record your voice for transcription. Audio never leaves your Mac.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Just Talk uses Apple's on-device speech recognizer to transcribe your voice. Audio never leaves your Mac.</string>
 </dict>
 </plist>
