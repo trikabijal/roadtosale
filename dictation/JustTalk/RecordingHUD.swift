@@ -329,7 +329,15 @@ private struct HUDContentView: View {
                 .fill(.ultraThinMaterial)
                 .overlay(Capsule().fill(Theme.Palette.surfaceRaised.opacity(0.6)))
         }
-        .overlay(Capsule().strokeBorder(Theme.Palette.strokeStrong))
+        // Recording → a shimmering gold border (a moving shine sweeps the capsule edge). Other
+        // states keep the quiet hairline. Honors Reduce Motion (static gold, no sweep).
+        .overlay {
+            if model.phase == .recording {
+                GoldShimmerBorder()
+            } else {
+                Capsule().strokeBorder(Theme.Palette.strokeStrong)
+            }
+        }
         .fixedSize(horizontal: true, vertical: false)   // hug content width (texts self-cap below)
         // Smoothly grow/shrink the pill as the transcript streams in (until the text cap), and on
         // state changes — matches the design's growing HUD.
@@ -346,7 +354,7 @@ private struct HUDContentView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(micColor)
 
-            LevelMeter(
+            WaveMeter(
                 level: model.level,
                 active: model.phase == .recording,
                 color: model.phase == .recording ? micColor : Theme.Palette.textTertiary
@@ -471,5 +479,92 @@ private struct LevelMeter: View {
     private func staticHeight(_ index: Int) -> CGFloat {
         guard active else { return 4 }
         return max(3, maxBar * amplitude * weight(index))
+    }
+}
+
+/// A flowing waveform: a continuous sine curve that travels while recording, its amplitude scaling to
+/// the live mic level, tapered at the edges so it reads as a self-contained wave. Idle / Reduce
+/// Motion → a quiet flat line.
+private struct WaveMeter: View {
+    let level: Float
+    let active: Bool
+    var color: Color = Theme.Palette.recording
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Live amplitude from mic RMS (~0…0.3 typical speech) → 0…1, with a small floor so the wave
+    /// stays visibly alive between words.
+    private var amplitude: CGFloat { 0.22 + 0.78 * min(1, CGFloat(level) / 0.3) }
+
+    var body: some View {
+        if active && !reduceMotion {
+            TimelineView(.animation) { timeline in
+                Canvas { ctx, size in
+                    ctx.stroke(wavePath(in: size, t: timeline.date.timeIntervalSinceReferenceDate),
+                               with: .color(color), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                }
+            }
+        } else {
+            Canvas { ctx, size in
+                var path = Path()
+                let mid = size.height / 2
+                path.move(to: CGPoint(x: 0, y: mid))
+                path.addLine(to: CGPoint(x: size.width, y: mid))
+                ctx.stroke(path, with: .color(active ? color : Theme.Palette.textTertiary),
+                           style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            }
+        }
+    }
+
+    /// A travelling sine across the width, edge-tapered (sin envelope) so both ends settle to center.
+    private func wavePath(in size: CGSize, t: Double) -> Path {
+        var path = Path()
+        let mid = size.height / 2
+        let maxAmp = size.height / 2 - 1
+        let steps = max(2, Int(size.width))
+        let phase = t * 6
+        for i in 0...steps {
+            let frac = CGFloat(i) / CGFloat(steps)
+            let x = frac * size.width
+            let envelope = sin(frac * .pi)                       // 0 at edges, 1 at center
+            let y = mid + amplitude * maxAmp * envelope * CGFloat(sin(Double(x) * 0.35 + phase))
+            if i == 0 { path.move(to: CGPoint(x: x, y: y)) }
+            else { path.addLine(to: CGPoint(x: x, y: y)) }
+        }
+        return path
+    }
+}
+
+/// A shimmering gold border for the recording pill: a gold gradient with bright highlights rotates
+/// around the capsule edge, giving a moving "shine". Reduce Motion → a static gold stroke.
+private struct GoldShimmerBorder: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private let deepGold  = Color(red: 0.55, green: 0.40, blue: 0.12)
+    private let gold      = Color(red: 0.85, green: 0.68, blue: 0.30)
+    private let brightGold = Color(red: 1.00, green: 0.94, blue: 0.72)
+    private let lineWidth: CGFloat = 1.8
+
+    var body: some View {
+        Group {
+            if reduceMotion {
+                Capsule().strokeBorder(gold, lineWidth: lineWidth)
+            } else {
+                TimelineView(.animation) { timeline in
+                    let t = timeline.date.timeIntervalSinceReferenceDate
+                    let angle = Angle.degrees((t.truncatingRemainder(dividingBy: 4) / 4) * 360)
+                    Capsule()
+                        .strokeBorder(
+                            AngularGradient(
+                                gradient: Gradient(colors: [deepGold, gold, brightGold, gold, deepGold,
+                                                            gold, brightGold, gold, deepGold]),
+                                center: .center,
+                                angle: angle),
+                            lineWidth: lineWidth)
+                }
+            }
+        }
+        // A soft golden glow so the shine reads even against a bright backdrop.
+        .shadow(color: gold.opacity(0.55), radius: 4)
     }
 }
