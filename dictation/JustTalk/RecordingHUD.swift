@@ -194,8 +194,8 @@ private struct HUDContentView: View {
     }
 
     private var micColor: Color {
-        guard model.phase == .recording else { return .orange }
-        return model.lowInput ? .orange : .red
+        guard model.phase == .recording else { return Theme.Palette.warning }
+        return model.lowInput ? Theme.Palette.warning : Theme.Palette.recording
     }
 
     private var micIcon: String {
@@ -214,8 +214,14 @@ private struct HUDContentView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
         .frame(width: 360)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(.white.opacity(0.08)))
+        // Dark frosted capsule: material for the blur, a darker raised surface layered over it,
+        // and a strong hairline border — all from the design tokens.
+        .background {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(Capsule().fill(Theme.Palette.surfaceRaised.opacity(0.6)))
+        }
+        .overlay(Capsule().strokeBorder(Theme.Palette.strokeStrong))
     }
 
     private var activeContent: some View {
@@ -225,13 +231,13 @@ private struct HUDContentView: View {
                 .foregroundStyle(micColor)
 
             LevelMeter(level: model.level, active: model.phase == .recording)
-                .frame(width: 60, height: 18)
+                .frame(width: 78, height: 18)
 
             // Live partial transcript (truncates from the head so the latest words show);
             // replaced by the low-input warning when the mic is too quiet.
             Text(displayText)
                 .font(.callout)
-                .foregroundStyle(model.phase == .recording && model.lowInput ? Color.orange : Color.primary)
+                .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.head)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -242,18 +248,19 @@ private struct HUDContentView: View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.green)
+                .foregroundStyle(Theme.Palette.success)
 
             Text("Inserted")
                 .font(.callout)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button { model.onMarkWrong?() } label: {
                 Label("Mark wrong", systemImage: "xmark")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.plain)
             .controlSize(.small)
+            .foregroundStyle(Theme.Palette.textSecondary)
         }
     }
 
@@ -261,41 +268,42 @@ private struct HUDContentView: View {
         HStack(spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
                 .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.yellow)
+                .foregroundStyle(Theme.Palette.caution)
 
             Text(model.label)
                 .font(.callout)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.Palette.textPrimary)
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             Button("Retry") { model.onRetry?() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
+                .tint(Theme.Palette.accent)
 
             Button { model.onDismiss?() } label: {
                 Image(systemName: "xmark")
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Theme.Palette.textSecondary)
         }
     }
 }
 
-/// Seven bars whose height tracks the live mic level. When processing (not recording)
-/// it shows a flat idle state.
+/// A slim waveform of thin vertical bars whose heights track the live mic level (center bars
+/// taller). When processing (not recording) it shows a flat idle state in a muted token color.
 private struct LevelMeter: View {
     let level: Float
     let active: Bool
 
-    private let bars = 7
+    private let bars = 13
 
     var body: some View {
         HStack(spacing: 3) {
             ForEach(0..<bars, id: \.self) { i in
                 Capsule()
-                    .fill(active ? Color.red.opacity(0.85) : Color.secondary.opacity(0.5))
-                    .frame(height: barHeight(i))
+                    .fill(active ? Theme.Palette.recording : Theme.Palette.textTertiary)
+                    .frame(width: 2.5, height: barHeight(i))
             }
         }
     }

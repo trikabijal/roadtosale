@@ -30,9 +30,9 @@ struct JustTalkApp: App {
 enum MenuBarGlyph {
     static func symbolAndTint(for state: DictationState) -> (symbol: String, tint: NSColor?) {
         switch state {
-        case .idle:         return ("mic", nil)
-        case .recording:    return ("mic.fill", .systemRed)
-        case .transcribing: return ("waveform", .systemOrange)
+        case .idle:         return ("mic", nil)                                // template — adapts to menu bar
+        case .recording:    return ("mic.fill", NSColor(srgbRed: 1.0, green: 0.271, blue: 0.227, alpha: 1))   // Theme recording #FF453A
+        case .transcribing: return ("waveform", NSColor(srgbRed: 1.0, green: 0.624, blue: 0.039, alpha: 1))   // Theme warning #FF9F0A
         }
     }
 }
