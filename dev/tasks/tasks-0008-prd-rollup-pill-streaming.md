@@ -43,6 +43,12 @@ Branch: `feat/rollup-pill-streaming`. Batch final-output path is untouched throu
   - [x] 5.3 Update architecture/flows/api docs; note the deferred final-output speed win.
   - [x] 5.4 Pre-checkin checklist; commit.
 
+- [x] 6.0 **Apple SpeechAnalyzer provider (live-test pivot — see PRD §Outcome)**
+  - [x] 6.1 `AppleSpeechTranscriber` (batch `transcribe` + `makeStreamingSession`) on macOS 26 `SpeechAnalyzer`/`SpeechTranscriber`; `AppleStreamingSession` (finalized+volatile → pill); `AppleAudioConverter` (16k→Apple format).
+  - [x] 6.2 `STTProvider.appleSpeech.isAvailable` OS-gated; factory builds it; Settings locale picker; `NSSpeechRecognitionUsageDescription`.
+  - [x] 6.3 Pill fixes from live use: show Apple volatile (kill finalized-only lag); continuous 100ms feed + WhisperKit internal re-decode throttle.
+  - [x] 6.4 Pill visual: flowing voice-tracking wave, shimmering gold border, richer background (bg color being finalized).
+
 ## Deferred (follow-up PRD)
 
 - Promote streaming `confirmed` text to the **final pasted output** for the post-stop latency win (`dictation/dev/streaming-localagreement.md`).

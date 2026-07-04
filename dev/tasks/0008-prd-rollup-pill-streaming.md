@@ -1,8 +1,23 @@
-# PRD 0008 — Per-word roll-up pill (LocalAgreement streaming STT for the live HUD)
+# PRD 0008 — Per-word roll-up pill + fast on-device streaming (live HUD)
 
-**Status:** in progress (2026-07-05)
+**Status:** built + live-verified (2026-07-05) — Apple provider won for English; see **§Outcome**.
 **Branch:** `feat/rollup-pill-streaming`
 **Supersedes:** the deferred items in [0007-prd-streaming-dictation.md](0007-prd-streaming-dictation.md) ("Full WhisperKit `AudioStreamTranscriber` + LocalAgreement-2 … a follow-up").
+
+## Outcome (2026-07-05) — what actually shipped
+
+The WhisperKit-only plan below was built first, then **pivoted during live testing**. Findings, in order:
+
+1. **WhisperKit LocalAgreement pill worked but was janky and gave NO speed win.** Re-decoding the growing window every tick chattered (whole tail re-typed each pass) and cost CPU/heat; and because the pasted output stayed the batch pass, stop was no faster. User verdict: not good enough.
+2. **Prior-art gate, applied properly (probed THIS Mac, not guessed):** Apple's macOS 26 `SpeechAnalyzer`/`SpeechTranscriber` is ~2× faster than WhisperKit large-v3-turbo and streams native volatile/finalized results (smooth pill, no re-decode). **But `SpeechTranscriber.supportedLocales` on-device = en/de/es/fr/it/ja/ko/pt/zh only — NO Hindi, NO Gujarati.**
+3. **Decision — hybrid, both providers kept:** **English → Apple** (fast + smooth + cool), **Hinglish/Gujarati → WhisperKit** (only engine covering those + best proper nouns). Implemented the `appleSpeech` provider (`AppleSpeechTranscriber`, batch + `AppleStreamingSession`). User verdict on the Apple path: **"wins 100%."**
+4. **Pill redesign** landed alongside: constant-rate typewriter reveal (no jumps), confirmed-only WhisperKit / finalized+volatile Apple (no chatter), token sanitizer, flowing voice-tracking **wave**, shimmering **gold** border, richer capsule background (background color still being finalized).
+
+**Still deferred (follow-up PRD):** promote streaming `confirmed`/finalized text to the *final pasted output* to skip the batch pass entirely (max speed) — today Apple's fast batch already makes stop snappy, so this is an optimization, not a blocker.
+
+Everything below is the ORIGINAL plan, kept for the record; read it through the lens of the Outcome above.
+
+---
 
 ---
 
