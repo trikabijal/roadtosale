@@ -258,6 +258,10 @@ final class RecordingHUD {
 private struct HUDContentView: View {
     @ObservedObject var model: RecordingHUDModel
 
+    /// Neutral near-black used as the frosted-glass tint (kept low-opacity so the pill stays
+    /// translucent — the blur does the legibility work, not an opaque fill).
+    private static let glassTint = Color(red: 0.055, green: 0.063, blue: 0.078)
+
     /// The full combined live text (confirmed + " " + hypothesis) — the TARGET the reveal eases toward.
     private var liveFull: String {
         let c = model.previewText, h = model.hypothesisText
@@ -325,19 +329,21 @@ private struct HUDContentView: View {
         // and a strong hairline border — all from the design tokens. The capsule HUGS its content
         // (no fixed width) per the design, then centers within the panel.
         .background {
+            // Frosted GLASS, not a solid fill: the material blurs whatever's behind the floating
+            // pill, and a light ~32% neutral-dark tint gives just enough backing for the text/wave to
+            // stay legible over any desktop — see-through everywhere, never reads black.
             Capsule()
                 .fill(.ultraThinMaterial)
-                // Deeper dark base with top→bottom depth, so the red wave and text pop against
-                // whatever's behind the floating pill.
                 .overlay(
                     Capsule().fill(
                         LinearGradient(
-                            colors: [Theme.Palette.surfaceRaised.opacity(0.88),
-                                     Color.black.opacity(0.58)],
+                            colors: [Self.glassTint.opacity(0.36), Self.glassTint.opacity(0.30)],
                             startPoint: .top, endPoint: .bottom)))
-                // Faint warm wash so the dark ties into the gold edge (only meaningful while the
-                // gold border is up, but harmless elsewhere).
-                .overlay(Capsule().fill(Color(red: 0.62, green: 0.46, blue: 0.16).opacity(0.06)))
+                // Subtle top highlight — the glass edge catching light.
+                .overlay(
+                    Capsule().fill(
+                        LinearGradient(colors: [Color.white.opacity(0.06), Color.clear],
+                                       startPoint: .top, endPoint: .center)))
         }
         // Recording → a shimmering gold border (a moving shine sweeps the capsule edge). Other
         // states keep the quiet hairline. Honors Reduce Motion (static gold, no sweep).
