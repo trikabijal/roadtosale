@@ -72,6 +72,14 @@ struct SettingsView: View {
                     get: { appState.soundEnabled },
                     set: { appState.setSoundEnabled($0) }
                 ))
+
+                Toggle("Streaming transcription (beta)", isOn: Binding(
+                    get: { appState.streamingEnabled },
+                    set: { appState.setStreamingEnabled($0) }
+                ))
+                Text("Transcribes and cleans up while you speak, so the wait after you stop is short even for long dictations. Beta — falls back to the standard path when off.")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             // MARK: Startup section

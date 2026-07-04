@@ -81,6 +81,10 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
     @Published public private(set) var vocabulary: [String] = []
     @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
+    /// Streaming dictation (PRD 0007): transcribe + clean per VAD segment during speech so the
+    /// post-stop wait is ~constant regardless of length. Beta — default OFF; the batch path is
+    /// the fallback and stays the default. See `StreamingDictationSession`.
+    @Published public private(set) var streamingEnabled: Bool = false
     @Published public var soundEnabled: Bool = false
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
@@ -143,6 +147,13 @@ public final class AppState: NSObject, ObservableObject {
     // Audio buffer accumulation — order-preserving + thread-safe (see BufferAccumulator).
     // nonisolated so the audio-thread delegate can append without an actor hop.
     private nonisolated let audio = BufferAccumulator()
+    // Streaming dictation state (PRD 0007). `streamSession` is live only while a streaming
+    // recording is in flight; `streamFlushedCount` marks how many accumulated buffers have already
+    // been handed to it, so each VAD flush ingests only the new tail. `streamPump` chains ingests
+    // so overlapping silence events can't run the (non-reentrant) session concurrently.
+    private var streamSession: StreamingDictationSession?
+    private var streamFlushedCount = 0
+    private var streamPump: Task<Void, Never>?
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
@@ -223,6 +234,7 @@ public final class AppState: NSObject, ObservableObject {
         self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
+        self.streamingEnabled = defaults.bool(forKey: "streamingEnabled")   // default false
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
         self.launchAtLogin = LoginItem.isEnabled
@@ -467,7 +479,11 @@ public final class AppState: NSObject, ObservableObject {
             dictationState = .recording
             statusMessage = "Recording…"
             recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
-            startPreviewLoop()
+            if streamingEnabled {
+                startStreamingSession()   // per-segment STT+cleanup; replaces the preview loop
+            } else {
+                startPreviewLoop()
+            }
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -475,6 +491,10 @@ public final class AppState: NSObject, ObservableObject {
 
     func stopRecordingAndTranscribe() {
         guard dictationState == .recording else { return }
+        if streamingEnabled, streamSession != nil {
+            stopStreaming()
+            return
+        }
         recordingEngine.stop()
         previewTask?.cancel()
         previewTask = nil
@@ -483,8 +503,157 @@ public final class AppState: NSObject, ObservableObject {
         recordingHUD.setPhase(.processing, label: "Transcribing…")
         let buffers = audio.snapshot()
         let startDate = recordingStartDate ?? Date()
+        logCaptureMetric(buffers: buffers, startDate: startDate)
         persistRecording(buffers: buffers, recordedAt: startDate)
         Task { await performTranscription(buffers: buffers, audioStartDate: startDate) }
+    }
+
+    /// Diagnostic for the "middle got skipped" report: compare the WALL-CLOCK recording time
+    /// against the amount of audio actually captured. If we captured materially less audio than
+    /// the recording lasted, the audio thread dropped buffers (capture-side loss). If they match
+    /// but the transcript is still sparse, the loss is in STT, not capture. Appended to a CSV in
+    /// Application Support (os_log doesn't surface reliably on this build); paired with the raw
+    /// audio the recording store already keeps, so a drop can be diagnosed after the fact.
+    private func logCaptureMetric(buffers: [AVAudioPCMBuffer], startDate: Date) {
+        let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
+        let capturedSec = Double(frames) / RecordingEngine.targetSampleRate
+        let wallSec = Date().timeIntervalSince(startDate)
+        let ratio = wallSec > 0 ? capturedSec / wallSec : 1
+        let line = String(format: "%@,wall=%.2f,captured=%.2f,ratio=%.3f\n",
+                          ISO8601DateFormatter().string(from: startDate), wallSec, capturedSec, ratio)
+        guard let base = try? FileManager.default.url(for: .applicationSupportDirectory,
+                                                      in: .userDomainMask, appropriateFor: nil, create: true) else { return }
+        let url = base.appendingPathComponent("com.trika.dictation/capture-metrics.csv")
+        let data = Data(line.utf8)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            defer { try? handle.close() }
+            try? handle.seekToEnd()
+            try? handle.write(contentsOf: data)
+        } else {
+            try? data.write(to: url)
+        }
+    }
+
+    // MARK: - Streaming dictation (PRD 0007, beta)
+
+    /// Spin up a streaming session for this recording. Uses the same transcriber + cleanup engines
+    /// as the batch path, cleaning per completed sentence with rolling context.
+    private func startStreamingSession() {
+        let level = effectiveLevel(forBundleId: recordingFrontmostApp)
+        let session = StreamingDictationSession(
+            transcriber: transcriber,
+            cleanup: cleanup,
+            level: level,
+            vocab: vocabularyMap,
+            commandGrammar: cleanupPack.commandGrammar,
+            profile: "dictation"
+        )
+        session.prewarm()
+        streamSession = session
+        streamFlushedCount = 0
+        streamPump = nil
+    }
+
+    /// On each VAD silence, hand the buffers captured since the last flush to the streaming session.
+    /// Ingests are chained through `streamPump` so overlapping silences can't run the non-reentrant
+    /// session concurrently. Never auto-stops — the activation key still controls stop.
+    private func flushStreamingSegment() {
+        guard streamingEnabled, dictationState == .recording, let session = streamSession else { return }
+        let all = audio.snapshot()
+        guard all.count > streamFlushedCount else { return }
+        let segment = Array(all[streamFlushedCount..<all.count])
+        streamFlushedCount = all.count
+        let startDate = recordingStartDate ?? Date()
+        let prev = streamPump
+        streamPump = Task { @MainActor in
+            await prev?.value
+            _ = await session.ingest(segment: segment, audioStartDate: startDate)
+        }
+    }
+
+    /// Stop a streaming recording: flush the final tail, finish the session, paste + record.
+    private func stopStreaming() {
+        recordingEngine.stop()
+        dictationState = .transcribing
+        statusMessage = "Transcribing…"
+        recordingHUD.setPhase(.processing, label: "Finishing…")
+        let all = audio.snapshot()
+        let startDate = recordingStartDate ?? Date()
+        logCaptureMetric(buffers: all, startDate: startDate)
+        persistRecording(buffers: all, recordedAt: startDate)
+        let audioMs = Int(Double(all.reduce(0) { $0 + Int($1.frameLength) })
+                          / RecordingEngine.targetSampleRate * 1000)
+        let session = streamSession
+        let flushed = streamFlushedCount
+        let frontApp = recordingFrontmostApp
+        let prev = streamPump
+        streamSession = nil
+        streamFlushedCount = 0
+        streamPump = nil
+        Task { @MainActor in
+            await prev?.value
+            if all.count > flushed {
+                _ = await session?.ingest(segment: Array(all[flushed..<all.count]), audioStartDate: startDate)
+            }
+            let result = await session?.finish()
+            await self.finalizeStreaming(result: result, audioMs: audioMs, frontmostApp: frontApp)
+        }
+    }
+
+    /// Paste + persist a completed streaming dictation. Mirrors the tail of `performTranscription`
+    /// (paste, History record, correction window) with streaming-derived values.
+    private func finalizeStreaming(result: StreamingResult?, audioMs: Int, frontmostApp: String?) async {
+        let finalText = result?.cleanedText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !finalText.isEmpty else {
+            statusMessage = "No speech detected"
+            pendingAudio = nil
+            finishIdle()
+            return
+        }
+        let rawText = result?.rawText ?? finalText
+        let level = effectiveLevel(forBundleId: frontmostApp)
+
+        clipboardPaster.writeAndPaste(text: finalText, autoPaste: autoPaste, targetApp: recordingTargetApp) { [weak self] in
+            self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
+        }
+
+        let record = TranscriptRecord(
+            platform: "mac",
+            audioDurationMs: audioMs,
+            transcriptText: finalText,
+            whisperkitConfidence: 0,
+            latencyMs: 0,
+            modelTier: "\(sttConfig.provider.rawValue)/\(sttConfig.model)+streaming",
+            frontmostApp: frontmostApp,
+            rawText: rawText,
+            cleanupLevel: level.rawValue,
+            cleanupProvider: cleanupConfig.provider.rawValue
+        )
+        var historyWarning: String?
+        if let store = telemetryStore {
+            do { try await store.save(record) }
+            catch {
+                log.error("Failed to save streaming transcript to History: \(error.localizedDescription, privacy: .public)")
+                historyWarning = "Saved to clipboard, but couldn't write to History"
+            }
+        } else {
+            historyWarning = "Pasted — History unavailable (text not saved)"
+        }
+        recentTranscripts.insert(record, at: 0)
+        if recentTranscripts.count > 5 { recentTranscripts.removeLast() }
+        await refreshStats()
+
+        correctionWindowTask?.cancel()
+        correctionWindowOpen = true
+        correctionWindowTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(5)) } catch { return }
+            self?.correctionWindowOpen = false
+            if self?.dictationState == .idle { self?.recordingHUD.hide() }
+        }
+        pendingAudio = nil
+        dictationState = .idle
+        statusMessage = historyWarning ?? readyMessage
+        recordingHUD.showCorrectionPrompt { [weak self] in self?.markLastTranscriptCorrected() }
     }
 
     /// Persist the raw audio (last 5 kept) so a junk/failed transcription is recoverable via
@@ -962,6 +1131,11 @@ public final class AppState: NSObject, ObservableObject {
         UserDefaults.standard.set(mode.rawValue, forKey: "hotkeyMode")
     }
 
+    func setStreamingEnabled(_ on: Bool) {
+        streamingEnabled = on
+        UserDefaults.standard.set(on, forKey: "streamingEnabled")
+    }
+
     /// Switch the activation key. Persists, reconfigures the live listener, and resets the
     /// wizard test state so the user re-confirms the new key.
     func setHotkey(_ config: HotkeyConfig) {
@@ -1063,7 +1237,10 @@ extension AppState: RecordingEngineDelegate {
     /// activation key — release in hold mode, a second tap in sticky/toggle mode. Auto-stopping
     /// on a pause chopped sentences off mid-thought while the user was still holding the key.
     public nonisolated func recordingEngineDidDetectSilence(_ engine: RecordingEngine) {
-        // no-op (kept for the delegate contract; VAD signal retained for future use)
+        // Batch mode: intentionally NOT used to auto-stop (that chopped sentences mid-thought).
+        // Streaming mode (PRD 0007): a pause is a natural segment boundary — flush the audio since
+        // the last flush for incremental STT + cleanup. Does not stop; the key still controls stop.
+        Task { @MainActor in self.flushStreamingSegment() }
     }
 
     /// Live mic level — drives the recording HUD meter.
