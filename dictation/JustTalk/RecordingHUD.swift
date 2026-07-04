@@ -114,7 +114,9 @@ final class RecordingHUD {
     private func ensurePanel() -> NSPanel {
         if let panel { return panel }
         let p = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 380, height: 60),
+            // Wide enough that a full-length recording pill (content-hugging, capped text) never
+            // clips; the pill itself hugs its content and centers within this panel.
+            contentRect: NSRect(x: 0, y: 0, width: 440, height: 60),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -213,15 +215,17 @@ private struct HUDContentView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .frame(width: 360)
         // Dark frosted capsule: material for the blur, a darker raised surface layered over it,
-        // and a strong hairline border — all from the design tokens.
+        // and a strong hairline border — all from the design tokens. The capsule HUGS its content
+        // (no fixed width) per the design, then centers within the panel.
         .background {
             Capsule()
                 .fill(.ultraThinMaterial)
                 .overlay(Capsule().fill(Theme.Palette.surfaceRaised.opacity(0.6)))
         }
         .overlay(Capsule().strokeBorder(Theme.Palette.strokeStrong))
+        .fixedSize(horizontal: true, vertical: false)   // hug content width (texts self-cap below)
+        .frame(maxWidth: .infinity)                      // center the content-sized pill in the panel
     }
 
     private var activeContent: some View {
@@ -240,7 +244,7 @@ private struct HUDContentView: View {
                 .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.head)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: 260, alignment: .leading)   // hug short text; cap + truncate long
         }
     }
 
@@ -253,7 +257,6 @@ private struct HUDContentView: View {
             Text("Inserted")
                 .font(.callout)
                 .foregroundStyle(Theme.Palette.textPrimary)
-                .frame(maxWidth: .infinity, alignment: .leading)
 
             Button { model.onMarkWrong?() } label: {
                 Label("Mark wrong", systemImage: "xmark")
@@ -274,7 +277,7 @@ private struct HUDContentView: View {
                 .font(.callout)
                 .foregroundStyle(Theme.Palette.textPrimary)
                 .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: 220, alignment: .leading)
 
             Button("Retry") { model.onRetry?() }
                 .buttonStyle(.borderedProminent)
