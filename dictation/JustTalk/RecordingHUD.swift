@@ -116,7 +116,7 @@ final class RecordingHUD {
         let p = NSPanel(
             // Wide enough that a full-length recording pill (content-hugging, capped text) never
             // clips; the pill itself hugs its content and centers within this panel.
-            contentRect: NSRect(x: 0, y: 0, width: 440, height: 60),
+            contentRect: NSRect(x: 0, y: 0, width: 480, height: 60),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -225,6 +225,10 @@ private struct HUDContentView: View {
         }
         .overlay(Capsule().strokeBorder(Theme.Palette.strokeStrong))
         .fixedSize(horizontal: true, vertical: false)   // hug content width (texts self-cap below)
+        // Smoothly grow/shrink the pill as the transcript streams in (until the text cap), and on
+        // state changes — matches the design's growing HUD.
+        .animation(.easeOut(duration: 0.15), value: displayText)
+        .animation(.easeOut(duration: 0.15), value: model.phase)
         .frame(maxWidth: .infinity)                      // center the content-sized pill in the panel
     }
 
@@ -234,8 +238,12 @@ private struct HUDContentView: View {
                 .font(.system(size: 14, weight: .semibold))
                 .foregroundStyle(micColor)
 
-            LevelMeter(level: model.level, active: model.phase == .recording)
-                .frame(width: 78, height: 18)
+            LevelMeter(
+                level: model.level,
+                active: model.phase == .recording,
+                color: model.phase == .recording ? micColor : Theme.Palette.textTertiary
+            )
+            .frame(width: 78, height: 18)
 
             // Live partial transcript (truncates from the head so the latest words show);
             // replaced by the low-input warning when the mic is too quiet.
@@ -244,7 +252,7 @@ private struct HUDContentView: View {
                 .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
                 .lineLimit(1)
                 .truncationMode(.head)
-                .frame(maxWidth: 260, alignment: .leading)   // hug short text; cap + truncate long
+                .frame(maxWidth: 300, alignment: .leading)   // grows with the transcript; caps + truncates long
         }
     }
 
@@ -293,31 +301,60 @@ private struct HUDContentView: View {
     }
 }
 
-/// A slim waveform of thin vertical bars whose heights track the live mic level (center bars
-/// taller). When processing (not recording) it shows a flat idle state in a muted token color.
+/// A slim, LIVING waveform: thin vertical bars that continuously animate while recording, with
+/// their amplitude scaling to the live mic level (center bars taller). When not recording it shows
+/// a flat idle state in a muted color. Honors Reduce Motion (falls back to a static, level-driven
+/// meter that eases on level changes instead of the continuous wave).
 private struct LevelMeter: View {
     let level: Float
     let active: Bool
+    var color: Color = Theme.Palette.recording
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     private let bars = 13
+    private let maxBar: CGFloat = 16
 
     var body: some View {
+        if active && !reduceMotion {
+            TimelineView(.animation) { timeline in
+                bar { i in waveHeight(i, t: timeline.date.timeIntervalSinceReferenceDate) }
+            }
+        } else {
+            bar { i in staticHeight(i) }
+                .animation(.easeOut(duration: 0.12), value: level)
+        }
+    }
+
+    private func bar(_ height: @escaping (Int) -> CGFloat) -> some View {
         HStack(spacing: 3) {
             ForEach(0..<bars, id: \.self) { i in
                 Capsule()
-                    .fill(active ? Theme.Palette.recording : Theme.Palette.textTertiary)
-                    .frame(width: 2.5, height: barHeight(i))
+                    .fill(active ? color : Theme.Palette.textTertiary)
+                    .frame(width: 2.5, height: height(i))
             }
         }
     }
 
-    private func barHeight(_ index: Int) -> CGFloat {
-        guard active else { return 4 }
-        // Normalize RMS (~0…0.3 typical speech) to 0…1, emphasize center bars.
-        let normalized = min(1, CGFloat(level) / 0.3)
+    /// Center-weight: 1.0 at the middle bar, tapering toward the edges.
+    private func weight(_ index: Int) -> CGFloat {
         let center = Double(bars - 1) / 2
-        let distance = abs(Double(index) - center) / center      // 0 center … 1 edges
-        let weight = 1.0 - 0.6 * distance
-        return max(4, 20 * normalized * weight)
+        let distance = abs(Double(index) - center) / center
+        return CGFloat(1.0 - 0.6 * distance)
+    }
+
+    /// Live amplitude from mic RMS (~0…0.3 typical speech) → 0…1, with a small floor so the
+    /// waveform stays visibly alive even between words.
+    private var amplitude: CGFloat { 0.28 + 0.72 * min(1, CGFloat(level) / 0.3) }
+
+    /// Continuous animated bar — a travelling sine per bar, amplitude-scaled by the mic level.
+    private func waveHeight(_ index: Int, t: Double) -> CGFloat {
+        let wave = 0.5 + 0.5 * sin(t * 7 + Double(index) * 0.7)
+        return max(3, maxBar * amplitude * weight(index) * CGFloat(wave))
+    }
+
+    /// Reduce-Motion / idle: heights track the mic level only (no continuous animation).
+    private func staticHeight(_ index: Int) -> CGFloat {
+        guard active else { return 4 }
+        return max(3, maxBar * amplitude * weight(index))
     }
 }
