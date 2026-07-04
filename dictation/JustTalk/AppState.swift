@@ -166,8 +166,9 @@ public final class AppState: NSObject, ObservableObject {
     // recording is live. When nil, the pill falls back to the per-segment `streamSession` preview.
     private var streamingPill: (any StreamingTranscriber)?
     private var streamTickTask: Task<Void, Never>?
-    /// Throttle between streaming passes. Tuned live for latency-vs-cost (PRD 0008 open question).
-    private static let streamTickInterval: Duration = .milliseconds(800)
+    /// Throttle between streaming passes. Short so decodes run near back-to-back and the live-partial
+    /// callback keeps the pill growing smoothly. Tuned live for latency-vs-cost (PRD 0008).
+    private static let streamTickInterval: Duration = .milliseconds(500)
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
@@ -548,6 +549,12 @@ public final class AppState: NSObject, ObservableObject {
         streamingPill = nil
         streamTickTask = nil
         if streamingPillEnabled, let pill = transcriber.makeStreamingSession() {
+            // Stream the live decode into the pill token-by-token (smooth growth) — confirmed solid,
+            // running hypothesis dimmed. Guarded so a stale pass can't paint after stop / teardown.
+            pill.onLivePartial { [weak self] t in
+                guard let self, self.dictationState == .recording, self.streamingPill === pill else { return }
+                self.recordingHUD.update(confirmed: t.confirmed, hypothesis: t.hypothesis)
+            }
             streamingPill = pill
             startStreamTick()
         }

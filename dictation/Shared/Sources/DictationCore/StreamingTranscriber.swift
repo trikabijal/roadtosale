@@ -44,10 +44,15 @@ public protocol StreamingTranscriber: AnyObject {
     func finish(samples: [Float]?) async -> StreamingTranscript
     /// Drop all state so the session can back a fresh recording.
     func reset()
+    /// Register a handler invoked (on the main actor) with the live, in-progress transcript WHILE a
+    /// `step` decode runs — token-by-token — so the pill grows smoothly instead of jumping once per
+    /// pass. `confirmed` stays the stable prefix; `hypothesis` is the running decode. Default no-op.
+    func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?)
 }
 
 public extension StreamingTranscriber {
     func finish() async -> StreamingTranscript { await finish(samples: nil) }
+    func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {}
 }
 
 /// Deterministic streaming transcriber for tests/pipeline wiring — no model. Emits a fixed script of

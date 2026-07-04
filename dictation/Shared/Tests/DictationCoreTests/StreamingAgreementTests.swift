@@ -78,4 +78,14 @@ final class StreamingAgreementTests: XCTestCase {
         a.integrate([seg("  hi  ", 0, 1), seg("", 1, 2), seg(" there", 2, 3)])
         XCTAssertEqual(a.confirmedText, "hi there")
     }
+
+    /// The bug the user hit: WhisperKit timestamp/special tokens leaking onto the pill ("5.90 6.32").
+    /// `sanitize` must strip `<|…|>` tokens and collapse whitespace, leaving only the words.
+    func testSanitizeStripsTimestampAndSpecialTokens() {
+        XCTAssertEqual(WhisperKitStreamingSession.sanitize("<|0.00|> hello world<|5.90|>"), "hello world")
+        XCTAssertEqual(WhisperKitStreamingSession.sanitize("<|startoftranscript|><|en|><|transcribe|> hi"), "hi")
+        XCTAssertEqual(WhisperKitStreamingSession.sanitize("five point <|5.90|> nine"), "five point nine")
+        XCTAssertEqual(WhisperKitStreamingSession.sanitize("  plain   text  "), "plain text")
+        XCTAssertEqual(WhisperKitStreamingSession.sanitize("<|6.32|>"), "")
+    }
 }

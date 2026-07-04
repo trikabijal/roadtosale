@@ -265,8 +265,9 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
 public final class WhisperKitStreamingSession: StreamingTranscriber {
     private let whisperKit: WhisperKit
     private let biasPrompt: String?
-    private var agreement = StreamingAgreement(requiredUnconfirmed: 2)
+    private var agreement = StreamingAgreement(requiredUnconfirmed: 1)
     private var last = StreamingTranscript.empty
+    private var livePartial: (@MainActor @Sendable (StreamingTranscript) -> Void)?
     /// Guard against the O(n²) re-encode blow-up: past this much audio we stop running new streaming
     /// passes (the pill freezes at the last confirmed text) — the accurate pasted text is the batch
     /// pass at stop regardless, so long dictations lose only live-pill motion, not correctness.
@@ -275,6 +276,10 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     public init(whisperKit: WhisperKit, biasPrompt: String?) {
         self.whisperKit = whisperKit
         self.biasPrompt = biasPrompt
+    }
+
+    public func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {
+        livePartial = handler
     }
 
     public func step(samples: [Float]) async -> StreamingTranscript {
@@ -292,15 +297,31 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
             options.promptTokens = tokens
         }
 
+        // Stream the running decode into the pill as the hypothesis (token-by-token) so growth is
+        // smooth, not a per-pass jump. `confirmed` is stable during the pass — snapshot it.
+        let confirmedSnapshot = agreement.confirmedText
+        let handler = livePartial
         let start = Date()
-        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options),
+        // Array overload (the non-deprecated one — `segmentCallback:` disambiguates it from the
+        // deprecated single-result variant). The `callback` streams the running decode for the pill.
+        let progressCallback: ((TranscriptionProgress) -> Bool?) = { progress in
+            if let handler {
+                let hyp = Self.sanitize(progress.text)
+                Task { @MainActor in handler(StreamingTranscript(confirmed: confirmedSnapshot, hypothesis: hyp)) }
+            }
+            return nil   // never early-stop the pill decode
+        }
+        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options,
+                                                             callback: progressCallback, segmentCallback: nil),
               !results.isEmpty else {
             return last   // a failed pass is a no-op for the preview — never abort the dictation
         }
         let latencyMs = Int(Date().timeIntervalSince(start) * 1000)
 
         let segs = results.flatMap { $0.segments }
-        let fresh = segs.map { AgreedSegment(text: $0.text, start: Double($0.start), end: Double($0.end)) }
+        // Strip WhisperKit timestamp/special tokens (`<|5.90|>`, `<|startoftranscript|>`) that live in
+        // raw segment text — the batch path uses the cleaned result text, but segment text keeps them.
+        let fresh = segs.map { AgreedSegment(text: Self.sanitize($0.text), start: Double($0.start), end: Double($0.end)) }
         agreement.integrate(fresh)
 
         let confidence: Double
@@ -325,7 +346,16 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     }
 
     public func reset() {
-        agreement = StreamingAgreement(requiredUnconfirmed: 2)
+        agreement = StreamingAgreement(requiredUnconfirmed: 1)
         last = .empty
+    }
+
+    /// Strip WhisperKit special/timestamp tokens (`<|5.90|>`, `<|startoftranscript|>`, …) and collapse
+    /// whitespace. Raw segment text and the decode-progress text both carry these; without stripping,
+    /// the timestamps ("5.90 6.32") render straight onto the pill.
+    nonisolated static func sanitize(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "<\\|[^|]*\\|>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
