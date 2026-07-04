@@ -479,12 +479,15 @@ public final class AppState: NSObject, ObservableObject {
             dictationState = .recording
             statusMessage = "Recording…"
             recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
+            // HUD live text (the growing pill) is identical in both modes; only its source differs
+            // internally: batch uses the tiny-model preview loop; streaming reuses the text the
+            // session is ALREADY transcribing (no second model — running both starves the Neural
+            // Engine, which showed up as "no live text + slow").
             if streamingEnabled {
-                startStreamingSession()   // per-segment STT+cleanup for the pasted result
+                startStreamingSession()
+            } else {
+                startPreviewLoop()
             }
-            // The tiny-model preview loop drives the live, GROWING HUD text in BOTH modes (it is
-            // display-only and never touches the pasted output — in streaming the session owns that).
-            startPreviewLoop()
         } catch {
             statusMessage = "Failed to start: \(error.localizedDescription)"
         }
@@ -569,6 +572,12 @@ public final class AppState: NSObject, ObservableObject {
         streamPump = Task { @MainActor in
             await prev?.value
             _ = await session.ingest(segment: segment, audioStartDate: startDate)
+            // Drive the growing HUD text from the session's own transcription (no second model).
+            guard self.dictationState == .recording else { return }
+            let shown = [session.confirmedText, session.partialText]
+                .filter { !$0.isEmpty }
+                .joined(separator: " ")
+            if !shown.isEmpty { self.recordingHUD.update(previewText: shown) }
         }
     }
 
