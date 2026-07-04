@@ -11,9 +11,8 @@ final class RecordingHUDModel: ObservableObject {
     @Published var level: Float = 0          // 0…~1 mic RMS
     @Published var phase: RecordingHUDPhase = .recording
     @Published var label: String = "Listening…"
-    @Published var previewText: String = ""  // live partial transcript while recording (confirmed) — TARGET
-    @Published var hypothesisText: String = ""  // tentative trailing words (streaming pill, dimmed) — TARGET
-    // How many characters of the combined live text are currently revealed. A reveal driver eases
+    @Published var previewText: String = ""  // live transcript while recording (the pill text) — TARGET
+    // How many characters of the live text are currently revealed. A reveal driver eases
     // this toward the target length a few chars per frame, so the pill grows/shrinks GRADUALLY no
     // matter how chunky the STT updates land (the "jumps" fix — PRD 0008).
     @Published var revealedCount: Int = 0
@@ -44,12 +43,7 @@ final class RecordingHUD {
     /// jumps" fix. Runs only while the live pill is up.
     private var revealTask: Task<Void, Never>?
 
-    private func combinedLiveLength() -> Int {
-        let c = model.previewText, h = model.hypothesisText
-        if h.isEmpty { return c.count }
-        if c.isEmpty { return h.count }
-        return c.count + 1 + h.count   // + the joining space
-    }
+    private func liveLength() -> Int { model.previewText.count }
 
     private func ensureRevealRunning() {
         guard revealTask == nil else { return }
@@ -62,7 +56,7 @@ final class RecordingHUD {
             let catchUpBacklog = 50.0
             while !Task.isCancelled {
                 if let self {
-                    let target = Double(self.combinedLiveLength())
+                    let target = Double(self.liveLength())
                     if exact < target {
                         let gap = target - exact
                         let step = gap > catchUpBacklog ? gap / 12.0 : steadyRate
@@ -89,7 +83,6 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
-        model.hypothesisText = ""
         model.lowInput = false
         model.revealedCount = 0
         if phase == .recording { ensureRevealRunning() } else { stopReveal() }
@@ -112,7 +105,6 @@ final class RecordingHUD {
         model.label = label
         model.level = 0
         model.previewText = ""
-        model.hypothesisText = ""
         model.lowInput = false
         model.revealedCount = 0
         if phase == .recording { ensureRevealRunning() } else { stopReveal() }
@@ -127,17 +119,10 @@ final class RecordingHUD {
         if model.lowInput != low { model.lowInput = low }
     }
 
-    /// Per-segment preview (fallback path): all confirmed, no hypothesis tail.
+    /// Set the live pill text (streaming confirmed text, or the per-segment fallback preview). The
+    /// reveal driver eases the shown length toward it so growth is gradual.
     func update(previewText: String) {
         model.previewText = previewText
-        model.hypothesisText = ""
-        ensureRevealRunning()
-    }
-
-    /// Streaming pill (PRD 0008): confirmed words render solid, the hypothesis tail dimmed.
-    func update(confirmed: String, hypothesis: String) {
-        model.previewText = confirmed
-        model.hypothesisText = hypothesis
         ensureRevealRunning()
     }
 
@@ -158,7 +143,6 @@ final class RecordingHUD {
         model.label = "Inserted"
         model.level = 0
         model.previewText = ""
-        model.hypothesisText = ""
         model.lowInput = false
         stopReveal()
         model.onMarkWrong = onMarkWrong
@@ -172,7 +156,6 @@ final class RecordingHUD {
         model.label = message
         model.level = 0
         model.previewText = ""
-        model.hypothesisText = ""
         stopReveal()
         model.onRetry = onRetry
         model.onDismiss = onDismiss
@@ -262,20 +245,13 @@ private struct HUDContentView: View {
     /// translucent — the blur does the legibility work, not an opaque fill).
     private static let glassTint = Color(red: 0.055, green: 0.063, blue: 0.078)
 
-    /// The full combined live text (confirmed + " " + hypothesis) — the TARGET the reveal eases toward.
-    private var liveFull: String {
-        let c = model.previewText, h = model.hypothesisText
-        if h.isEmpty { return c }
-        if c.isEmpty { return h }
-        return c + " " + h
-    }
+    /// Only the currently-revealed prefix of the live text — the typewriter grows this a few chars per
+    /// frame, so the pill moves gradually (the "no jumps" fix). Head-truncation keeps the newest tail
+    /// visible; the oldest words scroll off the front.
+    private var shownLive: String { String(model.previewText.prefix(model.revealedCount)) }
 
-    /// Only the currently-revealed prefix — the typewriter grows this a few chars per frame, so the
-    /// pill moves gradually (the "no jumps" fix). Head-truncation keeps the newest (tail) visible.
-    private var shownLive: String { String(liveFull.prefix(model.revealedCount)) }
-
-    /// Plain-string form of what the pill shows — used for the low-input branch, emptiness checks,
-    /// and as the `.animation` value so the capsule resizes smoothly as the reveal advances.
+    /// Plain-string form of what the pill shows — the low-input warning, the revealed live text, or
+    /// the status label. Also the `.animation` value, so the capsule resizes smoothly as it reveals.
     private var displayText: String {
         if model.phase == .recording && model.lowInput {
             return "Speak up — I can barely hear you"
@@ -284,25 +260,9 @@ private struct HUDContentView: View {
         return (model.phase == .recording && !shown.isEmpty) ? shown : model.label
     }
 
-    /// Attributed live transcript for the roll-up pill: confirmed words solid, the tentative
-    /// hypothesis tail dimmed (Whisper still revises the tail — never render it as final). Rendered
-    /// as one line, head-truncated, so the newest words stay visible and the oldest scroll off.
-    private var attributedLive: AttributedString {
-        let shown = shownLive
-        let confirmedLen = min(shown.count, model.previewText.count)
-        var s = AttributedString(String(shown.prefix(confirmedLen)))
-        s.foregroundColor = Theme.Palette.textPrimary
-        if shown.count > confirmedLen {
-            var tail = AttributedString(String(shown.dropFirst(confirmedLen)))
-            tail.foregroundColor = Theme.Palette.textPrimary.opacity(0.45)
-            s.append(tail)
-        }
-        return s
-    }
-
     /// Whether the pill should render the live transcript vs the status label / warning.
     private var showsLiveTranscript: Bool {
-        model.phase == .recording && !model.lowInput && !liveFull.isEmpty
+        model.phase == .recording && !model.lowInput && !model.previewText.isEmpty
     }
 
     private var micColor: Color {
@@ -380,18 +340,12 @@ private struct HUDContentView: View {
             // Live transcript roll-up (PRD 0008): confirmed solid + hypothesis dimmed, one line,
             // head-truncated so the newest words show and the oldest scroll off the front. Falls
             // back to the status label / low-input warning when there's no live text.
-            Group {
-                if showsLiveTranscript {
-                    Text(attributedLive)
-                } else {
-                    Text(displayText)
-                        .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
-                }
-            }
-            .font(.callout)
-            .lineLimit(1)
-            .truncationMode(.head)
-            .frame(maxWidth: 300, alignment: .leading)   // grows with the transcript; caps + truncates long
+            Text(showsLiveTranscript ? shownLive : displayText)
+                .font(.callout)
+                .foregroundStyle(model.phase == .recording && model.lowInput ? Theme.Palette.warning : Theme.Palette.textPrimary)
+                .lineLimit(1)
+                .truncationMode(.head)   // newest words show, oldest scroll off the front
+                .frame(maxWidth: 300, alignment: .leading)
         }
     }
 
@@ -437,64 +391,6 @@ private struct HUDContentView: View {
             .buttonStyle(.plain)
             .foregroundStyle(Theme.Palette.textSecondary)
         }
-    }
-}
-
-/// A slim, LIVING waveform: thin vertical bars that continuously animate while recording, with
-/// their amplitude scaling to the live mic level (center bars taller). When not recording it shows
-/// a flat idle state in a muted color. Honors Reduce Motion (falls back to a static, level-driven
-/// meter that eases on level changes instead of the continuous wave).
-private struct LevelMeter: View {
-    let level: Float
-    let active: Bool
-    var color: Color = Theme.Palette.recording
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let bars = 13
-    private let maxBar: CGFloat = 16
-
-    var body: some View {
-        if active && !reduceMotion {
-            TimelineView(.animation) { timeline in
-                bar { i in waveHeight(i, t: timeline.date.timeIntervalSinceReferenceDate) }
-            }
-        } else {
-            bar { i in staticHeight(i) }
-                .animation(.easeOut(duration: 0.12), value: level)
-        }
-    }
-
-    private func bar(_ height: @escaping (Int) -> CGFloat) -> some View {
-        HStack(spacing: 3) {
-            ForEach(0..<bars, id: \.self) { i in
-                Capsule()
-                    .fill(active ? color : Theme.Palette.textTertiary)
-                    .frame(width: 2.5, height: height(i))
-            }
-        }
-    }
-
-    /// Center-weight: 1.0 at the middle bar, tapering toward the edges.
-    private func weight(_ index: Int) -> CGFloat {
-        let center = Double(bars - 1) / 2
-        let distance = abs(Double(index) - center) / center
-        return CGFloat(1.0 - 0.6 * distance)
-    }
-
-    /// Live amplitude from mic RMS (~0…0.3 typical speech) → 0…1, with a small floor so the
-    /// waveform stays visibly alive even between words.
-    private var amplitude: CGFloat { 0.28 + 0.72 * min(1, CGFloat(level) / 0.3) }
-
-    /// Continuous animated bar — a travelling sine per bar, amplitude-scaled by the mic level.
-    private func waveHeight(_ index: Int, t: Double) -> CGFloat {
-        let wave = 0.5 + 0.5 * sin(t * 7 + Double(index) * 0.7)
-        return max(3, maxBar * amplitude * weight(index) * CGFloat(wave))
-    }
-
-    /// Reduce-Motion / idle: heights track the mic level only (no continuous animation).
-    private func staticHeight(_ index: Int) -> CGFloat {
-        guard active else { return 4 }
-        return max(3, maxBar * amplitude * weight(index))
     }
 }
 

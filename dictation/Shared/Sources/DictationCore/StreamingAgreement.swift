@@ -86,14 +86,6 @@ public struct StreamingAgreement: Sendable {
     /// Tentative trailing text — show dimmed, may still change.
     public var hypothesisText: String { Self.join(hypothesis) }
 
-    /// Confirmed + hypothesis as one string (what the live pill renders; hypothesis dimmed in the UI).
-    public var displayText: String {
-        let c = confirmedText, h = hypothesisText
-        if c.isEmpty { return h }
-        if h.isEmpty { return c }
-        return c + " " + h
-    }
-
     private static func join(_ segs: [AgreedSegment]) -> String {
         segs.map { $0.text.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }

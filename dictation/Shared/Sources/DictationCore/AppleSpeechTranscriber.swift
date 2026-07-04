@@ -217,19 +217,6 @@ public final class AppleStreamingSession: StreamingTranscriber {
         return snapshot()
     }
 
-    public func finish(samples: [Float]?) async -> StreamingTranscript {
-        if let samples { _ = await step(samples: samples) }
-        continuation?.finish()
-        continuation = nil
-        try? await analyzer.finalizeAndFinishThroughEndOfInput()   // ends module.results + analyzer.start
-        _ = await resultsTask?.value
-        resultsTask = nil
-        startTask = nil
-        volatile = ""
-        started = false
-        return snapshot()
-    }
-
     public func reset() {
         // Finish the input + stop the analyzer so both internal Tasks complete and the session
         // (and its SpeechAnalyzer) can deallocate. Called by AppState on every teardown.
@@ -245,8 +232,6 @@ public final class AppleStreamingSession: StreamingTranscriber {
         started = false
     }
 
-    public func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {}
-
     private func snapshot() -> StreamingTranscript {
         // Return finalized + volatile as the LIVE text in `confirmed`. Apple finalizes in big, late
         // chunks, so finalized-only made the pill sit on "Listening…" for whole sentences; the
@@ -259,6 +244,6 @@ public final class AppleStreamingSession: StreamingTranscriber {
         let fin = String(confirmed.characters).trimmingCharacters(in: .whitespacesAndNewlines)
         let vol = volatile.trimmingCharacters(in: .whitespacesAndNewlines)
         let live = vol.isEmpty ? fin : (fin.isEmpty ? vol : fin + " " + vol)
-        return StreamingTranscript(confirmed: live, hypothesis: "", confidence: 0.9)
+        return StreamingTranscript(confirmed: live)
     }
 }

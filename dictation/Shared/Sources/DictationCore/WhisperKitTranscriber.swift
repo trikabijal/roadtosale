@@ -267,7 +267,6 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     private let biasPrompt: String?
     private var agreement = StreamingAgreement(requiredUnconfirmed: 1)
     private var last = StreamingTranscript.empty
-    private var livePartial: (@MainActor @Sendable (StreamingTranscript) -> Void)?
     /// WhisperKit re-decode is expensive, so throttle it to this cadence even when `step` is called
     /// far more often (the tick is 100ms for Apple's benefit). Between decodes, return the last result.
     private var lastDecodeAt: Date?
@@ -280,10 +279,6 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     public init(whisperKit: WhisperKit, biasPrompt: String?) {
         self.whisperKit = whisperKit
         self.biasPrompt = biasPrompt
-    }
-
-    public func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {
-        livePartial = handler
     }
 
     public func step(samples: [Float]) async -> StreamingTranscript {
@@ -308,26 +303,10 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
         // F10 echo class). The pill is preview only; the accurate PASTED text is the batch pass, which
         // keeps the bias. So spelling accuracy is unaffected — we just stop the echo on the pill.
 
-        // Stream the running decode into the pill as the hypothesis (token-by-token) so growth is
-        // smooth, not a per-pass jump. `confirmed` is stable during the pass — snapshot it.
-        let confirmedSnapshot = agreement.confirmedText
-        let handler = livePartial
-        let start = Date()
-        // Array overload (the non-deprecated one — `segmentCallback:` disambiguates it from the
-        // deprecated single-result variant). The `callback` streams the running decode for the pill.
-        let progressCallback: ((TranscriptionProgress) -> Bool?) = { progress in
-            if let handler {
-                let hyp = Self.sanitize(progress.text)
-                Task { @MainActor in handler(StreamingTranscript(confirmed: confirmedSnapshot, hypothesis: hyp)) }
-            }
-            return nil   // never early-stop the pill decode
-        }
-        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options,
-                                                             callback: progressCallback, segmentCallback: nil),
+        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options),
               !results.isEmpty else {
             return last   // a failed pass is a no-op for the preview — never abort the dictation
         }
-        let latencyMs = Int(Date().timeIntervalSince(start) * 1000)
 
         let segs = results.flatMap { $0.segments }
         // Strip WhisperKit timestamp/special tokens (`<|5.90|>`, `<|startoftranscript|>`) that live in
@@ -335,24 +314,7 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
         let fresh = segs.map { AgreedSegment(text: Self.sanitize($0.text), start: Double($0.start), end: Double($0.end)) }
         agreement.integrate(fresh)
 
-        let confidence: Double
-        if segs.isEmpty {
-            confidence = last.confidence
-        } else {
-            let avg = segs.reduce(0.0) { $0 + Double($1.avgLogprob) } / Double(segs.count)
-            confidence = max(0, min(1, exp(avg)))
-        }
-        last = StreamingTranscript(confirmed: agreement.confirmedText,
-                                   hypothesis: agreement.hypothesisText,
-                                   confidence: confidence, latencyMs: latencyMs)
-        return last
-    }
-
-    public func finish(samples: [Float]?) async -> StreamingTranscript {
-        if let samples { _ = await step(samples: samples) }
-        let confirmed = agreement.flushHypothesis()
-        last = StreamingTranscript(confirmed: confirmed, hypothesis: "",
-                                   confidence: last.confidence, latencyMs: last.latencyMs)
+        last = StreamingTranscript(confirmed: agreement.confirmedText, hypothesis: agreement.hypothesisText)
         return last
     }
 
