@@ -327,7 +327,17 @@ private struct HUDContentView: View {
         .background {
             Capsule()
                 .fill(.ultraThinMaterial)
-                .overlay(Capsule().fill(Theme.Palette.surfaceRaised.opacity(0.6)))
+                // Deeper dark base with top→bottom depth, so the red wave and text pop against
+                // whatever's behind the floating pill.
+                .overlay(
+                    Capsule().fill(
+                        LinearGradient(
+                            colors: [Theme.Palette.surfaceRaised.opacity(0.88),
+                                     Color.black.opacity(0.58)],
+                            startPoint: .top, endPoint: .bottom)))
+                // Faint warm wash so the dark ties into the gold edge (only meaningful while the
+                // gold border is up, but harmless elsewhere).
+                .overlay(Capsule().fill(Color(red: 0.62, green: 0.46, blue: 0.16).opacity(0.06)))
         }
         // Recording → a shimmering gold border (a moving shine sweeps the capsule edge). Other
         // states keep the quiet hairline. Honors Reduce Motion (static gold, no sweep).
