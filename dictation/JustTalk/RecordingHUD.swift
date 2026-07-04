@@ -492,9 +492,9 @@ private struct WaveMeter: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Live amplitude from mic RMS (~0…0.3 typical speech) → 0…1, with a small floor so the wave
-    /// stays visibly alive between words.
-    private var amplitude: CGFloat { 0.22 + 0.78 * min(1, CGFloat(level) / 0.3) }
+    /// Live amplitude from mic RMS → 0…1. Low floor so it goes nearly FLAT when you're quiet and
+    /// swells with loudness — the wave visibly tracks your voice. Reaches full around RMS 0.2.
+    private var amplitude: CGFloat { 0.08 + 0.92 * min(1, CGFloat(level) / 0.2) }
 
     var body: some View {
         if active && !reduceMotion {
@@ -540,9 +540,10 @@ private struct WaveMeter: View {
 private struct GoldShimmerBorder: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let deepGold  = Color(red: 0.55, green: 0.40, blue: 0.12)
-    private let gold      = Color(red: 0.85, green: 0.68, blue: 0.30)
-    private let brightGold = Color(red: 1.00, green: 0.94, blue: 0.72)
+    // Warm golds only — the shine is gold-on-gold, no near-white highlight.
+    private let deepGold   = Color(red: 0.50, green: 0.34, blue: 0.08)
+    private let gold       = Color(red: 0.83, green: 0.63, blue: 0.22)
+    private let brightGold = Color(red: 1.00, green: 0.82, blue: 0.38)
     private let lineWidth: CGFloat = 1.8
 
     var body: some View {

@@ -166,9 +166,10 @@ public final class AppState: NSObject, ObservableObject {
     // recording is live. When nil, the pill falls back to the per-segment `streamSession` preview.
     private var streamingPill: (any StreamingTranscriber)?
     private var streamTickTask: Task<Void, Never>?
-    /// Throttle between streaming passes. Short so decodes run near back-to-back and the live-partial
-    /// callback keeps the pill growing smoothly. Tuned live for latency-vs-cost (PRD 0008).
-    private static let streamTickInterval: Duration = .milliseconds(300)
+    /// How often we feed audio to the streaming session + refresh the pill. Fast (100ms) so Apple
+    /// gets audio near-continuously and its live text appears with minimal lag. WhisperKit throttles
+    /// its own expensive re-decode INTERNALLY, so a fast tick doesn't make it heavier (PRD 0008).
+    private static let streamTickInterval: Duration = .milliseconds(100)
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.

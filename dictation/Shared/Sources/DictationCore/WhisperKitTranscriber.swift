@@ -268,6 +268,10 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     private var agreement = StreamingAgreement(requiredUnconfirmed: 1)
     private var last = StreamingTranscript.empty
     private var livePartial: (@MainActor @Sendable (StreamingTranscript) -> Void)?
+    /// WhisperKit re-decode is expensive, so throttle it to this cadence even when `step` is called
+    /// far more often (the tick is 100ms for Apple's benefit). Between decodes, return the last result.
+    private var lastDecodeAt: Date?
+    private static let minDecodeInterval: TimeInterval = 0.5
     /// Guard against the O(n²) re-encode blow-up: past this much audio we stop running new streaming
     /// passes (the pill freezes at the last confirmed text) — the accurate pasted text is the batch
     /// pass at stop regardless, so long dictations lose only live-pill motion, not correctness.
@@ -287,6 +291,12 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
         let seconds = Double(samples.count) / RecordingEngine.targetSampleRate
         // Stop feeding new audio once past the guard, but let the tail finish confirming.
         guard seconds <= Self.maxStreamSeconds else { return last }
+        // Throttle the expensive re-decode: the tick calls step frequently (for Apple), but WhisperKit
+        // only needs to re-run every ~0.5s. Between decodes, hand back the last result cheaply.
+        let now = Date()
+        if let lastDecodeAt, now.timeIntervalSince(lastDecodeAt) < Self.minDecodeInterval { return last }
+        lastDecodeAt = now
+
         // Silence floor — don't let WhisperKit hallucinate a phantom phrase into the pill.
         let peak = samples.reduce(Float(0)) { Swift.max($0, abs($1)) }
         guard peak >= WhisperKitTranscriber.silenceFloor else { return last }
@@ -349,6 +359,7 @@ public final class WhisperKitStreamingSession: StreamingTranscriber {
     public func reset() {
         agreement = StreamingAgreement(requiredUnconfirmed: 1)
         last = .empty
+        lastDecodeAt = nil
     }
 
     /// Strip WhisperKit special/timestamp tokens (`<|5.90|>`, `<|startoftranscript|>`, …) and collapse
