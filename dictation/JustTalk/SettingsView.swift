@@ -109,10 +109,18 @@ struct SettingsView: View {
                 Picker("Provider", selection: Binding(
                     get: { appState.sttConfig.provider },
                     set: { newProvider in
-                        let model = newProvider == .whisperKit
-                            ? (ModelTier(rawValue: appState.sttConfig.model)?.rawValue
-                               ?? ModelTier.largeV3Turbo.rawValue)
-                            : "default"
+                        let model: String
+                        switch newProvider {
+                        case .whisperKit:
+                            model = ModelTier(rawValue: appState.sttConfig.model)?.rawValue
+                                ?? ModelTier.largeV3Turbo.rawValue
+                        case .appleSpeech:
+                            // Apple's model id is a BCP-47 locale. Default to US English; Apple has no
+                            // Hindi/Gujarati model, so multilingual dictation should stay on WhisperKit.
+                            model = "en-US"
+                        case .mock:
+                            model = "default"
+                        }
                         appState.setSTTConfig(STTConfig(provider: newProvider, model: model))
                     }
                 )) {
@@ -140,6 +148,26 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.menu)
                     .tint(Theme.Palette.accent)
+                }
+
+                // Apple provider: pick an English locale (Apple ships no Hindi/Gujarati model, so
+                // only English variants are offered — multilingual dictation uses WhisperKit).
+                if appState.sttConfig.provider == .appleSpeech {
+                    Picker("Language", selection: Binding(
+                        get: { appState.sttConfig.model },
+                        set: { appState.setSTTConfig(STTConfig(provider: .appleSpeech, model: $0)) }
+                    )) {
+                        Text("English (US)").tag("en-US")
+                        Text("English (India)").tag("en-IN")
+                        Text("English (UK)").tag("en-GB")
+                        Text("English (Australia)").tag("en-AU")
+                    }
+                    .pickerStyle(.menu)
+                    .tint(Theme.Palette.accent)
+
+                    Text("Apple's fast on-device model — English only. For Hinglish/Gujarati, use WhisperKit.")
+                        .font(.caption)
+                        .foregroundStyle(Theme.Palette.textTertiary)
                 }
 
                 if appState.availability == .warmingUp {

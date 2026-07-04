@@ -77,7 +77,9 @@ public enum STTProvider: String, CaseIterable, Sendable {
     public var isAvailable: Bool {
         switch self {
         case .whisperKit, .mock: return true
-        case .appleSpeech:       return false   // contract-ready, not yet implemented
+        case .appleSpeech:
+            // Apple SpeechAnalyzer requires macOS 26 / iOS 26.
+            if #available(macOS 26.0, iOS 26.0, *) { return true } else { return false }
         }
     }
 
@@ -120,6 +122,10 @@ public enum SpeechTranscriberFactory {
         case .mock:
             return MockTranscriber()
         case .appleSpeech:
+            if #available(macOS 26.0, iOS 26.0, *) {
+                // config.model carries the BCP-47 locale (e.g. "en-US") for the Apple provider.
+                return AppleSpeechTranscriber(localeIdentifier: config.model)
+            }
             return UnavailableTranscriber(providerName: STTProvider.appleSpeech.displayName)
         }
     }

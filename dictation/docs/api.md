@@ -63,9 +63,19 @@ public struct TranscriptionResult: Sendable {
 public enum STTProvider: String, CaseIterable, Sendable {
     case whisperKit, appleSpeech, mock
     public var displayName: String { get }
-    public var isAvailable: Bool { get }              // appleSpeech is contract-ready but false (not implemented)
+    public var isAvailable: Bool { get }              // appleSpeech: true on macOS 26+/iOS 26+ (Apple SpeechAnalyzer)
     public static var selectable: [STTProvider] { get } // [.whisperKit, .appleSpeech]
 }
+```
+
+- **`appleSpeech`** — `AppleSpeechTranscriber` (macOS 26+), backed by Apple's on-device
+  `SpeechAnalyzer`/`SpeechTranscriber`. The FAST + native-streaming path, best for **English**
+  (`config.model` = a BCP-47 locale, e.g. `en-US`). Apple ships **no Hindi/Gujarati** model
+  (verified on-device), so multilingual/Hinglish dictation stays on **WhisperKit**. Its
+  `makeStreamingSession()` returns `AppleStreamingSession`, which exposes Apple's finalized results
+  as the pill's append-only confirmed stream — no re-decode cost.
+
+```swift
 
 public struct STTConfig: Sendable, Equatable {
     public var provider: STTProvider
