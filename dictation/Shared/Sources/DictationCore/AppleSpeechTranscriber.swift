@@ -62,10 +62,15 @@ public final class AppleSpeechTranscriber: DictationCore.SpeechTranscriber {
 
     public func load(onProgress: (@MainActor (Double) -> Void)? = nil) async throws {
         isLoaded = false
-        // Request Speech authorization (on-device SpeechAnalyzer still checks it). Best-effort — if
-        // denied, the analyzer will throw and the caller falls back to WhisperKit.
-        _ = await withCheckedContinuation { (c: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
+        // Speech authorization is required. If denied/restricted, THROW so `load()` fails cleanly
+        // (AppState marks the engine unavailable and surfaces a message) instead of silently
+        // "succeeding" and then returning empty on every dictation. The user can switch to WhisperKit
+        // in Settings. (Auto-fallback to WhisperKit is a possible future enhancement, not done here.)
+        let status = await withCheckedContinuation { (c: CheckedContinuation<SFSpeechRecognizerAuthorizationStatus, Never>) in
             SFSpeechRecognizer.requestAuthorization { c.resume(returning: $0) }
+        }
+        guard status == .authorized else {
+            throw TranscriptionError.providerUnavailable("Speech recognition isn't authorized — enable it in System Settings, or use WhisperKit")
         }
 
         let module = Speech.SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
@@ -153,6 +158,7 @@ public final class AppleStreamingSession: StreamingTranscriber {
     private let converter: AppleAudioConverter
     private var continuation: AsyncStream<AnalyzerInput>.Continuation?
     private var resultsTask: Task<Void, Never>?
+    private var startTask: Task<Void, Never>?
     private var started = false
     private var fedSamples = 0
 
@@ -171,10 +177,15 @@ public final class AppleStreamingSession: StreamingTranscriber {
         started = true
         let (stream, cont) = AsyncStream<AnalyzerInput>.makeStream()
         continuation = cont
+        // Capture `module`/`analyzer` LOCALLY (not `self`) and use `[weak self]` re-checked inside the
+        // loop, so neither Task pins `self` across its (indefinite) suspension. Without this the
+        // session — and its SpeechAnalyzer — leaks on every dictation (both `module.results` and
+        // `analyzer.start` only return once the input is finished, which happens in reset()/finish()).
+        let module = self.module
         resultsTask = Task { @MainActor [weak self] in
-            guard let self else { return }
             do {
-                for try await result in self.module.results {
+                for try await result in module.results {
+                    guard let self else { return }
                     if result.isFinal {
                         self.confirmed += result.text
                         self.volatile = ""
@@ -187,14 +198,17 @@ public final class AppleStreamingSession: StreamingTranscriber {
                 // batch pass, so this never loses the dictation.
             }
         }
-        Task { try? await analyzer.start(inputSequence: stream) }
+        let analyzer = self.analyzer
+        startTask = Task { try? await analyzer.start(inputSequence: stream) }
     }
 
     public func step(samples: [Float]) async -> StreamingTranscript {
         startIfNeeded()
         // Feed only the new tail (Apple wants incremental audio, not the whole buffer each tick).
-        guard samples.count > fedSamples else { return snapshot() }
-        let tail = Array(samples[fedSamples...])
+        // `min` guards against a shrunk buffer (defensive — the buffer is append-only per recording).
+        let start = Swift.min(fedSamples, samples.count)
+        guard start < samples.count else { return snapshot() }
+        let tail = Array(samples[start...])
         fedSamples = samples.count
         if let buffer = AudioSampleBridge.makeBuffer(samples: tail, sampleRate: RecordingEngine.targetSampleRate),
            let converted = converter.convert(buffer) {
@@ -206,15 +220,25 @@ public final class AppleStreamingSession: StreamingTranscriber {
     public func finish(samples: [Float]?) async -> StreamingTranscript {
         if let samples { _ = await step(samples: samples) }
         continuation?.finish()
-        try? await analyzer.finalizeAndFinishThroughEndOfInput()
+        continuation = nil
+        try? await analyzer.finalizeAndFinishThroughEndOfInput()   // ends module.results + analyzer.start
         _ = await resultsTask?.value
+        resultsTask = nil
+        startTask = nil
         volatile = ""
+        started = false
         return snapshot()
     }
 
     public func reset() {
-        resultsTask?.cancel()
+        // Finish the input + stop the analyzer so both internal Tasks complete and the session
+        // (and its SpeechAnalyzer) can deallocate. Called by AppState on every teardown.
         continuation?.finish()
+        continuation = nil
+        resultsTask?.cancel(); resultsTask = nil
+        startTask?.cancel(); startTask = nil
+        let analyzer = self.analyzer
+        Task { await analyzer.cancelAndFinishNow() }
         confirmed = AttributedString()
         volatile = ""
         fedSamples = 0
@@ -224,10 +248,14 @@ public final class AppleStreamingSession: StreamingTranscriber {
     public func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {}
 
     private func snapshot() -> StreamingTranscript {
-        // Show finalized + volatile as the LIVE text. Apple finalizes in big, late chunks, so
-        // finalized-only made the pill sit on "Listening…" for whole sentences. Apple's volatile is
-        // the real-time edge (designed for live captions) and refines incrementally — not the
-        // whole-window re-decode that made WhisperKit chatter — so it's safe to show live.
+        // Return finalized + volatile as the LIVE text in `confirmed`. Apple finalizes in big, late
+        // chunks, so finalized-only made the pill sit on "Listening…" for whole sentences; the
+        // volatile tail is the real-time edge (what Apple Dictation shows live).
+        // NOTE: this means the Apple pill's text is NOT strictly append-only — the volatile tail can
+        // revise as Apple refines it. That's intended: Apple's volatile revises incrementally (a
+        // word or two at the end), not the jarring whole-window re-type WhisperKit produced, and the
+        // pasted output is the batch pass regardless. (Whichever un-finalized volatile remains at
+        // stop is simply dropped from the pill — the batch pass owns the real text.)
         let fin = String(confirmed.characters).trimmingCharacters(in: .whitespacesAndNewlines)
         let vol = volatile.trimmingCharacters(in: .whitespacesAndNewlines)
         let live = vol.isEmpty ? fin : (fin.isEmpty ? vol : fin + " " + vol)

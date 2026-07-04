@@ -553,10 +553,12 @@ public final class AppState: NSObject, ObservableObject {
         streamingPill = nil
         streamTickTask = nil
         if streamingPillEnabled, let pill = transcriber.makeStreamingSession() {
-            // Drive the pill from CONFIRMED text only — it is append-only (LocalAgreement never
-            // rewrites it), so the pill never re-renders / chatters. The per-token hypothesis was the
-            // chatter source (each pass re-decodes the whole unconfirmed window from scratch), so it
-            // is intentionally NOT shown. The reveal driver smooths confirmed's per-pass growth.
+            // Drive the pill from the transcript's `confirmed` field only. For WhisperKit that is
+            // strictly append-only LocalAgreement text (never rewrites → no chatter); its volatile
+            // re-decode tail was the chatter source and is intentionally not shown. For Apple,
+            // `confirmed` carries finalized + its display-grade volatile tail, which can revise a
+            // word or two at the end (acceptable — that's what Apple Dictation shows live). Either
+            // way the reveal driver smooths growth, and the pasted text is the batch pass.
             streamingPill = pill
             startStreamTick()
         }
@@ -623,11 +625,16 @@ public final class AppState: NSObject, ObservableObject {
         // fully stopped before the batch pass so two transcribes don't hit the one model at once.
         let prev = streamPump
         let tick = streamTickTask
+        let tornPill = streamingPill
         streamSession = nil
         streamFlushedCount = 0
         streamPump = nil
         streamTickTask = nil
         streamingPill = nil   // the tick loop sees this and exits; its `pill` ref keeps it alive to finish
+        // Release the streaming session (finishes its input + stops the Apple analyzer so its Tasks
+        // complete and it can deallocate — otherwise it leaks per dictation). Safe mid-tick: the
+        // in-flight step's yield becomes a no-op once the continuation is finished.
+        tornPill?.reset()
         Task { @MainActor in
             await prev?.value   // let any in-flight preview flush settle (its result is discarded)
             _ = await tick?.value  // let any in-flight streaming step finish before batch touches the model
@@ -767,6 +774,12 @@ public final class AppState: NSObject, ObservableObject {
         streamFlushedCount = 0
         streamPump?.cancel()
         streamPump = nil
+        // Tear down the streaming pill too — otherwise a discarded tap (e.g. the first of a
+        // double-tap latch) leaks its session/analyzer and leaves a stale tick running.
+        streamTickTask?.cancel()
+        streamTickTask = nil
+        streamingPill?.reset()
+        streamingPill = nil
         audio.reset()
         finishIdle()
     }
