@@ -168,7 +168,7 @@ public final class AppState: NSObject, ObservableObject {
     private var streamTickTask: Task<Void, Never>?
     /// Throttle between streaming passes. Short so decodes run near back-to-back and the live-partial
     /// callback keeps the pill growing smoothly. Tuned live for latency-vs-cost (PRD 0008).
-    private static let streamTickInterval: Duration = .milliseconds(500)
+    private static let streamTickInterval: Duration = .milliseconds(300)
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.

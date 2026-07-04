@@ -224,7 +224,13 @@ public final class AppleStreamingSession: StreamingTranscriber {
     public func onLivePartial(_ handler: (@MainActor @Sendable (StreamingTranscript) -> Void)?) {}
 
     private func snapshot() -> StreamingTranscript {
-        StreamingTranscript(confirmed: String(confirmed.characters).trimmingCharacters(in: .whitespacesAndNewlines),
-                            hypothesis: volatile, confidence: 0.9)
+        // Show finalized + volatile as the LIVE text. Apple finalizes in big, late chunks, so
+        // finalized-only made the pill sit on "Listening…" for whole sentences. Apple's volatile is
+        // the real-time edge (designed for live captions) and refines incrementally — not the
+        // whole-window re-decode that made WhisperKit chatter — so it's safe to show live.
+        let fin = String(confirmed.characters).trimmingCharacters(in: .whitespacesAndNewlines)
+        let vol = volatile.trimmingCharacters(in: .whitespacesAndNewlines)
+        let live = vol.isEmpty ? fin : (fin.isEmpty ? vol : fin + " " + vol)
+        return StreamingTranscript(confirmed: live, hypothesis: "", confidence: 0.9)
     }
 }
