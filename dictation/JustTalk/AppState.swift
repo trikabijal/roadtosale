@@ -76,9 +76,6 @@ public final class AppState: NSObject, ObservableObject {
     @Published private(set) var hotkeyConfig: HotkeyConfig = .fn
     @Published public var micGranted: Bool = false
     @Published public var accessibilityGranted: Bool = false
-    /// Input Monitoring — required for the keyboard event tap on modern macOS, distinct
-    /// from Accessibility. Without it the tap can't enable and the hotkey degrades.
-    @Published public var inputMonitoringGranted: Bool = false
     /// Set true the moment the configured key is received during the wizard "test" step.
     @Published public var hotkeyTestPassed: Bool = false
 
@@ -120,7 +117,7 @@ public final class AppState: NSObject, ObservableObject {
 
     /// The permissions Just Talk genuinely needs to function: mic to hear you, plus
     /// Accessibility (to paste) and Input Monitoring (to read the activation key).
-    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted && inputMonitoringGranted }
+    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted }
 
     private var hasCompletedOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
@@ -272,7 +269,7 @@ public final class AppState: NSObject, ObservableObject {
         // 2. Build the hotkey listener; only install the event tap once Accessibility is
         //    granted (refreshPermissions starts it on the grant transition).
         hotkeyManager = HotkeyManager(delegate: self, config: hotkeyConfig)
-        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
+        if accessibilityGranted { startHotkeyListener() }
 
         // 3. Poll permissions so the wizard's ticks update live as the user grants them in
         //    System Settings, and so a later revoke is noticed. Also re-check on activation.
@@ -338,10 +335,10 @@ public final class AppState: NSObject, ObservableObject {
     /// that can't enable and drives a rebuild/prompt loop.
     func refreshPermissions() {
         micGranted = permissions.micStatus == .granted
-        let couldInstall = accessibilityGranted && inputMonitoringGranted
+        let couldInstall = accessibilityGranted
         accessibilityGranted = permissions.accessibilityGranted
-        inputMonitoringGranted = permissions.inputMonitoringGranted
-        if accessibilityGranted && inputMonitoringGranted && !couldInstall {
+        // The active tap needs only Accessibility — install it on the grant transition.
+        if accessibilityGranted && !couldInstall {
             startHotkeyListener()
         }
     }
@@ -414,19 +411,13 @@ public final class AppState: NSObject, ObservableObject {
         permissions.promptAccessibility()
     }
 
-    /// Trigger the Input Monitoring prompt / open the pane (only on a wizard button tap).
-    func requestInputMonitoring() {
-        _ = permissions.requestInputMonitoring()
-        refreshPermissions()
-    }
-
     /// Begin the wizard "press your key to test" step: route presses to a confirmation
     /// signal only (no recording) so we can prove the key reaches us — the definitive
     /// conflict check, since macOS won't tell us who else holds the key.
     func beginHotkeyTest() {
         hotkeyTestPassed = false
         hotkeyManager?.isTesting = true
-        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
+        if accessibilityGranted { startHotkeyListener() }
     }
 
     func endHotkeyTest() {

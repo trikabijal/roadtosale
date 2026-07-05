@@ -75,11 +75,14 @@ final class HotkeyManager {
         self.config = config
     }
 
-    /// A keyboard event tap requires **Input Monitoring**; posting the synthetic ⌘V paste
-    /// requires **Accessibility**. Require both before creating the tap — creating one that
-    /// can never enable is what drove the watchdog rebuild/permission-prompt loop (F2/F3).
+    /// An **active** (`.defaultTap`) keyboard event tap — one that can *consume* events — requires
+    /// only **Accessibility**, NOT Input Monitoring. (A *listen-only* tap is what needs Input
+    /// Monitoring.) We always create an active tap, so we can suppress the Fn emoji picker AND stay
+    /// on Accessibility only — matching Wispr Flow's footprint (Mic + Accessibility, no Input
+    /// Monitoring; verified by decompiling Wispr's helper: CGEventTapCreate + AXIsProcessTrusted,
+    /// no CGRequestListenEventAccess). Accessibility is also what the synthetic ⌘V paste needs.
     static func canInstallTap() -> Bool {
-        AXIsProcessTrusted() && CGPreflightListenEventAccess()
+        AXIsProcessTrusted()
     }
 
     /// Install the listener. Degrades to a non-suppressing monitor if the tap can't be made.
@@ -180,7 +183,7 @@ final class HotkeyManager {
         return start()
     }
 
-    // MARK: - CGEventTap (requires Accessibility + Input Monitoring — suppresses the event)
+    // MARK: - CGEventTap (active tap — requires only Accessibility; suppresses Fn, passes others)
 
     private func startEventTap() -> Bool {
         let mask: CGEventMask =
@@ -188,13 +191,18 @@ final class HotkeyManager {
             (1 << CGEventType.keyDown.rawValue) |
             (1 << CGEventType.keyUp.rawValue)
 
-        // CRITICAL: only suppressing hotkeys (Fn / function keys) need an ACTIVE tap, which
-        // sits inline in HID delivery — every keystroke system-wide waits for our callback,
-        // so under heavy CPU load (transcription/cleanup) a delayed callback freezes the
-        // whole keyboard. A non-suppressing hotkey (right ⌘/⌥/⌃) only OBSERVES the key, so
-        // we use a LISTEN-ONLY tap: it sees the key just as well but is NOT in the delivery
-        // path and therefore can never freeze input, regardless of load.
-        let tapOptions: CGEventTapOptions = config.suppresses ? .defaultTap : .listenOnly
+        // ALWAYS an active tap. Rationale: an active `.defaultTap` needs only Accessibility, while a
+        // `.listenOnly` tap needs Input Monitoring — so using listen-only for non-suppressing keys
+        // was what dragged in the extra permission. With an active tap the callback returns the event
+        // UNMODIFIED for a non-suppressing key (right ⌘/⌥/⌃ — see `transition`, `consume == false`)
+        // and returns nil only to swallow a suppressing key (Fn / function keys). Net: Fn-suppression
+        // AND Accessibility-only, exactly how Wispr Flow does it.
+        //
+        // An active tap sits inline in HID delivery, so a slow callback could stall the keyboard
+        // (F1). Mitigated the same way Wispr's works: the tap runs on a dedicated userInteractive
+        // thread (below) and the callback is minimal — it detects the key edge and dispatches the
+        // real work to main, returning immediately.
+        let tapOptions: CGEventTapOptions = .defaultTap
 
         guard let tap = CGEvent.tapCreate(
             tap: .cghidEventTap,

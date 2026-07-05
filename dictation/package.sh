@@ -2,7 +2,7 @@
 #
 # package.sh — Build, Developer-ID sign, notarize, staple, and DMG the JustTalk app for
 # distribution to other people's Macs. This is the ONLY path Gatekeeper trusts off-device:
-# the app can't be sandboxed (it needs Input Monitoring + Accessibility for the global Fn
+# the app can't be sandboxed (it needs Accessibility for the global
 # hotkey and paste), so App Store / TestFlight are not options.
 #
 # Prerequisites (one-time, on this machine):
@@ -101,4 +101,4 @@ fi
 echo
 echo "✓ Done: $DMG"
 echo "  Send this DMG. Recipient: open it, drag JustTalk to Applications, launch, and grant"
-echo "  Microphone + Input Monitoring + Accessibility on first run. Needs Apple Silicon + macOS 26."
+echo "  Microphone + Accessibility on first run. Needs Apple Silicon + macOS 26."
