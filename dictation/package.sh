@@ -28,7 +28,8 @@ cd "$(dirname "$0")"
 
 OUT_DIR="${OUT_DIR:-dist-prod}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-notary}"
-APP_NAME="JustTalk"
+SCHEME="JustTalk"          # Xcode scheme/project name (internal)
+APP_NAME="Just Talk"       # user-facing product name → "Just Talk.app" / .dmg
 DERIVED="build-dist"
 
 # --- 1. Resolve the Developer ID Application identity -------------------------------------------
@@ -52,7 +53,7 @@ xcodegen generate
 rm -rf "$DERIVED" "$OUT_DIR"
 mkdir -p "$OUT_DIR"
 
-xcodebuild -project "$APP_NAME.xcodeproj" -scheme "$APP_NAME" -configuration Release \
+xcodebuild -project "$SCHEME.xcodeproj" -scheme "$SCHEME" -configuration Release \
   -derivedDataPath "$DERIVED" \
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$DEV_ID" \

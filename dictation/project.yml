@@ -29,6 +29,10 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac
+        # Product/app name shown to the user (menu bar, permission dialogs, .app filename). The
+        # Xcode target/scheme stays "JustTalk" (internal); the bundle id is unchanged so TCC grants
+        # persist across the rename.
+        PRODUCT_NAME: "Just Talk"
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         # Stable signing so macOS TCC persists Mic / Accessibility / Input Monitoring grants
