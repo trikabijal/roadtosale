@@ -12,6 +12,7 @@ public struct SystemCapabilities: Sendable, Equatable {
     public enum Blocker: Sendable, Equatable {
         case osBelow(minMajor: Int, current: String)
         case lowDisk(neededGB: Double, freeGB: Double)
+        case lowRAM(neededGB: Double, actualGB: Double)
     }
 
     public let blockers: [Blocker]
@@ -33,6 +34,11 @@ public enum SystemPreflight {
     /// Minimum macOS major (the deployment target — below this the app won't even launch, but we
     /// still surface a clean message rather than relying on Gatekeeper's generic one).
     public static let minOSMajor = 14
+    /// Minimum installed RAM. WhisperKit / Whisper large-v3-turbo needs ~1.5–2.5 GB working memory
+    /// for CoreML inference plus audio buffers + OS/app overhead; a 4 GB Mac can't run it. 8 GB is
+    /// the practical floor — and the floor of every Apple Silicon Mac and every macOS-14 Intel Mac,
+    /// so this only ever catches an unusually old/small machine. This is the "powerful enough" gate.
+    public static let minRAMGB: Double = 8.0
 
     public static func check() -> SystemCapabilities {
         var blockers: [SystemCapabilities.Blocker] = []
@@ -48,6 +54,14 @@ public enum SystemPreflight {
         let freeGB = freeDiskGB()
         if freeGB < minDiskGB {
             blockers.append(.lowDisk(neededGB: minDiskGB, freeGB: freeGB))
+        }
+
+        // "Powerful enough" gate = RAM (a reliable, checkable proxy; CPU generation isn't). Use a
+        // small margin below 8 GB so a true 8 GB Mac (reports exactly 8.0 GiB) passes and only 4/6 GB
+        // machines are caught.
+        let ramGB = physicalRAMGB()
+        if ramGB < minRAMGB - 0.5 {
+            blockers.append(.lowRAM(neededGB: minRAMGB, actualGB: ramGB))
         }
 
         // Recommend Apple SpeechAnalyzer (fast, English) only where it's the safe known-good bet:
@@ -78,6 +92,15 @@ public enum SystemPreflight {
     /// Free space (GB) on the home volume, using the "important usage" figure macOS reports to apps
     /// (accounts for purgeable space). Returns a large value if it can't be read, so disk never
     /// blocks on an unknown.
+    /// Installed physical RAM in GiB, from `hw.memsize`.
+    public static func physicalRAMGB() -> Double {
+        var bytes: UInt64 = 0
+        var size = MemoryLayout<UInt64>.size
+        let result = sysctlbyname("hw.memsize", &bytes, &size, nil, 0)
+        guard result == 0, bytes > 0 else { return .greatestFiniteMagnitude }
+        return Double(bytes) / (1024 * 1024 * 1024)
+    }
+
     public static func freeDiskGB() -> Double {
         let url = URL(fileURLWithPath: NSHomeDirectory())
         if let vals = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),

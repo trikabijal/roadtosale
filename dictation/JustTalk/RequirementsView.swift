@@ -90,6 +90,9 @@ struct RequirementsView: View {
         case .lowDisk(let neededGB, let freeGB):
             return "Needs about \(Int(neededGB)) GB of free space for the on-device model. You have "
                 + String(format: "%.1f", freeGB) + " GB free — clear some space, then reopen Just Talk."
+        case .lowRAM(let neededGB, let actualGB):
+            return "Needs at least \(Int(neededGB)) GB of memory to run the on-device speech model. "
+                + "This Mac has \(Int(actualGB.rounded())) GB, which isn't enough for smooth dictation."
         }
     }
 }
