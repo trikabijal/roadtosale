@@ -84,6 +84,10 @@ struct RequirementsView: View {
 
     private func message(for blocker: SystemCapabilities.Blocker) -> String {
         switch blocker {
+        case .notAppleSilicon:
+            return "Needs an Apple Silicon Mac (M1 or later). Just Talk's speech engine (WhisperKit) "
+                + "and on-device cleanup (Apple Intelligence) both require Apple Silicon — an Intel "
+                + "Mac can't run them."
         case .osBelow(let minMajor, let current):
             return "Needs macOS \(minMajor) or later — you're on macOS \(current). Update via "
                 + "System Settings ▸ General ▸ Software Update."

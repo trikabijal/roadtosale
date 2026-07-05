@@ -5,11 +5,12 @@ import Foundation
 /// Silicon", "free up disk") up front — instead of failing silently mid-onboarding or on the first
 /// model download. Goal: never lose a user to an onboarding that just breaks.
 public struct SystemCapabilities: Sendable, Equatable {
-    /// A hard reason the app can't run on this machine. Empty = good to go.
-    /// NOTE: Apple Silicon is deliberately NOT a hard requirement — WhisperKit's own package targets
-    /// macOS 13/14 with no arch gate and runs on Intel (CPU fallback, slower), so we don't block Intel
-    /// Macs. Apple Silicon only affects which provider we *recommend*, not whether the app can run.
+    /// A hard reason the app can't run on this machine. Empty = good to go. These match what the
+    /// engine vendors PUBLISH: WhisperKit (Argmax) is "On-device Speech AI for Apple Silicon, macOS
+    /// 14+" (Intel not supported); Apple Intelligence / on-device models require "M1 or later, 8 GB
+    /// RAM". So the floor is Apple Silicon + 8 GB + macOS 14 — sourced, not guessed.
     public enum Blocker: Sendable, Equatable {
+        case notAppleSilicon
         case osBelow(minMajor: Int, current: String)
         case lowDisk(neededGB: Double, freeGB: Double)
         case lowRAM(neededGB: Double, actualGB: Double)
@@ -43,8 +44,12 @@ public enum SystemPreflight {
     public static func check() -> SystemCapabilities {
         var blockers: [SystemCapabilities.Blocker] = []
 
-        // The only hard gates: the OS floor (WhisperKit / our deployment target = macOS 14) and disk
-        // for the on-device model. Architecture is NOT a gate — Intel Macs run WhisperKit (slower).
+        // Apple Silicon is a HARD requirement per both vendors' published specs (WhisperKit is "for
+        // Apple Silicon" / no Intel support; Apple Intelligence needs M1+). Intel Macs — even the few
+        // that run macOS 26 — get neither a supported STT engine nor on-device cleanup, so we block
+        // them with a clear message rather than a degraded experience.
+        if !isAppleSilicon() { blockers.append(.notAppleSilicon) }
+
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let osString = "\(os.majorVersion).\(os.minorVersion)"
         if os.majorVersion < minOSMajor {
