@@ -86,7 +86,7 @@ All targets share the **DictationCore** Swift package for recording, transcripti
 
 1. The app lives in the menu bar (no Dock icon by design).
 2. Hold your **activation key** (default **Fn / Globe**) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
-3. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. For Fn, also set System Settings → Keyboard → "Press 🌐 key to" → **Do Nothing**.
+3. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. (No need to touch the Fn/Globe system setting — Just Talk's tap swallows the key, so the emoji picker won't pop.)
 
 Settings (menu bar → Settings):
 - **Recording** — activation key (Fn, right ⌘/⌥/⌃, F5/F6/F13), activation mode (hold-to-talk or tap-to-toggle), auto-paste, start/stop sounds. "Re-run setup…" reopens the wizard.

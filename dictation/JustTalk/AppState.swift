@@ -368,8 +368,8 @@ public final class AppState: NSObject, ObservableObject {
         // reaches macOS and opens the emoji picker; a later paste can land in that panel.
         let others = HotkeyConflict.runningCompetitors().compactMap { $0.localizedName }
         var msg = "\(hotkeyConfig.shortName) is leaking to macOS (opens the emoji picker). "
-            + "Fix: System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing, and confirm "
-            + "Just Talk has Input Monitoring + Accessibility."
+            + "Fix: grant Just Talk Accessibility so it can swallow the key — or set "
+            + "System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing."
         if !others.isEmpty {
             msg += " Also quit other Fn dictation apps (\(others.joined(separator: ", ")))."
         }
