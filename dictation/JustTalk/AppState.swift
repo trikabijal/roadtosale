@@ -105,7 +105,11 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Permissions / onboarding
 
     let permissions = PermissionsService()
+    /// Result of the launch pre-flight (Apple-Silicon / OS / disk + recommended provider). Computed
+    /// once in init; `setup()` blocks with a requirements screen if `!canRun`.
+    public let systemCapabilities: SystemCapabilities
     private let onboardingWindow = OnboardingWindow()
+    private let requirementsWindow = RequirementsWindow()
     // History is an AppKit-managed window (like onboarding) rather than a SwiftUI scene, so the
     // menu-bar popover — which is hosted outside the SwiftUI scene graph via NSStatusItem — can
     // open it directly. `openWindow(id:)` does not reach an NSPopover's hosting controller.
@@ -211,22 +215,22 @@ public final class AppState: NSObject, ObservableObject {
 
     public override init() {
         let defaults = UserDefaults.standard
-        // Provider is AUTO-CHOSEN at first launch by OS: Apple SpeechAnalyzer (fast, English) when
-        // macOS 26+ is available, else WhisperKit large-v3-turbo (multilingual). No model-tier
-        // picker — the tier is fixed (WhisperKit → Large Turbo, Apple → an English locale). The user
-        // can still switch provider (WhisperKit for Hinglish/Gujarati, which Apple can't do).
+        // Pre-flight: pick the best provider this machine supports (Apple SpeechAnalyzer on a capable
+        // Mac — Apple Silicon + macOS 26 — else WhisperKit Large Turbo, multilingual) and capture any
+        // hard blockers (Intel, OS too old, no disk) so setup() can show a clear "requirements" screen
+        // instead of a broken onboarding. The user can still switch provider (WhisperKit does the
+        // Hinglish/Gujarati Apple can't). No model-tier picker — the tier is fixed per provider.
+        let caps = SystemPreflight.check()
+        self.systemCapabilities = caps
         let provider: STTProvider
         let model: String
         if let saved = defaults.string(forKey: "sttProvider"), let p = STTProvider(rawValue: saved) {
             provider = p
             model = defaults.string(forKey: "sttModel")
                 ?? (p == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue)
-        } else if STTProvider.appleSpeech.isAvailable {   // first launch, macOS 26+
-            provider = .appleSpeech
-            model = "en-US"
-        } else {                                          // first launch, older macOS
-            provider = .whisperKit
-            model = ModelTier.largeV3Turbo.rawValue
+        } else {                                          // first launch — auto by capability
+            provider = caps.recommendedProvider
+            model = provider == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue
         }
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
@@ -272,6 +276,15 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Setup
 
     private func setup() async {
+        // 0. Hard requirements gate. If this Mac can't run the app (Intel, macOS too old, no disk),
+        //    show a clear requirements screen and stop — never let a user hit a broken onboarding or
+        //    a stuck model download.
+        guard systemCapabilities.canRun else {
+            statusMessage = "This Mac doesn't meet Just Talk's requirements"
+            requirementsWindow.show(capabilities: systemCapabilities)
+            return
+        }
+
         // 1. Read permission status WITHOUT prompting (the fix for "Settings opens out of
         //    the blue"). Prompts now happen only from explicit onboarding buttons.
         refreshPermissions()
