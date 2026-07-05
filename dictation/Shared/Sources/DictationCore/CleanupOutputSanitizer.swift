@@ -61,7 +61,43 @@ enum CleanupOutputSanitizer {
                 return true
             }
         }
+
+        // Content-drop guard: the model deleted a meaningful CLAUSE, not just fillers — e.g.
+        // "So the best data would be Apple's own model…" → "Apple's own model…". The plain
+        // word-count "collapsed" check above only catches extreme (>75%) loss; this catches a
+        // dropped run at the START or END by content words (fillers ignored) vanishing entirely.
+        if droppedLeadingOrTrailingContent(output: trimmedOut, input: input) { return true }
+
         return false
+    }
+
+    /// Discourse/filler words a cleanup MAY legitimately drop from a sentence opening. Everything
+    /// else is content and must survive.
+    private static let leadFillers: Set<String> = [
+        "um", "uh", "er", "ah", "hmm", "so", "well", "like", "okay", "ok", "yeah", "yep", "right",
+        "actually", "basically", "literally", "anyway", "anyways", "look", "listen",
+    ]
+
+    /// True when the cleaned output dropped a meaningful run of content words from the START or the
+    /// END of the input — the "lost my opening clause" bug. Content = non-filler words of length ≥ 2.
+    /// Fires only when NONE of the input's first (or last) 3 content words survive anywhere in the
+    /// output, on a substantial input — so ordinary filler/repeat trimming never trips it.
+    static func droppedLeadingOrTrailingContent(output: String, input: String) -> Bool {
+        func contentWords(_ s: String) -> [String] {
+            s.lowercased()
+                .split { !$0.isLetter && !$0.isNumber }
+                .map(String.init)
+                .filter { $0.count >= 2 && !leadFillers.contains($0) }
+        }
+        let inW = contentWords(input)
+        guard inW.count >= 6 else { return false }        // only judge substantial dictations
+        let outSet = Set(contentWords(output))
+
+        let lead = inW.prefix(3)
+        let tail = inW.suffix(3)
+        let leadGone = lead.allSatisfy { !outSet.contains($0) }
+        let tailGone = tail.allSatisfy { !outSet.contains($0) }
+        return leadGone || tailGone
     }
 
     /// Lowercase + collapse runs of whitespace to one space, trimmed. Lets a near-verbatim
