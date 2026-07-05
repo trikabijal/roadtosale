@@ -211,15 +211,23 @@ public final class AppState: NSObject, ObservableObject {
 
     public override init() {
         let defaults = UserDefaults.standard
-        let provider = STTProvider(rawValue: defaults.string(forKey: "sttProvider") ?? "") ?? .whisperKit
-        // Default to large-v3-turbo: it is the only MULTILINGUAL tier (the *.en models are
-        // English-only and mangle Hindi/Gujarati). The user dictates Hinglish (English + Hindi +
-        // Gujarati mixed) in real life, so a multilingual model is required despite being slower
-        // than small.en (~4s vs ~0.9s on a 10s clip). English-heavy contexts (e.g. coding) can
-        // select small.en in Settings for the speed; a per-app model override is the ideal fix.
-        let model = defaults.string(forKey: "sttModel")
-            ?? defaults.string(forKey: "modelTier")          // legacy key from PRD 0003
-            ?? ModelTier.largeV3Turbo.rawValue
+        // Provider is AUTO-CHOSEN at first launch by OS: Apple SpeechAnalyzer (fast, English) when
+        // macOS 26+ is available, else WhisperKit large-v3-turbo (multilingual). No model-tier
+        // picker — the tier is fixed (WhisperKit → Large Turbo, Apple → an English locale). The user
+        // can still switch provider (WhisperKit for Hinglish/Gujarati, which Apple can't do).
+        let provider: STTProvider
+        let model: String
+        if let saved = defaults.string(forKey: "sttProvider"), let p = STTProvider(rawValue: saved) {
+            provider = p
+            model = defaults.string(forKey: "sttModel")
+                ?? (p == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue)
+        } else if STTProvider.appleSpeech.isAvailable {   // first launch, macOS 26+
+            provider = .appleSpeech
+            model = "en-US"
+        } else {                                          // first launch, older macOS
+            provider = .whisperKit
+            model = ModelTier.largeV3Turbo.rawValue
+        }
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
         self.transcriber = SpeechTranscriberFactory.make(config)
@@ -235,12 +243,14 @@ public final class AppState: NSObject, ObservableObject {
         self.cleanupConfig = cleanupConfig
         self.cleanup = TextCleanupFactory.make(cleanupConfig, pack: pack)
 
-        self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
+        // Auto-paste, start/stop sounds, and the word-by-word live pill are always on now (no
+        // toggles) — opinionated defaults.
+        self.autoPaste = true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
-        self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
-        self.streamingPillEnabled = defaults.object(forKey: "streamingPillEnabled") as? Bool ?? true
+        self.soundEnabled = true
+        self.streamingPillEnabled = true
         self.launchAtLogin = LoginItem.isEnabled
         if let data = defaults.data(forKey: "appProfiles"),
            let profiles = try? JSONDecoder().decode([AppCleanupProfile].self, from: data) {
@@ -1074,11 +1084,6 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
-    func setAutoPaste(_ value: Bool) {
-        autoPaste = value
-        UserDefaults.standard.set(value, forKey: "autoPaste")
-    }
-
     /// Switch cleanup provider and/or level. Persists and rebuilds the cleanup engine.
     func setCleanupConfig(_ config: CleanupConfig) {
         guard config != cleanupConfig else { return }
@@ -1121,16 +1126,6 @@ public final class AppState: NSObject, ObservableObject {
         recomputeHotkeyWarning()
         hotkeyTestPassed = false
         if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
-    }
-
-    func setSoundEnabled(_ value: Bool) {
-        soundEnabled = value
-        UserDefaults.standard.set(value, forKey: "soundEnabled")
-    }
-
-    func setStreamingPillEnabled(_ value: Bool) {
-        streamingPillEnabled = value
-        UserDefaults.standard.set(value, forKey: "streamingPillEnabled")
     }
 
     func setLaunchAtLogin(_ value: Bool) {
