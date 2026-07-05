@@ -6,8 +6,10 @@ import Foundation
 /// model download. Goal: never lose a user to an onboarding that just breaks.
 public struct SystemCapabilities: Sendable, Equatable {
     /// A hard reason the app can't run on this machine. Empty = good to go.
+    /// NOTE: Apple Silicon is deliberately NOT a hard requirement — WhisperKit's own package targets
+    /// macOS 13/14 with no arch gate and runs on Intel (CPU fallback, slower), so we don't block Intel
+    /// Macs. Apple Silicon only affects which provider we *recommend*, not whether the app can run.
     public enum Blocker: Sendable, Equatable {
-        case notAppleSilicon
         case osBelow(minMajor: Int, current: String)
         case lowDisk(neededGB: Double, freeGB: Double)
     }
@@ -35,9 +37,8 @@ public enum SystemPreflight {
     public static func check() -> SystemCapabilities {
         var blockers: [SystemCapabilities.Blocker] = []
 
-        let appleSilicon = isAppleSilicon()
-        if !appleSilicon { blockers.append(.notAppleSilicon) }
-
+        // The only hard gates: the OS floor (WhisperKit / our deployment target = macOS 14) and disk
+        // for the on-device model. Architecture is NOT a gate — Intel Macs run WhisperKit (slower).
         let os = ProcessInfo.processInfo.operatingSystemVersion
         let osString = "\(os.majorVersion).\(os.minorVersion)"
         if os.majorVersion < minOSMajor {
@@ -49,9 +50,11 @@ public enum SystemPreflight {
             blockers.append(.lowDisk(neededGB: minDiskGB, freeGB: freeGB))
         }
 
-        // Apple SpeechAnalyzer needs macOS 26 + Apple Silicon; otherwise WhisperKit (multilingual)
-        // on macOS 14+. `STTProvider.appleSpeech.isAvailable` already gates on the OS.
-        let appleAvailable = appleSilicon && STTProvider.appleSpeech.isAvailable
+        // Recommend Apple SpeechAnalyzer (fast, English) only where it's the safe known-good bet:
+        // Apple Silicon + macOS 26. Everywhere else — Intel, or macOS 14–25 — default to WhisperKit
+        // Large Turbo, which runs on any supported Mac. (Apple stays user-switchable; if it can't
+        // run on an odd Intel-macOS-26 config, its load fails and we fall back to WhisperKit.)
+        let appleAvailable = isAppleSilicon() && STTProvider.appleSpeech.isAvailable
         let provider: STTProvider = appleAvailable ? .appleSpeech : .whisperKit
 
         return SystemCapabilities(

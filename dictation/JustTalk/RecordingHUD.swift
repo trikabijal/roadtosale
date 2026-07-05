@@ -326,9 +326,16 @@ private struct HUDContentView: View {
 
     private var activeContent: some View {
         HStack(spacing: 10) {
-            Image(systemName: micIcon)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(micColor)
+            // The Just Talk mark is the mic icon while recording; the low-input (slash) and
+            // processing (waveform) states keep their distinct SF Symbols.
+            Group {
+                if model.phase == .recording && !model.lowInput {
+                    Image("JustTalkMark").resizable().frame(width: 16, height: 16)
+                } else {
+                    Image(systemName: micIcon).font(.system(size: 14, weight: .semibold))
+                }
+            }
+            .foregroundStyle(micColor)
 
             WaveMeter(
                 level: model.level,
