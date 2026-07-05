@@ -56,7 +56,9 @@ targets:
         CFBundleName: Just Talk
         CFBundleDisplayName: Just Talk
         NSMicrophoneUsageDescription: "Just Talk uses the microphone to record your voice for transcription. Audio never leaves your Mac."
-        NSAppleEventsUsageDescription: "Just Talk sends keyboard events to paste transcribed text into the app you're using."
+        # Speech Recognition is requested ONLY if the user switches to the Apple on-device provider
+        # (SpeechAnalyzer requires it). The default WhisperKit provider needs no Speech permission —
+        # so a fresh install asks only Microphone + Accessibility + Input Monitoring, matching Wispr.
         NSSpeechRecognitionUsageDescription: "Just Talk uses Apple's on-device speech recognizer to transcribe your voice. Audio never leaves your Mac."
         LSUIElement: true
         # OS-level guard: LaunchServices won't launch a second instance of this bundle. Backed up
