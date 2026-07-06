@@ -82,7 +82,14 @@ final class HotkeyManager {
     /// Monitoring; verified by decompiling Wispr's helper: CGEventTapCreate + AXIsProcessTrusted,
     /// no CGRequestListenEventAccess). Accessibility is also what the synthetic ⌘V paste needs.
     static func canInstallTap() -> Bool {
-        AXIsProcessTrusted()
+        canInstallTap(axTrusted: AXIsProcessTrusted(), inputMonitoringGranted: false)
+    }
+
+    /// Pure decision seam (unit-testable): an active tap installs on **Accessibility alone**. The
+    /// `inputMonitoringGranted` argument is accepted ONLY to prove it is IGNORED — that's the thesis
+    /// of dropping Input Monitoring (checklist C10).
+    static func canInstallTap(axTrusted: Bool, inputMonitoringGranted: Bool) -> Bool {
+        axTrusted
     }
 
     /// Install the listener. Degrades to a non-suppressing monitor if the tap can't be made.

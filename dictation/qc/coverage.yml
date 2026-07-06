@@ -78,6 +78,7 @@ f7_system_requirements:
     decide_ram_8_passes: "…::testEightGBPasses"
     decide_ram_7_blocked: "…::testSevenGBBlocked"
     decide_low_disk: "…::testLowDiskIsBlocked"
+    decide_disk_2_passes: "…::testTwoGBDiskPasses"
     decide_multi_blocker: "…::testIntelAndLowRAMListBoth"
     decide_apple_needs_silicon: "…::testAppleAvailableButIntelRecommendsWhisperKit"
   deferred:
@@ -89,6 +90,9 @@ f8_activation_hotkey_permissions:
     config_roundtrip: JustTalkTests/HotkeyConfigTests.swift::testPersistenceRoundTrip
     fn_match: "…::testFnMatchesViaFnModifier"
     conflict_labels: "…::testAppleFnUsageLabelCoversAllValues"
+    tap_installs_on_accessibility_only: JustTalkTests/HotkeyPermissionTests.swift::testInstallsWithAccessibilityAlone
+    tap_requires_accessibility: "…::testDoesNotInstallWithoutAccessibility"
+    input_monitoring_ignored: "…::testInputMonitoringIsIgnored"   # C10 — branch thesis
   deferred:
     - live_tap_behavior — hardware, user-verified (Tier 3)
     - permissions_gating — TCC, manual (Tier 2)

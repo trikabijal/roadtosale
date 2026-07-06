@@ -27,10 +27,11 @@ macOS 14+**; Apple SpeechAnalyzer recommended on macOS 26, else WhisperKit Large
 |---|---|---|---|
 | `SystemCapabilities` / `SystemPreflight` | `check()`, `canRun`, `recommendedProvider`, `isAppleSilicon()`, `physicalRAMGB()`, `freeDiskGB()` | **Critical** | new; the gate. `check()` reads the real machine → **needs a pure `decide(...)` seam for deterministic tests** |
 
-### Testability refactor (required)
-`check()` mixes environment reads (arch/OS/RAM/disk) with the decision. Extract a **pure**
-`SystemCapabilities.decide(isAppleSilicon:osMajor:freeDiskGB:ramGB:appleAvailable:) -> SystemCapabilities`;
-`check()` becomes "read the machine, then `decide(...)`". Unit-test `decide` with synthetic inputs.
+### Testability refactor (done)
+`check()` mixed environment reads (arch/OS/RAM/disk) with the decision. Extracted a **pure**
+`SystemPreflight.decide(isAppleSilicon:osMajor:osVersion:freeDiskGB:ramGB:appleAvailable:cleanupIsFoundationModels:) -> SystemCapabilities`;
+`check()` now reads the machine, then calls `decide(...)`. `SystemCapabilitiesTests` drives `decide`
+with synthetic inputs.
 
 ### Unit scenarios — `decide(...)`
 

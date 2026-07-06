@@ -19,7 +19,7 @@ override, referenced by [README.md](README.md).
 | C7 | **Never lose audio** — a failed/garbled transcription preserves the audio + offers retry; never paste junk, never discard. | F12 / durable-capture | f1 (session `incomplete`) ✅ unit; app-level ⛔ |
 | C8 | **Requirements gate, not broken onboarding** — an unsupported machine gets a clear per-blocker message, never a stuck download; boundary values (RAM 8, disk 2, OS 14) pinned. | requirements debate | f7 ✅ (this pass) |
 | C9 | **Provider gating is consistent** — a provider's availability is enforced at BOTH `isAvailable` and the factory (no path builds an unavailable engine). | Apple provider add | f3 ✅ (this pass) |
-| C10 | **Suppression without over-permission** — the hotkey must suppress its key (Fn picker) on the minimum permission (Accessibility, not Input Monitoring); assert `canInstallTap` gates on Accessibility only. | Wispr parity / Input-Monitoring removal | f8 ⛔ (needs AX seam) |
+| C10 | **Suppression without over-permission** — the hotkey must suppress its key (Fn picker) on the minimum permission (Accessibility, not Input Monitoring); assert `canInstallTap` gates on Accessibility only. | Wispr parity / Input-Monitoring removal | f8 ✅ (`HotkeyManager.canInstallTap` pure seam + `HotkeyPermissionTests`) |
 | C11 | **Clipboard restore can't clobber a newer copy** — restore is guarded by `changeCount`; a back-to-back dictation or user copy is never overwritten. | F5 clipboard race | f9 ⛔ (needs target-app harness) |
 | C12 | **Rename doesn't break the build/test target** — a product rename keeps the module name + TEST_HOST valid; app tests must still resolve `@testable import`. | "Just Talk" rename broke TEST_HOST + module name | build/test config ✅ (fixed; app tests pass) |
 

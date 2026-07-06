@@ -102,8 +102,8 @@ final class STTContractTests: XCTestCase {
         XCTAssertEqual(out.format.sampleRate, 48_000)
         XCTAssertGreaterThan(out.frameLength, 0)
 
-        // Same-format input is returned unchanged (no needless conversion).
+        // Same-format input is returned UNCHANGED — the very same buffer (no needless conversion).
         let passthrough = AppleAudioConverter(target: input.format)
-        XCTAssertEqual(passthrough.convert(input)?.format.sampleRate, input.format.sampleRate)
+        XCTAssertTrue(passthrough.convert(input) === input)
     }
 }

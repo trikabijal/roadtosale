@@ -12,7 +12,7 @@ onboarding. **Permission footprint (verified vs Wispr):** Mic + Accessibility on
 | `HotkeyConfig.match` | Fn via fn-modifier; right-mod keycodes distinct; F-keys | | 1 | ✅ |
 | `HotkeyConfig` | display names unique | | 1 | ✅ |
 | `HotkeyConflict` | appleFnUsage label covers all; osClaimsFn false for non-Fn | | 1 | ✅ |
-| `HotkeyManager.canInstallTap` | Accessibility only (not Input Monitoring) | true when `AXIsProcessTrusted` | 1 | ⛔ needs AX seam |
+| `HotkeyManager.canInstallTap` | Accessibility only (not Input Monitoring) | true when Accessibility; Input Monitoring ignored | 1 | ✅ pure seam + `HotkeyPermissionTests` (C10) |
 | `HotkeyManager` live tap | start/stop signal; Fn suppressed; no self-trigger; no dup sessions | | 3 | ⛔ hardware (user-verified) |
 | `HotkeyManager` | no global-input freeze under load | | 3 | ⛔ hardware (user-verified) |
 | `PermissionsService` | non-prompting status reads; request prompts once | | 2 | ⛔ TCC — manual |
