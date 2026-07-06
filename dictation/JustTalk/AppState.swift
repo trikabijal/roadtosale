@@ -583,6 +583,9 @@ public final class AppState: NSObject, ObservableObject {
             showOnboardingWindow()
             return
         }
+        // A wizard mic test may still be metering (its engine running) — stop it so this real
+        // recording owns the audio engine and its levels reach the HUD.
+        if micTestActive { endMicTest() }
         audio.reset()
         recordingPeakLevel = 0
         recordingStartDate = Date()
@@ -1364,7 +1367,10 @@ extension AppState: RecordingEngineDelegate {
     /// Live mic level — drives the recording HUD meter.
     public nonisolated func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {
         Task { @MainActor in
-            if self.micTestActive {
+            // Route to the wizard meter ONLY when metering AND not in a real dictation — otherwise a
+            // leaked micTestActive flag would starve the HUD of levels ("can't hear you" during a
+            // normal recording).
+            if self.micTestActive, self.dictationState != .recording {
                 self.micInputLevel = level
                 self.micTestPeak = max(self.micTestPeak, level)
                 if self.micTestPeak >= Self.micTestPassThreshold { self.micTestPassed = true }
