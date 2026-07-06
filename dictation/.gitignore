@@ -7,3 +7,7 @@ build/
 *.o
 *.d
 build-ios/
+build-dist/
+dist-prod/
+dist-local/
+dist-dev/
