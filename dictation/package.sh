@@ -58,7 +58,8 @@ xcodebuild -project "$SCHEME.xcodeproj" -scheme "$SCHEME" -configuration Release
   CODE_SIGN_STYLE=Manual \
   CODE_SIGN_IDENTITY="$DEV_ID" \
   DEVELOPMENT_TEAM="$TEAM_ID" \
-  OTHER_CODE_SIGN_FLAGS="--timestamp --options=runtime" \
+  ENABLE_HARDENED_RUNTIME=YES \
+  OTHER_CODE_SIGN_FLAGS="--timestamp" \
   build
 
 APP_PATH="$DERIVED/Build/Products/Release/$APP_NAME.app"
@@ -66,7 +67,10 @@ APP_PATH="$DERIVED/Build/Products/Release/$APP_NAME.app"
 
 # Verify the signature + hardened runtime before notarizing (fails fast with a clear message).
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-codesign -dv --verbose=4 "$APP_PATH" 2>&1 | grep -q "flags=.*runtime" \
+# Capture first (don't pipe): `grep -q` closes the pipe early, and under `set -o pipefail`
+# that SIGPIPEs codesign into a non-zero exit → false "not enabled" failure.
+CS_FLAGS="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+grep -q "flags=.*runtime" <<<"$CS_FLAGS" \
   || { echo "ERROR: hardened runtime not enabled — notarization would reject it"; exit 1; }
 
 # --- 3. Notarize (zip the .app, submit, wait) --------------------------------------------------
@@ -101,4 +105,4 @@ fi
 echo
 echo "✓ Done: $DMG"
 echo "  Send this DMG. Recipient: open it, drag JustTalk to Applications, launch, and grant"
-echo "  Microphone + Accessibility on first run. Needs Apple Silicon + macOS 26."
+echo "  Microphone + Accessibility on first run. Needs Apple Silicon + 8 GB RAM + macOS 14+."
