@@ -79,6 +79,26 @@ public final class AppState: NSObject, ObservableObject {
     /// Set true the moment the configured key is received during the wizard "test" step.
     @Published public var hotkeyTestPassed: Bool = false
 
+    // MARK: - Onboarding wizard test hooks
+    /// Live mic RMS (0…1) while the wizard mic test is running — drives the "we hear you" meter.
+    @Published public var micInputLevel: Float = 0
+    /// True while the wizard is actively metering the mic.
+    @Published public var micTestActive: Bool = false
+    /// Flips true once the user's voice crosses the audible threshold during the mic test.
+    @Published public var micTestPassed: Bool = false
+    /// The transcript from the wizard's final "say this sentence" dry-run, shown back to the user.
+    @Published public var onboardingTranscript: String = ""
+    /// While true, a completed dictation is routed to `onboardingTranscript` instead of being pasted.
+    var onboardingCaptureActive: Bool = false
+    private var micTestPeak: Float = 0
+    static let micTestPassThreshold: Float = 0.06
+
+    // MARK: - Install contact (wizard "stay in touch")
+    @Published public var contactName: String = ""
+    @Published public var contactEmail: String = ""
+    @Published public var contactPhone: String = ""
+    @Published public var contactSubmitted: Bool = false
+
     // MARK: - Semantic state (derived — the `onState` rename)
 
     /// The current dictation's lifecycle, derived from `dictationState`. The menu bar reads this
@@ -445,6 +465,73 @@ public final class AppState: NSObject, ObservableObject {
 
     func endHotkeyTest() {
         hotkeyManager?.isTesting = false
+    }
+
+    // MARK: - Wizard mic test
+
+    /// Start a light, transcription-free mic capture so the wizard can show a live level meter the
+    /// instant the user grants Microphone — proving "we can hear you." Levels arrive via the
+    /// `didUpdateLevel` delegate and are published to `micInputLevel`.
+    func beginMicTest() {
+        guard permissions.micStatus == .granted, dictationState == .idle, !micTestActive else { return }
+        micTestPassed = false
+        micInputLevel = 0
+        micTestPeak = 0
+        audio.reset()
+        do {
+            try recordingEngine.start()
+            micTestActive = true
+        } catch {
+            statusMessage = "Couldn't start the mic test: \(error.localizedDescription)"
+        }
+    }
+
+    func endMicTest() {
+        guard micTestActive else { return }
+        micTestActive = false
+        recordingEngine.stop()
+        micInputLevel = 0
+        audio.reset()
+    }
+
+    // MARK: - Wizard "try it" capture
+
+    /// Arm/disarm onboarding capture: while armed, the next completed dictation lands in
+    /// `onboardingTranscript` (shown in the wizard) instead of being pasted into another app.
+    func armOnboardingCapture(_ on: Bool) {
+        onboardingCaptureActive = on
+        if on { onboardingTranscript = "" }
+    }
+
+    // MARK: - Install contact ping
+
+    /// Fire-and-forget install signal. Voice never leaves the device; this is an explicit,
+    /// user-entered contact so we know someone installed and can send updates/support.
+    /// Endpoint is set via `JUSTTALK_INSTALL_PING_URL` (Info.plist / env); no-ops if unset.
+    func submitContact() {
+        contactSubmitted = true
+        let name = contactName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let email = contactEmail.trimmingCharacters(in: .whitespacesAndNewlines)
+        let phone = contactPhone.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !email.isEmpty || !phone.isEmpty else { return }
+        guard let urlString = Bundle.main.object(forInfoDictionaryKey: "JustTalkInstallPingURL") as? String,
+              !urlString.isEmpty, let url = URL(string: urlString) else {
+            log.notice("install ping skipped — no JustTalkInstallPingURL configured")
+            return
+        }
+        let payload: [String: String] = [
+            "name": name, "email": email, "phone": phone,
+            "version": (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "",
+            "platform": "mac",
+        ]
+        guard let body = try? JSONSerialization.data(withJSONObject: payload) else { return }
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        URLSession.shared.dataTask(with: request) { _, _, error in
+            if let error { log.error("install ping failed: \(error.localizedDescription, privacy: .public)") }
+        }.resume()
     }
 
     func completeOnboarding() {
@@ -899,6 +986,16 @@ public final class AppState: NSObject, ObservableObject {
     /// correction window, and return to idle. Callers build their own `TranscriptRecord` and hand it
     /// in — keeping paste/History/correction logic in ONE place so the two paths can't drift.
     private func finalizeInsertion(finalText: String, record: TranscriptRecord) async {
+        // Wizard "try it" dry-run: show the text back in the onboarding window to prove the whole
+        // pipeline works — do NOT paste into another app, and don't touch History.
+        if onboardingCaptureActive {
+            onboardingCaptureActive = false
+            onboardingTranscript = finalText
+            dictationState = .idle
+            statusMessage = "Ready"
+            recordingHUD.hide()
+            return
+        }
         // Write to clipboard and optionally paste into the app frontmost at record start.
         clipboardPaster.writeAndPaste(text: finalText, autoPaste: autoPaste, targetApp: recordingTargetApp) { [weak self] in
             // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
@@ -977,6 +1074,14 @@ public final class AppState: NSObject, ObservableObject {
     /// Empty transcript. If there was real audio, the user likely spoke and STT dropped it —
     /// surface a retry; if it was basically silence, reset quietly.
     private func handleEmpty(buffers: [AVAudioPCMBuffer], audioStartDate: Date) {
+        // Wizard "try it": nothing recognized — nudge the user to try again, stay armed.
+        if onboardingCaptureActive {
+            onboardingTranscript = ""
+            dictationState = .idle
+            statusMessage = "Didn't catch that — press your key and try again"
+            recordingHUD.hide()
+            return
+        }
         let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
         if Double(frames) > RecordingEngine.targetSampleRate * 1.0 {
             failWithRetry(buffers: buffers, audioStartDate: audioStartDate, message: "Didn't catch that")
@@ -1234,6 +1339,12 @@ extension AppState: RecordingEngineDelegate {
     /// Live mic level — drives the recording HUD meter.
     public nonisolated func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {
         Task { @MainActor in
+            if self.micTestActive {
+                self.micInputLevel = level
+                self.micTestPeak = max(self.micTestPeak, level)
+                if self.micTestPeak >= Self.micTestPassThreshold { self.micTestPassed = true }
+                return
+            }
             self.recordingHUD.update(level: level)
             self.evaluateInputLevel(level)
         }

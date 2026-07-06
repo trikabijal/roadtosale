@@ -40,7 +40,9 @@ final class PermissionsService {
     }
 
     func openMicSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+        // Modern (Ventura+ / System Settings) privacy anchor. The legacy
+        // `com.apple.preference.security?Privacy_Microphone` scheme lands on a random pane here.
+        if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -58,7 +60,8 @@ final class PermissionsService {
     }
 
     func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+        // Modern (Ventura+ / System Settings) privacy anchor — see openMicSettings().
+        if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility") {
             NSWorkspace.shared.open(url)
         }
     }

@@ -11,3 +11,4 @@ build-dist/
 dist-prod/
 dist-local/
 dist-dev/
+build-check/
