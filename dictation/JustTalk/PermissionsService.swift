@@ -48,14 +48,14 @@ final class PermissionsService {
     /// Non-prompting check — safe to poll.
     var accessibilityGranted: Bool { AXIsProcessTrusted() }
 
-    /// Ask for Accessibility. Register the app in the list WITHOUT the prompt option — the prompt
-    /// pops Apple's own "would like to control this computer" dialog, and since we also open Settings
-    /// directly that dialog was left orphaned on screen. prompt:false still adds Just Talk to the
-    /// Accessibility list; then we open the pane and bring System Settings to the front ourselves.
+    /// Ask for Accessibility via Apple's OWN dialog (prompt: true). Its "Open System Settings" button
+    /// is the only thing that reliably lands on the Accessibility list on macOS 26 — our URL scheme
+    /// ignores the ?Privacy_Accessibility fragment there and dumps the user on Privacy & Security root.
+    /// We do NOT also open the URL here: doing both left Apple's dialog orphaned. The manual
+    /// `openAccessibilitySettings()` fallback stays wired to a separate "didn't open?" button.
     func promptAccessibility() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: false]
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
         _ = AXIsProcessTrustedWithOptions(options)
-        openAccessibilitySettings()
     }
 
     func openAccessibilitySettings() {

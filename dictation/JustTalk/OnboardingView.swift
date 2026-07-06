@@ -373,11 +373,10 @@ private struct AccessibilityStep: View {
                 Label("Granted. You're good.", systemImage: "checkmark.circle.fill")
                     .font(.title3).foregroundStyle(Brand.green)
             } else {
-                Button("Open Accessibility Settings") { appState.requestAccessibility() }
+                Button("Grant Accessibility") { appState.requestAccessibility() }
                     .buttonStyle(BrandButton(color: Brand.blue))
-                Text("System Settings will open (in front). Under **Accessibility**, find **Just Talk** "
-                     + "and switch it **on**. If it lands on the Privacy & Security page, click "
-                     + "**Accessibility** in the list.")
+                Text("macOS pops a dialog — click **Open System Settings** in it. That lands you right "
+                     + "on the Accessibility list. Find **Just Talk** and switch it **on**.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                 Label("It's detected here automatically — no need to quit or restart. Once it's on, "
