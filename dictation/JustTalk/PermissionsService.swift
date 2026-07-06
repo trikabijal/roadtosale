@@ -41,6 +41,7 @@ final class PermissionsService {
 
     func openMicSettings() {
         openPrivacyPane(.microphone)
+        bringSystemSettingsToFront()
     }
 
     // MARK: - Accessibility

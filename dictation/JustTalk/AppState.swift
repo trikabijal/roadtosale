@@ -436,6 +436,10 @@ public final class AppState: NSObject, ObservableObject {
 
     /// Trigger the system mic prompt (only on a wizard button tap). Guarded so rapid taps
     /// can't stack multiple system prompts while one is already pending.
+    /// True once the user has explicitly denied the mic (vs not-yet-asked) — the wizard shows a
+    /// "required, re-enable in Settings" state and stays blocked. Polled via the wizard ticker.
+    var micIsDenied: Bool { permissions.micStatus == .denied }
+
     private var micRequestInFlight = false
     func requestMicrophone() {
         guard !micRequestInFlight else { return }

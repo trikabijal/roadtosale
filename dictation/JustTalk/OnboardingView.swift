@@ -317,10 +317,20 @@ private struct MicStep: View {
         VStack(alignment: .leading, spacing: 16) {
             StepTitle(title: "First, let me hear you.",
                       subtitle: "I need your microphone. Audio is transcribed on-device and never leaves your Mac.")
-            if !appState.micGranted {
+            if appState.micIsDenied {
+                // Explicitly denied — this is required, so make it a hard stop with a way to fix it.
+                Label("Microphone is off. Just Talk can't work without it — please turn it on.",
+                      systemImage: "mic.slash.fill")
+                    .font(.callout).foregroundStyle(Brand.red).fixedSize(horizontal: false, vertical: true)
+                Button("Turn on Microphone in Settings") { appState.requestMicrophone() }
+                    .buttonStyle(BrandButton(color: Brand.red))
+                Text("System Settings opens (in front) — switch **Just Talk** on under Microphone, then come back here. It's picked up automatically.")
+                    .font(.callout).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !appState.micGranted {
                 Button("Allow microphone…") { appState.requestMicrophone() }
                     .buttonStyle(BrandButton(color: Brand.red))
-                Text("macOS will pop up a box — click **Allow**. Already said no once? This opens the right Settings pane.")
+                Text("macOS will pop up a box — click **Allow**. Just Talk needs this to hear you; you can't continue without it.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
@@ -476,40 +486,66 @@ private struct TryItStep: View {
     @ObservedObject var appState: AppState
     let sentence: String
 
+    /// Match the instruction to the chosen mode — in hold/holdLatch a quick tap does nothing (you
+    /// hold to talk), which is exactly why "Press" left users thinking the key was dead here.
+    private var instruction: String {
+        let k = appState.hotkeyConfig.shortName
+        switch appState.hotkeyMode {
+        case .toggle: return "Tap \(k), read this out loud, then tap \(k) again to stop:"
+        default:      return "Hold \(k) down and read this out loud — release when you're done:"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            StepTitle(title: "Let's prove it works.",
-                      subtitle: "Press your \(appState.hotkeyConfig.shortName) key and read this out loud:")
-            Text("\u{201C}\(sentence)\u{201D}")
-                .font(.title3).italic()
-                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .background(Brand.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("WHAT I HEARD").font(.caption).bold().foregroundStyle(.tertiary)
-                if appState.onboardingTranscript.isEmpty {
-                    Text(appState.dictationState == .idle ? "…waiting for you to talk" : "Listening…")
-                        .font(.title3).foregroundStyle(.secondary)
-                } else {
-                    Text(appState.onboardingTranscript).font(.title3).foregroundStyle(.primary)
+            if !appState.engineLoaded {
+                // First launch: the voice model is still downloading/loading, so a key press can't
+                // record yet. Show progress instead of looking broken.
+                StepTitle(title: "Almost there…",
+                          subtitle: "Just Talk is getting your voice model ready. This happens once.")
+                HStack(spacing: 10) {
+                    ProgressView().controlSize(.small)
+                    Text(appState.statusMessage).font(.callout).foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-            }
-            .padding(14).frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
-            .background(
-                (appState.onboardingTranscript.isEmpty ? Color.secondary.opacity(0.10) : Brand.green.opacity(0.16)),
-                in: RoundedRectangle(cornerRadius: 12)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(appState.onboardingTranscript.isEmpty ? Color.clear : Brand.green.opacity(0.5), lineWidth: 1)
-            )
+                .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+                Text("The model downloads once (it can take a minute on first launch), then dictation is instant. This screen unlocks automatically when it's ready.")
+                    .font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
+            } else {
+                StepTitle(title: "Let's prove it works.",
+                          subtitle: "Press your \(appState.hotkeyConfig.shortName) key and read this out loud:")
+                Text("\u{201C}\(sentence)\u{201D}")
+                    .font(.title3).italic()
+                    .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Brand.green.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
 
-            if !appState.onboardingTranscript.isEmpty {
-                Label("That's you — typed. This is exactly how it works in any app.",
-                      systemImage: "checkmark.circle.fill")
-                    .font(.callout).foregroundStyle(Brand.green).fixedSize(horizontal: false, vertical: true)
-                Button("Try again") { appState.armOnboardingCapture(true) }.controlSize(.small)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("WHAT I HEARD").font(.caption).bold().foregroundStyle(.tertiary)
+                    if appState.onboardingTranscript.isEmpty {
+                        Text(appState.dictationState == .idle ? "…waiting for you to talk" : "Listening…")
+                            .font(.title3).foregroundStyle(.secondary)
+                    } else {
+                        Text(appState.onboardingTranscript).font(.title3).foregroundStyle(.primary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(14).frame(maxWidth: .infinity, minHeight: 74, alignment: .topLeading)
+                .background(
+                    (appState.onboardingTranscript.isEmpty ? Color.secondary.opacity(0.10) : Brand.green.opacity(0.16)),
+                    in: RoundedRectangle(cornerRadius: 12)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(appState.onboardingTranscript.isEmpty ? Color.clear : Brand.green.opacity(0.5), lineWidth: 1)
+                )
+
+                if !appState.onboardingTranscript.isEmpty {
+                    Label("That's you — typed. This is exactly how it works in any app.",
+                          systemImage: "checkmark.circle.fill")
+                        .font(.callout).foregroundStyle(Brand.green).fixedSize(horizontal: false, vertical: true)
+                    Button("Try again") { appState.armOnboardingCapture(true) }.controlSize(.small)
+                }
             }
         }
     }
