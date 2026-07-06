@@ -107,11 +107,11 @@ if command -v create-dmg >/dev/null 2>&1; then
   create-dmg \
     --volname "$APP_NAME" \
     ${BG:+--background "$BG"} \
-    --window-pos 200 120 \
-    --window-size 640 400 \
-    --icon-size 120 \
-    --icon "$APP_NAME.app" 170 235 \
-    --app-drop-link 470 235 \
+    --window-pos 300 160 \
+    --window-size 540 380 \
+    --icon-size 116 \
+    --icon "$APP_NAME.app" 150 215 \
+    --app-drop-link 390 215 \
     --hide-extension "$APP_NAME.app" \
     --no-internet-enable \
     "$DMG" "$APP_PATH" \
