@@ -91,7 +91,10 @@ public final class AppState: NSObject, ObservableObject {
     /// While true, a completed dictation is routed to `onboardingTranscript` instead of being pasted.
     var onboardingCaptureActive: Bool = false
     private var micTestPeak: Float = 0
-    static let micTestPassThreshold: Float = 0.06
+    // Match the real dictation path: RMS ≥ silenceThreshold (0.01) is already "speech", and the
+    // low-input warning only trips below 0.04. 0.06 made the wizard demand a shout — pass at 0.02,
+    // comfortably above silence and below the normal-speech peak.
+    static let micTestPassThreshold: Float = 0.02
 
     // MARK: - Install contact (wizard "stay in touch")
     @Published public var contactName: String = ""

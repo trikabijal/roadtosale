@@ -335,7 +335,9 @@ private struct MicMeter: View {
         HStack(alignment: .center, spacing: 5) {
             ForEach(0..<bars, id: \.self) { i in
                 let phase = Double(i) / Double(bars)
-                let shaped = CGFloat(min(1, level * 4)) * (0.45 + 0.55 * CGFloat(sin(phase * .pi)))
+                // Reach full swing around RMS 0.12 (normal speech), so the bars are lively at a
+                // conversational volume instead of needing a shout.
+                let shaped = CGFloat(min(1, level / 0.12)) * (0.45 + 0.55 * CGFloat(sin(phase * .pi)))
                 Capsule()
                     .fill(passed
                           ? AnyShapeStyle(Brand.green)
