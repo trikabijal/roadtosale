@@ -33,6 +33,9 @@ targets:
         # Xcode target/scheme stays "JustTalk" (internal); the bundle id is unchanged so TCC grants
         # persist across the rename.
         PRODUCT_NAME: "Just Talk"
+        # Keep the Swift MODULE name "JustTalk" — PRODUCT_NAME's space would otherwise make it
+        # "Just_Talk" and break `@testable import JustTalk` in the tests.
+        PRODUCT_MODULE_NAME: JustTalk
         SWIFT_VERSION: "5.9"
         MACOSX_DEPLOYMENT_TARGET: "14.0"
         # Stable signing so macOS TCC persists Mic / Accessibility / Input Monitoring grants
@@ -85,6 +88,11 @@ targets:
         SWIFT_VERSION: "5.9"
         GENERATE_INFOPLIST_FILE: YES
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac.tests
+        # The host app's product is "Just Talk.app" (PRODUCT_NAME has a space); pin TEST_HOST /
+        # BUNDLE_LOADER to it, otherwise xcodegen derives them from the target name "JustTalk" and
+        # the test host can't be found.
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Just Talk.app/Contents/MacOS/Just Talk"
+        BUNDLE_LOADER: "$(TEST_HOST)"
 
   DictationKeyboard:
     type: app-extension
