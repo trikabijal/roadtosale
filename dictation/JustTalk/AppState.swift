@@ -282,7 +282,7 @@ public final class AppState: NSObject, ObservableObject {
         }
         super.init()
         recordingEngine.delegate = self
-        transcriber.setVocabularyBias(vocabulary)
+        transcriber.setVocabularyBias(biasTerms)
 
         // HUD open/close audio cues (Wispr Flow-style): a soft chime when the pill appears and
         // another when it disappears. Centralised on real visibility transitions, so phase changes
@@ -1170,7 +1170,7 @@ public final class AppState: NSObject, ObservableObject {
         // earlier switch call load() on (and cancel the load of) whatever the current
         // transcriber happened to be. The generation token still guards UI state writes.
         let newTranscriber = SpeechTranscriberFactory.make(config)
-        newTranscriber.setVocabularyBias(vocabulary)
+        newTranscriber.setVocabularyBias(biasTerms)
         transcriber = newTranscriber
         sttLoadGeneration += 1
         let token = sttLoadGeneration
@@ -1225,7 +1225,7 @@ public final class AppState: NSObject, ObservableObject {
             .filter { !$0.isEmpty }
         vocabulary = cleaned
         UserDefaults.standard.set(cleaned, forKey: "vocabulary")
-        transcriber.setVocabularyBias(cleaned)
+        transcriber.setVocabularyBias(biasTerms)
     }
 
     func setHotkeyMode(_ mode: HotkeyMode) {
@@ -1258,8 +1258,19 @@ public final class AppState: NSObject, ObservableObject {
 
     /// Forced-spelling map for cleanup: each vocab term maps to itself so the cleanup
     /// engine restores the exact casing/spelling after the LLM pass.
+    /// Always-on brand terms so the app spells its own name (and the company) correctly, even before
+    /// the user has added any custom vocabulary — "just talk" → "Just Talk". Merged UNDER the user's
+    /// terms, so a user override always wins on collision.
+    static let brandVocabulary = ["Just Talk", "Trika"]
+
+    /// STT recognition bias = built-in brand terms + the user's custom vocabulary.
+    private var biasTerms: [String] { Self.brandVocabulary + vocabulary }
+
     private var vocabularyMap: [String: String] {
-        Dictionary(vocabulary.map { ($0.lowercased(), $0) }, uniquingKeysWith: { _, b in b })
+        var map = Dictionary(Self.brandVocabulary.map { ($0.lowercased(), $0) },
+                             uniquingKeysWith: { _, b in b })
+        for term in vocabulary { map[term.lowercased()] = term }   // user terms win on collision
+        return map
     }
 
     // MARK: - Per-app cleanup profiles (E2)
