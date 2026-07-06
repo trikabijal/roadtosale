@@ -339,7 +339,17 @@ public final class AppState: NSObject, ObservableObject {
             engineLoaded = transcriber.isLoaded
             statusMessage = readyMessage
         } catch {
-            statusMessage = "Model load failed: \(error.localizedDescription)"
+            // Apple's SpeechAnalyzer needs Speech Recognition permission; if the user denies it (or
+            // the model is otherwise unavailable), don't dead-end onboarding — fall back to WhisperKit,
+            // which needs no Speech Recognition. setSTTConfig rebuilds + loads it and persists the
+            // choice, so the Speech Recognition prompt won't return next launch.
+            if sttConfig.provider == .appleSpeech {
+                log.notice("Apple Speech unavailable (\(error.localizedDescription, privacy: .public)) — falling back to WhisperKit")
+                statusMessage = "Setting up the multilingual model…"
+                setSTTConfig(STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue))
+            } else {
+                statusMessage = "Model load failed: \(error.localizedDescription)"
+            }
             return
         }
 

@@ -77,10 +77,14 @@ public enum SystemPreflight {
         // Small margin below 8 GB so a true 8 GB Mac (reports exactly 8.0 GiB) passes; only 4/6 GB caught.
         if ramGB < minRAMGB - 0.5 { blockers.append(.lowRAM(neededGB: minRAMGB, actualGB: ramGB)) }
 
-        let useApple = isAppleSilicon && appleAvailable
+        // Default to WhisperKit: it needs NO Speech Recognition permission (Wispr-parity: mic +
+        // Accessibility only) and is multilingual (Hinglish/Gujarati). Apple SpeechAnalyzer is faster
+        // for English but requires the Speech Recognition prompt — so it's an opt-in in Settings, not
+        // the default. `appleAvailable` is kept in the signature for that opt-in gating.
+        _ = appleAvailable
         return SystemCapabilities(
             blockers: blockers,
-            recommendedProvider: useApple ? .appleSpeech : .whisperKit,
+            recommendedProvider: .whisperKit,
             cleanupIsFoundationModels: cleanupIsFoundationModels,
             freeDiskGB: freeDiskGB,
             osVersion: osVersion
