@@ -463,6 +463,11 @@ public final class AppState: NSObject, ObservableObject {
         permissions.openKeyboardSettings()
     }
 
+    /// Manual fallback when the Accessibility prompt didn't appear (already responded once).
+    func openAccessibilitySettings() {
+        permissions.openAccessibilitySettings()
+    }
+
     /// Begin the wizard "press your key to test" step: route presses to a confirmation
     /// signal only (no recording) so we can prove the key reaches us — the definitive
     /// conflict check, since macOS won't tell us who else holds the key.

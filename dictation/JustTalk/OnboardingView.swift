@@ -363,16 +363,21 @@ private struct AccessibilityStep: View {
                 Label("Granted. You're good.", systemImage: "checkmark.circle.fill")
                     .font(.title3).foregroundStyle(Brand.green)
             } else {
-                Button("Open Accessibility settings…") { appState.requestAccessibility() }
+                Button("Allow Accessibility…") { appState.requestAccessibility() }
                     .buttonStyle(BrandButton(color: Brand.blue))
-                Text("Find **Just Talk** in the list and switch it **on**.")
+                Text("macOS shows a dialog — click **Open System Settings**, find **Just Talk** in the "
+                     + "list, and switch it **on**.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Heads up: macOS often needs a relaunch to notice. If this stays grey after you flip it on, use the button below.")
-                    .font(.callout).foregroundStyle(.secondary)
+                HStack(spacing: 14) {
+                    Button("Didn't open? Open Settings") { appState.openAccessibilitySettings() }
+                        .controlSize(.small)
+                    Button("I've enabled it — Quit & Relaunch") { appState.relaunch() }
+                        .controlSize(.small)
+                }
+                Text("Heads up: macOS often needs a relaunch to notice — use Quit & Relaunch if this stays grey after you flip it on.")
+                    .font(.caption).foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
-                Button("I've enabled it — Quit & Relaunch") { appState.relaunch() }
-                    .controlSize(.regular)
             }
         }
     }

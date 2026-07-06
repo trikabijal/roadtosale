@@ -40,11 +40,7 @@ final class PermissionsService {
     }
 
     func openMicSettings() {
-        // Modern (Ventura+ / System Settings) privacy anchor. The legacy
-        // `com.apple.preference.security?Privacy_Microphone` scheme lands on a random pane here.
-        if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Microphone") {
-            NSWorkspace.shared.open(url)
-        }
+        openPrivacyPane(.microphone)
     }
 
     // MARK: - Accessibility
@@ -52,25 +48,46 @@ final class PermissionsService {
     /// Non-prompting check — safe to poll.
     var accessibilityGranted: Bool { AXIsProcessTrusted() }
 
-    /// Show the system Accessibility prompt and open the pane. Call only on a button tap.
+    /// Ask for Accessibility. The **version-proof** route is `AXIsProcessTrustedWithOptions` with the
+    /// prompt option: it shows Apple's own dialog whose "Open System Settings" button navigates to the
+    /// exact Accessibility pane on every macOS — no fragile URL. (The dialog only appears the FIRST
+    /// time; for repeats the wizard offers `openAccessibilitySettings()` as a manual fallback.)
     func promptAccessibility() {
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
         _ = AXIsProcessTrustedWithOptions(options)
-        openAccessibilitySettings()
     }
 
     func openAccessibilitySettings() {
-        // Modern (Ventura+ / System Settings) privacy anchor — see openMicSettings().
-        if let url = URL(string: "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
-        }
+        openPrivacyPane(.accessibility)
     }
 
     /// Open Keyboard settings, where macOS Dictation's shortcut lives. macOS exposes no deep anchor to
     /// the Dictation sub-section, so we land on Keyboard settings and tell the user to scroll to it.
     func openKeyboardSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
-            NSWorkspace.shared.open(url)
-        }
+        let url = osMajor >= 13
+            ? "x-apple.systempreferences:com.apple.Keyboard-Settings.extension"
+            : "x-apple.systempreferences:com.apple.preference.keyboard"
+        if let u = URL(string: url) { NSWorkspace.shared.open(u) }
+    }
+
+    // MARK: - OS-version-based Privacy deep-links
+
+    /// Privacy panes changed URL schemes across macOS: **≤12** used System Preferences
+    /// (`com.apple.preference.security?Privacy_X`); **13+** uses the System Settings PrivacySecurity
+    /// extension. On some releases (incl. macOS 26) the `?Privacy_X` fragment isn't honored and the
+    /// link lands on the Privacy & Security root — still the right neighbourhood, and the wizard tells
+    /// the user which row to click. So we pick the scheme by OS major version, best-effort on the pane.
+    private enum PrivacyPane: String {
+        case microphone = "Privacy_Microphone"
+        case accessibility = "Privacy_Accessibility"
+    }
+
+    private var osMajor: Int { ProcessInfo.processInfo.operatingSystemVersion.majorVersion }
+
+    private func openPrivacyPane(_ pane: PrivacyPane) {
+        let anchor = osMajor >= 13
+            ? "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?\(pane.rawValue)"
+            : "x-apple.systempreferences:com.apple.preference.security?\(pane.rawValue)"
+        if let url = URL(string: anchor) { NSWorkspace.shared.open(url) }
     }
 }
