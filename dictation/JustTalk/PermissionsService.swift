@@ -48,11 +48,12 @@ final class PermissionsService {
     /// Non-prompting check — safe to poll.
     var accessibilityGranted: Bool { AXIsProcessTrusted() }
 
-    /// Ask for Accessibility: register the app in the list (AXIsProcessTrustedWithOptions with the
-    /// prompt option), open the Accessibility pane, and bring System Settings to the FRONT — otherwise
-    /// it opens behind our window and the user has to hunt for it.
+    /// Ask for Accessibility. Register the app in the list WITHOUT the prompt option — the prompt
+    /// pops Apple's own "would like to control this computer" dialog, and since we also open Settings
+    /// directly that dialog was left orphaned on screen. prompt:false still adds Just Talk to the
+    /// Accessibility list; then we open the pane and bring System Settings to the front ourselves.
     func promptAccessibility() {
-        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: false]
         _ = AXIsProcessTrustedWithOptions(options)
         openAccessibilitySettings()
     }

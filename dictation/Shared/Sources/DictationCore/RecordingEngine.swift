@@ -1,5 +1,15 @@
 import AVFoundation
 
+// MARK: - Audio level thresholds (single source of truth)
+
+/// The one place the app decides "is the user actually audible?" — a peak RMS level (0…1). Used by
+/// BOTH the wizard mic test (pass when the peak reaches this) and the recording low-input warning
+/// (warn when even the peak stays below this), so the two can never disagree. Sits above room noise
+/// and below normal speech.
+public enum AudioLevels {
+    public static let audibleThreshold: Float = 0.035
+}
+
 // MARK: - Delegate protocol
 
 public protocol RecordingEngineDelegate: AnyObject {

@@ -91,10 +91,6 @@ public final class AppState: NSObject, ObservableObject {
     /// While true, a completed dictation is routed to `onboardingTranscript` instead of being pasted.
     var onboardingCaptureActive: Bool = false
     private var micTestPeak: Float = 0
-    // Match the real dictation path: RMS ≥ silenceThreshold (0.01) is already "speech", and the
-    // low-input warning only trips below 0.04. 0.06 made the wizard demand a shout — pass at 0.02,
-    // comfortably above silence and below the normal-speech peak.
-    static let micTestPassThreshold: Float = 0.02
 
     // MARK: - Install contact (wizard "stay in touch")
     @Published public var contactName: String = ""
@@ -198,10 +194,6 @@ public final class AppState: NSObject, ObservableObject {
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
     private var recordingPeakLevel: Float = 0
-    // Warn "too quiet" only when even the PEAK stays near silence. Speech transcribes down to the VAD
-    // threshold (0.01); 0.04 was above many normal-speech peaks and cried wolf while transcribing fine.
-    // 0.02 matches the wizard mic-test pass so the two never disagree.
-    private static let lowInputPeakThreshold: Float = 0.02
     /// Transcript text retention window (privacy) — records older than this are purged on launch.
     private static let transcriptRetentionDays = 30
     /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
@@ -1376,7 +1368,7 @@ extension AppState: RecordingEngineDelegate {
             if self.micTestActive, self.dictationState != .recording {
                 self.micInputLevel = level
                 self.micTestPeak = max(self.micTestPeak, level)
-                if self.micTestPeak >= Self.micTestPassThreshold { self.micTestPassed = true }
+                if self.micTestPeak >= AudioLevels.audibleThreshold { self.micTestPassed = true }
                 return
             }
             self.recordingHUD.update(level: level)
@@ -1397,7 +1389,7 @@ extension AppState: RecordingEngineDelegate {
         }
         recordingPeakLevel = max(recordingPeakLevel, level)
         guard Date().timeIntervalSince(start) > 2 else { return }
-        recordingHUD.setLowInput(recordingPeakLevel < Self.lowInputPeakThreshold)
+        recordingHUD.setLowInput(recordingPeakLevel < AudioLevels.audibleThreshold)
     }
 }
 

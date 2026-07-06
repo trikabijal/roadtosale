@@ -38,7 +38,7 @@ final class OnboardingWindow {
 private enum Brand {
     static let red = Color(red: 0.91, green: 0.28, blue: 0.25)     // #E8483F — the HUD wave
     static let gold = Color(red: 0.90, green: 0.70, blue: 0.31)    // #E6B450 — the pill border
-    static let blue = Color(red: 0.11, green: 0.32, blue: 0.91)    // accent
+    static let blue = Color(red: 0.20, green: 0.44, blue: 0.82)    // softer, less electric
     static let indigo = Color(red: 0.35, green: 0.34, blue: 0.84)
     static let green = Color(red: 0.13, green: 0.64, blue: 0.33)
 }
@@ -76,7 +76,7 @@ struct OnboardingView: View {
                 .padding(.top, 14)
 
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 22) {
                     switch step {
                     case .welcome:       WelcomeStep()
                     case .microphone:    MicStep(appState: appState)
@@ -86,10 +86,11 @@ struct OnboardingView: View {
                     case .stayInTouch:   ContactStep(appState: appState)
                     }
                 }
-                .padding(.horizontal, 28)
-                .padding(.top, 18)
-                .padding(.bottom, 8)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 28)
+                // Fill the area between hero and footer and CENTER the content vertically, so short
+                // steps use the whole page instead of crunching under the hero with blank space below.
+                .frame(maxWidth: .infinity, minHeight: 392, alignment: .leading)
             }
 
             Divider()
@@ -382,10 +383,10 @@ private struct AccessibilityStep: View {
                 Label("It's detected here automatically — no need to quit or restart. Once it's on, "
                       + "switch back to this window (click the Just Talk icon in your menu bar).",
                       systemImage: "checkmark.circle")
-                    .font(.callout).foregroundStyle(Brand.blue)
+                    .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
-                    .background(Brand.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+                    .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
                 Button("Didn't open? Try again") { appState.openAccessibilitySettings() }
                     .controlSize(.small)
             }
@@ -408,14 +409,20 @@ private struct KeyStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             StepTitle(title: "Pick your talk key.",
-                      subtitle: "Hold this key anywhere to dictate. The 🌐 (fn) key is the classic choice.")
-            HStack(spacing: 12) {
-                Picker("Key", selection: Binding(get: { appState.hotkeyConfig }, set: { appState.setHotkey($0) })) {
-                    ForEach(HotkeyConfig.allCases) { key in Text(key.displayName).tag(key) }
-                }.labelsHidden().frame(maxWidth: 200)
-                Picker("Mode", selection: Binding(get: { appState.hotkeyMode }, set: { appState.setHotkeyMode($0) })) {
-                    ForEach(HotkeyMode.allCases, id: \.self) { mode in Text(mode.displayName).tag(mode) }
-                }.labelsHidden().frame(maxWidth: 200)
+                      subtitle: "Choose a key you'll hold to dictate — then press it once to make sure it reaches Just Talk.")
+            HStack(alignment: .top, spacing: 20) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("YOUR KEY").font(.caption2).bold().tracking(0.6).foregroundStyle(.tertiary)
+                    Picker("Key", selection: Binding(get: { appState.hotkeyConfig }, set: { appState.setHotkey($0) })) {
+                        ForEach(HotkeyConfig.allCases) { key in Text(key.displayName).tag(key) }
+                    }.labelsHidden().frame(width: 200)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("HOW YOU HOLD IT").font(.caption2).bold().tracking(0.6).foregroundStyle(.tertiary)
+                    Picker("Mode", selection: Binding(get: { appState.hotkeyMode }, set: { appState.setHotkeyMode($0) })) {
+                        ForEach(HotkeyMode.allCases, id: \.self) { mode in Text(mode.displayName).tag(mode) }
+                    }.labelsHidden().frame(width: 200)
+                }
             }
             Text(hotkeyModeHint).font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -444,16 +451,22 @@ private struct KeyStep: View {
             Divider().padding(.vertical, 2)
 
             if appState.hotkeyTestPassed {
-                Label("\(appState.hotkeyConfig.shortName) reaches Just Talk. Perfect.",
+                Label("\(appState.hotkeyConfig.shortName) reaches Just Talk. You're set — hit Continue.",
                       systemImage: "checkmark.circle.fill")
                     .font(.title3).foregroundStyle(Brand.green)
             } else if !appState.accessibilityGranted {
-                Text("Grant Accessibility first (previous step), then press \(appState.hotkeyConfig.shortName) here.")
+                Text("Grant Accessibility first (previous step), then press \(appState.hotkeyConfig.shortName) here to test.")
                     .font(.callout).foregroundStyle(.secondary)
             } else {
-                Text("Give it a press: tap **\(appState.hotkeyConfig.shortName)** now.")
-                    .font(.title3).foregroundStyle(.secondary)
-                Text("If the check doesn't turn green, something's intercepting the key — fix the warning above or pick another.")
+                HStack(spacing: 10) {
+                    Image(systemName: "hand.tap.fill").font(.title3).foregroundStyle(Brand.indigo)
+                    Text("Press **\(appState.hotkeyConfig.shortName)** once, right now, to test it.")
+                        .font(.title3).foregroundStyle(.primary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Brand.indigo.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                Text("The check below turns green when it works. If it stays grey, something's intercepting the key — fix a warning above or pick another key.")
                     .font(.caption).foregroundStyle(.tertiary).fixedSize(horizontal: false, vertical: true)
             }
         }
