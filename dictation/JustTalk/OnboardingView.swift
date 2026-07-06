@@ -369,6 +369,13 @@ private struct AccessibilityStep: View {
                      + "list, and switch it **on**.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                Label("System Settings opens in front of this window and won't switch back on its own. "
+                      + "When you're done, click the **Just Talk icon in your menu bar** (up top) to "
+                      + "return here — then Quit & Relaunch.", systemImage: "arrow.uturn.left")
+                    .font(.callout).foregroundStyle(Brand.blue)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(10)
+                    .background(Brand.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
                 HStack(spacing: 14) {
                     Button("Didn't open? Open Settings") { appState.openAccessibilitySettings() }
                         .controlSize(.small)
