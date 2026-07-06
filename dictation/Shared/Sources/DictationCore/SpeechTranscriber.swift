@@ -44,12 +44,18 @@ public protocol SpeechTranscriber: AnyObject {
     /// Release the loaded model so orphaned/timed-out work can't keep holding resources; the
     /// next `transcribe` reloads. Default: no-op (only heavyweight engines need it).
     func reset()
+    /// Vend a streaming session for the LIVE PILL (PRD 0008), reusing THIS transcriber's already-
+    /// loaded model — no second model, no second mic. Returns `nil` when the provider can't stream
+    /// (the caller then falls back to the per-segment preview). The accurate PASTED text always
+    /// comes from `transcribe(buffers:)`, never from the streaming session. Default: `nil`.
+    func makeStreamingSession() -> (any StreamingTranscriber)?
 }
 
 public extension SpeechTranscriber {
     func load() async throws { try await load(onProgress: nil) }
     func setVocabularyBias(_ terms: [String]) {}
     func reset() {}
+    func makeStreamingSession() -> (any StreamingTranscriber)? { nil }
 }
 
 // MARK: - Provider + config
@@ -71,7 +77,9 @@ public enum STTProvider: String, CaseIterable, Sendable {
     public var isAvailable: Bool {
         switch self {
         case .whisperKit, .mock: return true
-        case .appleSpeech:       return false   // contract-ready, not yet implemented
+        case .appleSpeech:
+            // Apple SpeechAnalyzer requires macOS 26 / iOS 26.
+            if #available(macOS 26.0, iOS 26.0, *) { return true } else { return false }
         }
     }
 
@@ -114,6 +122,10 @@ public enum SpeechTranscriberFactory {
         case .mock:
             return MockTranscriber()
         case .appleSpeech:
+            if #available(macOS 26.0, iOS 26.0, *) {
+                // config.model carries the BCP-47 locale (e.g. "en-US") for the Apple provider.
+                return AppleSpeechTranscriber(localeIdentifier: config.model)
+            }
             return UnavailableTranscriber(providerName: STTProvider.appleSpeech.displayName)
         }
     }

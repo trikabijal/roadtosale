@@ -7,11 +7,12 @@ enum PermissionStatus {
     case granted, denied, notDetermined
 }
 
-/// Single source of truth for the two permissions Just Talk needs. Status reads are
-/// **non-prompting** — the app can poll them freely without popping System Settings. The
-/// system prompts fire only from the explicit `request*` methods, which are wired to
-/// onboarding buttons. This is the fix for "Settings opens out of the blue": nothing here
-/// is called automatically at launch.
+/// Single source of truth for the two permissions Just Talk needs — **Microphone** and
+/// **Accessibility** (same footprint as Wispr Flow; no Input Monitoring — the hotkey uses an active
+/// CGEventTap, which needs only Accessibility). Status reads are **non-prompting** — the app can
+/// poll them freely without popping System Settings. The system prompts fire only from the explicit
+/// `request*` methods, wired to onboarding buttons. This is the fix for "Settings opens out of the
+/// blue": nothing here is called automatically at launch.
 @MainActor
 final class PermissionsService {
 
@@ -40,27 +41,6 @@ final class PermissionsService {
 
     func openMicSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-
-    // MARK: - Input Monitoring
-
-    /// A keyboard `CGEventTap` requires Input Monitoring on modern macOS — a permission
-    /// distinct from Accessibility. Non-prompting check — safe to poll.
-    var inputMonitoringGranted: Bool { CGPreflightListenEventAccess() }
-
-    /// Trigger the system Input Monitoring prompt (only meaningful when not yet determined).
-    /// Returns the current grant. If already denied, route the user to System Settings.
-    @discardableResult
-    func requestInputMonitoring() -> Bool {
-        let granted = CGRequestListenEventAccess()
-        if !granted { openInputMonitoringSettings() }
-        return granted
-    }
-
-    func openInputMonitoringSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent") {
             NSWorkspace.shared.open(url)
         }
     }

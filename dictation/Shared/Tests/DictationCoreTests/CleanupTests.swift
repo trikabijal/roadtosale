@@ -206,6 +206,37 @@ final class CleanupOutputSanitizerTests: XCTestCase {
             "I think the setup is working fine.")
     }
 
+    // MARK: content-drop guard (cleanup deleted a meaningful clause)
+
+    /// The real bug: Apple STT captured it, cleanup deleted the leading clause "So the best data
+    /// would be". The guard must flag this so cleanup falls back instead of pasting truncated text.
+    func testDegenerateWhenCleanupDropsLeadingClause() {
+        let raw = "So the best data would be Apple's own model, publishing it somewhere and whisper its own model is publishing it somewhere."
+        let cleaned = "Apple's own model, publishing it somewhere and whispering its own model is publishing it somewhere."
+        XCTAssertTrue(CleanupOutputSanitizer.droppedLeadingOrTrailingContent(output: cleaned, input: raw))
+        XCTAssertTrue(CleanupOutputSanitizer.isDegenerate(output: cleaned, input: raw))
+    }
+
+    func testDegenerateWhenCleanupDropsTrailingClause() {
+        let raw = "We should ship the dictation feature on Monday and tell the whole team about it."
+        let cleaned = "We should ship the dictation feature on Monday."   // dropped the trailing clause
+        XCTAssertTrue(CleanupOutputSanitizer.droppedLeadingOrTrailingContent(output: cleaned, input: raw))
+    }
+
+    /// Legitimate filler/repeat trimming must NOT trip the guard — the opening content words survive.
+    func testContentGuardIgnoresNormalFillerTrim() {
+        let raw = "um so like the the best data would actually be really useful for us here"
+        let cleaned = "The best data would be really useful for us here."
+        XCTAssertFalse(CleanupOutputSanitizer.droppedLeadingOrTrailingContent(output: cleaned, input: raw))
+        XCTAssertFalse(CleanupOutputSanitizer.isDegenerate(output: cleaned, input: raw))
+    }
+
+    /// Short inputs aren't judged (too little to tell a drop from a rewrite).
+    func testContentGuardSkipsShortInput() {
+        XCTAssertFalse(CleanupOutputSanitizer.droppedLeadingOrTrailingContent(
+            output: "Ship it.", input: "So we should ship it."))
+    }
+
     // MARK: isDegenerate
 
     func testDegenerateWhenOutputIsInputRepeatedTwice() {

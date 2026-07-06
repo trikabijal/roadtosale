@@ -65,6 +65,10 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var vocabulary: [String] = []
     @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
     @Published public var soundEnabled: Bool = false
+    /// Per-word roll-up live pill via LocalAgreement streaming STT (PRD 0008). When on, the pill
+    /// grows word-by-word from a streaming session; when off (or the provider can't stream), it
+    /// falls back to the per-segment preview. The PASTED text is the batch pass either way.
+    @Published public var streamingPillEnabled: Bool = true
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
 
@@ -72,9 +76,6 @@ public final class AppState: NSObject, ObservableObject {
     @Published private(set) var hotkeyConfig: HotkeyConfig = .fn
     @Published public var micGranted: Bool = false
     @Published public var accessibilityGranted: Bool = false
-    /// Input Monitoring — required for the keyboard event tap on modern macOS, distinct
-    /// from Accessibility. Without it the tap can't enable and the hotkey degrades.
-    @Published public var inputMonitoringGranted: Bool = false
     /// Set true the moment the configured key is received during the wizard "test" step.
     @Published public var hotkeyTestPassed: Bool = false
 
@@ -104,7 +105,11 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Permissions / onboarding
 
     let permissions = PermissionsService()
+    /// Result of the launch pre-flight (Apple-Silicon / OS / disk + recommended provider). Computed
+    /// once in init; `setup()` blocks with a requirements screen if `!canRun`.
+    public let systemCapabilities: SystemCapabilities
     private let onboardingWindow = OnboardingWindow()
+    private let requirementsWindow = RequirementsWindow()
     // History is an AppKit-managed window (like onboarding) rather than a SwiftUI scene, so the
     // menu-bar popover — which is hosted outside the SwiftUI scene graph via NSStatusItem — can
     // open it directly. `openWindow(id:)` does not reach an NSPopover's hosting controller.
@@ -116,7 +121,7 @@ public final class AppState: NSObject, ObservableObject {
 
     /// The permissions Just Talk genuinely needs to function: mic to hear you, plus
     /// Accessibility (to paste) and Input Monitoring (to read the activation key).
-    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted && inputMonitoringGranted }
+    var requiredPermissionsGranted: Bool { micGranted && accessibilityGranted }
 
     private var hasCompletedOnboarding: Bool {
         get { UserDefaults.standard.bool(forKey: "hasCompletedOnboarding") }
@@ -156,6 +161,16 @@ public final class AppState: NSObject, ObservableObject {
     private var streamSession: StreamingDictationSession?
     private var streamFlushedCount = 0
     private var streamPump: Task<Void, Never>?
+    // Per-word roll-up pill (PRD 0008). `streamingPill` is a LocalAgreement streaming session vended
+    // by the loaded transcriber (reuses its model); `streamTickTask` re-transcribes the growing
+    // buffer on a throttle and drives the confirmed/hypothesis pill. Non-nil only while a streaming
+    // recording is live. When nil, the pill falls back to the per-segment `streamSession` preview.
+    private var streamingPill: (any StreamingTranscriber)?
+    private var streamTickTask: Task<Void, Never>?
+    /// How often we feed audio to the streaming session + refresh the pill. Fast (100ms) so Apple
+    /// gets audio near-continuously and its live text appears with minimal lag. WhisperKit throttles
+    /// its own expensive re-decode INTERNALLY, so a fast tick doesn't make it heavier (PRD 0008).
+    private static let streamTickInterval: Duration = .milliseconds(100)
     private var recordingStartDate: Date?
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
@@ -200,15 +215,23 @@ public final class AppState: NSObject, ObservableObject {
 
     public override init() {
         let defaults = UserDefaults.standard
-        let provider = STTProvider(rawValue: defaults.string(forKey: "sttProvider") ?? "") ?? .whisperKit
-        // Default to large-v3-turbo: it is the only MULTILINGUAL tier (the *.en models are
-        // English-only and mangle Hindi/Gujarati). The user dictates Hinglish (English + Hindi +
-        // Gujarati mixed) in real life, so a multilingual model is required despite being slower
-        // than small.en (~4s vs ~0.9s on a 10s clip). English-heavy contexts (e.g. coding) can
-        // select small.en in Settings for the speed; a per-app model override is the ideal fix.
-        let model = defaults.string(forKey: "sttModel")
-            ?? defaults.string(forKey: "modelTier")          // legacy key from PRD 0003
-            ?? ModelTier.largeV3Turbo.rawValue
+        // Pre-flight: pick the best provider this machine supports (Apple SpeechAnalyzer on a capable
+        // Mac — Apple Silicon + macOS 26 — else WhisperKit Large Turbo, multilingual) and capture any
+        // hard blockers (Intel, OS too old, no disk) so setup() can show a clear "requirements" screen
+        // instead of a broken onboarding. The user can still switch provider (WhisperKit does the
+        // Hinglish/Gujarati Apple can't). No model-tier picker — the tier is fixed per provider.
+        let caps = SystemPreflight.check()
+        self.systemCapabilities = caps
+        let provider: STTProvider
+        let model: String
+        if let saved = defaults.string(forKey: "sttProvider"), let p = STTProvider(rawValue: saved) {
+            provider = p
+            model = defaults.string(forKey: "sttModel")
+                ?? (p == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue)
+        } else {                                          // first launch — auto by capability
+            provider = caps.recommendedProvider
+            model = provider == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue
+        }
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
         self.transcriber = SpeechTranscriberFactory.make(config)
@@ -224,11 +247,14 @@ public final class AppState: NSObject, ObservableObject {
         self.cleanupConfig = cleanupConfig
         self.cleanup = TextCleanupFactory.make(cleanupConfig, pack: pack)
 
-        self.autoPaste = defaults.object(forKey: "autoPaste") as? Bool ?? true
+        // Auto-paste, start/stop sounds, and the word-by-word live pill are always on now (no
+        // toggles) — opinionated defaults.
+        self.autoPaste = true
         self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
-        self.soundEnabled = defaults.object(forKey: "soundEnabled") as? Bool ?? false
+        self.soundEnabled = true
+        self.streamingPillEnabled = true
         self.launchAtLogin = LoginItem.isEnabled
         if let data = defaults.data(forKey: "appProfiles"),
            let profiles = try? JSONDecoder().decode([AppCleanupProfile].self, from: data) {
@@ -250,6 +276,15 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Setup
 
     private func setup() async {
+        // 0. Hard requirements gate. If this Mac can't run the app (Intel, macOS too old, no disk),
+        //    show a clear requirements screen and stop — never let a user hit a broken onboarding or
+        //    a stuck model download.
+        guard systemCapabilities.canRun else {
+            statusMessage = "This Mac doesn't meet Just Talk's requirements"
+            requirementsWindow.show(capabilities: systemCapabilities)
+            return
+        }
+
         // 1. Read permission status WITHOUT prompting (the fix for "Settings opens out of
         //    the blue"). Prompts now happen only from explicit onboarding buttons.
         refreshPermissions()
@@ -257,7 +292,7 @@ public final class AppState: NSObject, ObservableObject {
         // 2. Build the hotkey listener; only install the event tap once Accessibility is
         //    granted (refreshPermissions starts it on the grant transition).
         hotkeyManager = HotkeyManager(delegate: self, config: hotkeyConfig)
-        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
+        if accessibilityGranted { startHotkeyListener() }
 
         // 3. Poll permissions so the wizard's ticks update live as the user grants them in
         //    System Settings, and so a later revoke is noticed. Also re-check on activation.
@@ -323,10 +358,10 @@ public final class AppState: NSObject, ObservableObject {
     /// that can't enable and drives a rebuild/prompt loop.
     func refreshPermissions() {
         micGranted = permissions.micStatus == .granted
-        let couldInstall = accessibilityGranted && inputMonitoringGranted
+        let couldInstall = accessibilityGranted
         accessibilityGranted = permissions.accessibilityGranted
-        inputMonitoringGranted = permissions.inputMonitoringGranted
-        if accessibilityGranted && inputMonitoringGranted && !couldInstall {
+        // The active tap needs only Accessibility — install it on the grant transition.
+        if accessibilityGranted && !couldInstall {
             startHotkeyListener()
         }
     }
@@ -356,8 +391,8 @@ public final class AppState: NSObject, ObservableObject {
         // reaches macOS and opens the emoji picker; a later paste can land in that panel.
         let others = HotkeyConflict.runningCompetitors().compactMap { $0.localizedName }
         var msg = "\(hotkeyConfig.shortName) is leaking to macOS (opens the emoji picker). "
-            + "Fix: System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing, and confirm "
-            + "Just Talk has Input Monitoring + Accessibility."
+            + "Fix: grant Just Talk Accessibility so it can swallow the key — or set "
+            + "System Settings ▸ Keyboard ▸ “Press 🌐 key to” ▸ Do Nothing."
         if !others.isEmpty {
             msg += " Also quit other Fn dictation apps (\(others.joined(separator: ", ")))."
         }
@@ -399,19 +434,13 @@ public final class AppState: NSObject, ObservableObject {
         permissions.promptAccessibility()
     }
 
-    /// Trigger the Input Monitoring prompt / open the pane (only on a wizard button tap).
-    func requestInputMonitoring() {
-        _ = permissions.requestInputMonitoring()
-        refreshPermissions()
-    }
-
     /// Begin the wizard "press your key to test" step: route presses to a confirmation
     /// signal only (no recording) so we can prove the key reaches us — the definitive
     /// conflict check, since macOS won't tell us who else holds the key.
     func beginHotkeyTest() {
         hotkeyTestPassed = false
         hotkeyManager?.isTesting = true
-        if accessibilityGranted && inputMonitoringGranted { startHotkeyListener() }
+        if accessibilityGranted { startHotkeyListener() }
     }
 
     func endHotkeyTest() {
@@ -439,7 +468,10 @@ public final class AppState: NSObject, ObservableObject {
     // MARK: - Recording control (called by HotkeyManager)
 
     func startRecording() {
-        guard dictationState == .idle, engineLoaded else { return }
+        guard dictationState == .idle, engineLoaded else {
+            log.notice("startRecording ignored: state=\(String(describing: self.dictationState), privacy: .public) engineLoaded=\(self.engineLoaded, privacy: .public) correctionWindow=\(self.correctionWindowOpen, privacy: .public)")
+            return
+        }
         // Never start the audio engine without mic permission — doing so re-triggers the
         // system mic prompt on EVERY activation-key press (the "mic window 4 times" bug).
         // Surface onboarding so the user grants it once; the engine is the only thing that
@@ -527,6 +559,41 @@ public final class AppState: NSObject, ObservableObject {
         streamSession = session
         streamFlushedCount = 0
         streamPump = nil
+
+        // Per-word roll-up pill (PRD 0008): vend a streaming session from the LOADED transcriber
+        // (reuses its model). If the provider can't stream (nil), the per-segment `streamSession`
+        // preview above remains the pill source — a clean fallback. The pasted text is the batch
+        // pass at stop either way, so the streaming pill can never corrupt output.
+        streamingPill = nil
+        streamTickTask = nil
+        if streamingPillEnabled, let pill = transcriber.makeStreamingSession() {
+            // Drive the pill from the transcript's `confirmed` field only. For WhisperKit that is
+            // strictly append-only LocalAgreement text (never rewrites → no chatter); its volatile
+            // re-decode tail was the chatter source and is intentionally not shown. For Apple,
+            // `confirmed` carries finalized + its display-grade volatile tail, which can revise a
+            // word or two at the end (acceptable — that's what Apple Dictation shows live). Either
+            // way the reveal driver smooths growth, and the pasted text is the batch pass.
+            streamingPill = pill
+            startStreamTick()
+        }
+    }
+
+    /// Throttled loop that re-transcribes the growing audio and drives the confirmed/hypothesis pill.
+    /// Runs OFF the audio thread; non-reentrant by construction (one awaited step per tick). The
+    /// buffer append still happens on the audio render thread via `CapturedAudioStream`, so these
+    /// passes can't starve capture.
+    private func startStreamTick() {
+        streamTickTask = Task { @MainActor in
+            while dictationState == .recording, let pill = streamingPill {
+                try? await Task.sleep(for: Self.streamTickInterval)
+                guard dictationState == .recording, streamingPill === pill else { break }
+                let samples = AudioSampleBridge.flatten(audio.snapshot())
+                guard !samples.isEmpty else { continue }
+                let t = await pill.step(samples: samples)
+                guard dictationState == .recording, streamingPill === pill else { break }
+                recordingHUD.update(previewText: t.confirmed)   // confirmed only — append-only, no chatter
+            }
+        }
     }
 
     /// On each VAD silence, hand the buffers captured since the last flush to the streaming session.
@@ -534,6 +601,10 @@ public final class AppState: NSObject, ObservableObject {
     /// session concurrently. Never auto-stops — the activation key still controls stop.
     private func flushStreamingSegment() {
         guard dictationState == .recording, let session = streamSession else { return }
+        // When the per-word streaming pill is active it owns the pill and re-transcribes on its own
+        // tick — running the per-segment preview too would put two transcribe loops on the one model
+        // (the Neural-Engine-starvation failure). So the per-segment path is the fallback only.
+        guard streamingPill == nil else { return }
         // `drain(after:)` returns the buffers captured since the last flush plus the new total —
         // one place owns the cursor math (no hand-rolled slicing).
         let (segment, newCount) = audio.drain(after: streamFlushedCount)
@@ -564,13 +635,23 @@ public final class AppState: NSObject, ObservableObject {
         let startDate = recordingStartDate ?? Date()
         logCaptureMetric(buffers: all, startDate: startDate)
         persistRecording(buffers: all, recordedAt: startDate)
-        // Tear down the preview session; the batch path owns the output.
+        // Tear down BOTH preview paths; the batch path owns the output. The streaming pill must be
+        // fully stopped before the batch pass so two transcribes don't hit the one model at once.
         let prev = streamPump
+        let tick = streamTickTask
+        let tornPill = streamingPill
         streamSession = nil
         streamFlushedCount = 0
         streamPump = nil
+        streamTickTask = nil
+        streamingPill = nil   // the tick loop sees this and exits; its `pill` ref keeps it alive to finish
+        // Release the streaming session (finishes its input + stops the Apple analyzer so its Tasks
+        // complete and it can deallocate — otherwise it leaks per dictation). Safe mid-tick: the
+        // in-flight step's yield becomes a no-op once the continuation is finished.
+        tornPill?.reset()
         Task { @MainActor in
             await prev?.value   // let any in-flight preview flush settle (its result is discarded)
+            _ = await tick?.value  // let any in-flight streaming step finish before batch touches the model
             await performTranscription(buffers: all, audioStartDate: startDate)
         }
     }
@@ -707,6 +788,12 @@ public final class AppState: NSObject, ObservableObject {
         streamFlushedCount = 0
         streamPump?.cancel()
         streamPump = nil
+        // Tear down the streaming pill too — otherwise a discarded tap (e.g. the first of a
+        // double-tap latch) leaks its session/analyzer and leaves a stale tick running.
+        streamTickTask?.cancel()
+        streamTickTask = nil
+        streamingPill?.reset()
+        streamingPill = nil
         audio.reset()
         finishIdle()
     }
@@ -1010,11 +1097,6 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
-    func setAutoPaste(_ value: Bool) {
-        autoPaste = value
-        UserDefaults.standard.set(value, forKey: "autoPaste")
-    }
-
     /// Switch cleanup provider and/or level. Persists and rebuilds the cleanup engine.
     func setCleanupConfig(_ config: CleanupConfig) {
         guard config != cleanupConfig else { return }
@@ -1057,11 +1139,6 @@ public final class AppState: NSObject, ObservableObject {
         recomputeHotkeyWarning()
         hotkeyTestPassed = false
         if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
-    }
-
-    func setSoundEnabled(_ value: Bool) {
-        soundEnabled = value
-        UserDefaults.standard.set(value, forKey: "soundEnabled")
     }
 
     func setLaunchAtLogin(_ value: Bool) {

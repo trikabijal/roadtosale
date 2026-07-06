@@ -26,14 +26,29 @@ struct JustTalkApp: App {
 // MARK: - Menu-bar glyph mapping
 
 /// Single source of truth for the menu-bar glyph per dictation state. Used by the AppKit status
-/// item. Recording/transcribing get a tint; idle is a template image that adapts to the menu bar.
+/// item. Idle/recording use the **Just Talk mark** (the brand mic); transcribing keeps the waveform.
+/// All are template images — `contentTintColor` colors them (nil idle = adapts to the menu bar).
 enum MenuBarGlyph {
-    static func symbolAndTint(for state: DictationState) -> (symbol: String, tint: NSColor?) {
+    static func image(for state: DictationState) -> (image: NSImage?, tint: NSColor?) {
         switch state {
-        case .idle:         return ("mic", nil)                                // template — adapts to menu bar
-        case .recording:    return ("mic.fill", NSColor(srgbRed: 1.0, green: 0.271, blue: 0.227, alpha: 1))   // Theme recording #FF453A
-        case .transcribing: return ("waveform", NSColor(srgbRed: 1.0, green: 0.624, blue: 0.039, alpha: 1))   // Theme warning #FF9F0A
+        case .idle:         return (mark(), nil)                                          // adapts to menu bar
+        case .recording:    return (mark(), NSColor(srgbRed: 1.0, green: 0.271, blue: 0.227, alpha: 1))  // recording #FF453A
+        case .transcribing: return (symbol("waveform"), NSColor(srgbRed: 1.0, green: 0.624, blue: 0.039, alpha: 1))  // warning #FF9F0A
         }
+    }
+
+    /// The Just Talk mark from the asset catalog, as a menu-bar-sized template.
+    private static func mark() -> NSImage? {
+        let img = NSImage(named: "JustTalkMark")
+        img?.isTemplate = true
+        img?.size = NSSize(width: 18, height: 18)
+        return img
+    }
+
+    private static func symbol(_ name: String) -> NSImage? {
+        let img = NSImage(systemSymbolName: name, accessibilityDescription: "Just Talk")
+        img?.isTemplate = true
+        return img
     }
 }
 
@@ -93,11 +108,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateIcon(for state: DictationState) {
         guard let button = statusItem?.button else { return }
-        let (symbol, tint) = MenuBarGlyph.symbolAndTint(for: state)
-        let image = NSImage(systemSymbolName: symbol, accessibilityDescription: "Just Talk")
-        image?.isTemplate = (tint == nil)   // template adapts to light/dark menu bar when idle
+        let (image, tint) = MenuBarGlyph.image(for: state)
         button.image = image
-        button.contentTintColor = tint
+        button.contentTintColor = tint     // nil (idle) → template adapts to the menu bar
     }
 
     /// Take an exclusive, non-blocking advisory lock on a fixed file. Returns false if another

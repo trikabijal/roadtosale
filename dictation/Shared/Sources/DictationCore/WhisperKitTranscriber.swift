@@ -216,6 +216,17 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         )
     }
 
+    // MARK: - Streaming session (PRD 0008 — the live pill)
+
+    /// Vend a LocalAgreement streaming session that reuses THIS transcriber's already-loaded model
+    /// (no second model, no second mic). Returns nil until the model is loaded — the caller then
+    /// falls back to the per-segment preview. Only ever drives the live pill; the pasted text still
+    /// comes from `transcribe(buffers:)`.
+    public func makeStreamingSession() -> (any StreamingTranscriber)? {
+        guard let wk = whisperKit else { return nil }
+        return WhisperKitStreamingSession(whisperKit: wk, biasPrompt: biasPrompt)
+    }
+
     // MARK: - Hallucination filter
 
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
@@ -237,5 +248,88 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
         guard !normalized.isEmpty else { return true }
         guard junkPhrases.contains(normalized) else { return false }
         return durationMs < 1500 || confidence < 0.5
+    }
+}
+
+// MARK: - WhisperKit streaming session (LocalAgreement-2, PRD 0008)
+
+/// Streaming transcriber backing the live pill. Reuses a loaded `WhisperKit` instance (shared with
+/// the `WhisperKitTranscriber` that vended it) and re-transcribes the growing audio each `step`,
+/// applying `StreamingAgreement` to split stable confirmed text from the revisable hypothesis tail.
+///
+/// The confirmed/hypothesis logic and the `clipTimestamps=[lastConfirmedEnd]` windowing are the same
+/// as WhisperKit's own `AudioStreamTranscriber` (see PRD 0008 §0) — we run them over OUR fed buffers
+/// instead of WhisperKit's self-owned microphone, so `RecordingEngine`'s capture/retry/VAD/metering
+/// stay intact.
+@MainActor
+public final class WhisperKitStreamingSession: StreamingTranscriber {
+    private let whisperKit: WhisperKit
+    private let biasPrompt: String?
+    private var agreement = StreamingAgreement(requiredUnconfirmed: 1)
+    private var last = StreamingTranscript.empty
+    /// WhisperKit re-decode is expensive, so throttle it to this cadence even when `step` is called
+    /// far more often (the tick is 100ms for Apple's benefit). Between decodes, return the last result.
+    private var lastDecodeAt: Date?
+    private static let minDecodeInterval: TimeInterval = 0.5
+    /// Guard against the O(n²) re-encode blow-up: past this much audio we stop running new streaming
+    /// passes (the pill freezes at the last confirmed text) — the accurate pasted text is the batch
+    /// pass at stop regardless, so long dictations lose only live-pill motion, not correctness.
+    private static let maxStreamSeconds: Double = 45
+
+    public init(whisperKit: WhisperKit, biasPrompt: String?) {
+        self.whisperKit = whisperKit
+        self.biasPrompt = biasPrompt
+    }
+
+    public func step(samples: [Float]) async -> StreamingTranscript {
+        guard !samples.isEmpty else { return last }
+        let seconds = Double(samples.count) / RecordingEngine.targetSampleRate
+        // Stop feeding new audio once past the guard, but let the tail finish confirming.
+        guard seconds <= Self.maxStreamSeconds else { return last }
+        // Throttle the expensive re-decode: the tick calls step frequently (for Apple), but WhisperKit
+        // only needs to re-run every ~0.5s. Between decodes, hand back the last result cheaply.
+        let now = Date()
+        if let lastDecodeAt, now.timeIntervalSince(lastDecodeAt) < Self.minDecodeInterval { return last }
+        lastDecodeAt = now
+
+        // Silence floor — don't let WhisperKit hallucinate a phantom phrase into the pill.
+        let peak = samples.reduce(Float(0)) { Swift.max($0, abs($1)) }
+        guard peak >= WhisperKitTranscriber.silenceFloor else { return last }
+
+        var options = DecodingOptions()
+        options.clipTimestamps = [Float(agreement.lastConfirmedEnd)]
+        // NOTE: deliberately NO vocab-bias promptTokens here. WhisperKit echoes the prompt into the
+        // output on thin/near-silent windows, dumping the private vocab list onto the live pill (the
+        // F10 echo class). The pill is preview only; the accurate PASTED text is the batch pass, which
+        // keeps the bias. So spelling accuracy is unaffected — we just stop the echo on the pill.
+
+        guard let results = try? await whisperKit.transcribe(audioArray: samples, decodeOptions: options),
+              !results.isEmpty else {
+            return last   // a failed pass is a no-op for the preview — never abort the dictation
+        }
+
+        let segs = results.flatMap { $0.segments }
+        // Strip WhisperKit timestamp/special tokens (`<|5.90|>`, `<|startoftranscript|>`) that live in
+        // raw segment text — the batch path uses the cleaned result text, but segment text keeps them.
+        let fresh = segs.map { AgreedSegment(text: Self.sanitize($0.text), start: Double($0.start), end: Double($0.end)) }
+        agreement.integrate(fresh)
+
+        last = StreamingTranscript(confirmed: agreement.confirmedText, hypothesis: agreement.hypothesisText)
+        return last
+    }
+
+    public func reset() {
+        agreement = StreamingAgreement(requiredUnconfirmed: 1)
+        last = .empty
+        lastDecodeAt = nil
+    }
+
+    /// Strip WhisperKit special/timestamp tokens (`<|5.90|>`, `<|startoftranscript|>`, …) and collapse
+    /// whitespace. Raw segment text and the decode-progress text both carry these; without stripping,
+    /// the timestamps ("5.90 6.32") render straight onto the pill.
+    nonisolated static func sanitize(_ raw: String) -> String {
+        raw.replacingOccurrences(of: "<\\|[^|]*\\|>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

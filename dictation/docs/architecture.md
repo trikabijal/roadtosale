@@ -107,6 +107,16 @@ Owns the `AVAudioEngine` session.
   3–4× repeats (`qc/bugs/streaming/repeated-sentence.md`); one pass has no `priorContext` to
   compound. There is no second (preview) model — running two models starved the Neural Engine and
   dropped mic buffers, so the tiny live-preview transcriber was deleted.
+- **`StreamingTranscriber` + `StreamingAgreement` + `WhisperKitStreamingSession`** (PRD 0008) — the
+  **per-word roll-up pill**. A LocalAgreement-2 streaming session (vended by the loaded transcriber
+  via `makeStreamingSession()`, reusing its **one** model) re-transcribes the growing buffer on a
+  throttled tick and emits a stable `confirmed` prefix + tentative `hypothesis` tail. `AppState`
+  drives the pill from it (confirmed solid, hypothesis dimmed, head-truncated single line — words
+  stream in, oldest scroll off). It is the **live pill only**: the pasted text is still the batch
+  pass, so the streaming pill can never corrupt output. Gated by `streamingPillEnabled` with a clean
+  fallback to the per-segment preview. `StreamingAgreement` is pure/unit-tested; the confirm logic
+  and `clipTimestamps` windowing are procured from WhisperKit's `AudioStreamTranscriber` (which owns
+  its own mic and so couldn't be dropped in — see PRD 0008 §0).
 - **`DictationState.swift`** — the forward-looking **semantic state** surface. Two orthogonal enums
   replace the tangled `dictationState` / `engineLoaded` / free-floating `statusMessage`:
   `DictationPhase { idle, capturing, finishing, inserted, failed(FailReason) }` (what THIS
@@ -122,15 +132,25 @@ This is the strategy pattern mirrored from voice-engine.
 
 **`SpeechTranscriber`** (`SpeechTranscriber.swift`) — the speech-to-text model.
 - `load(onProgress:)`, `transcribe(buffers:audioStartDate:)`, optional `setVocabularyBias`,
-  `reset()`.
-- `STTProvider` (`whisperKit`, `appleSpeech` — contract-ready but not yet implemented, `mock`)
-  + `STTConfig {provider, model}` + `SpeechTranscriberFactory`.
-- **`WhisperKitTranscriber`** is the live implementation: downloads/loads by `ModelTier`
-  (split download → load for first-run progress), gain-normalizes quiet audio, filters
+  `reset()`, and `makeStreamingSession() -> StreamingTranscriber?` (the live pill — see below).
+- `STTProvider` (`whisperKit`, `appleSpeech`, `mock`) + `STTConfig {provider, model}` +
+  `SpeechTranscriberFactory`. **Two live providers now**, chosen by the user's dictation language:
+- **`WhisperKitTranscriber`** — the **multilingual / accuracy** provider: downloads/loads by
+  `ModelTier` (split download → load for first-run progress), gain-normalizes quiet audio, filters
   silence-hallucinations (peak floor + known-junk-phrase + low-confidence checks), and biases
-  custom vocabulary via `DecodingOptions.promptTokens`. Model files are cached under
-  **Application Support** (`com.trika.dictation/huggingface`), not `~/Documents`, to avoid a
-  burst of macOS Documents-folder TCC prompts.
+  custom vocabulary via `DecodingOptions.promptTokens`. Model files cached under **Application
+  Support** (`com.trika.dictation/huggingface`), not `~/Documents`, to avoid a burst of macOS
+  Documents-folder TCC prompts. **The only provider covering Hinglish/Gujarati** and best on
+  proper nouns (prompt-biasing).
+- **`AppleSpeechTranscriber`** (`AppleSpeechTranscriber.swift`, macOS 26+) — the **fast English**
+  provider, on Apple's on-device `SpeechAnalyzer`/`SpeechTranscriber`. ~2× faster than WhisperKit
+  large-v3-turbo, with native volatile/finalized streaming (its `AppleStreamingSession` powers a
+  smooth pill with no re-decode cost). `config.model` is a BCP-47 locale (e.g. `en-US`).
+  **Verified on-device: Apple ships NO Hindi/Gujarati model** (only en/de/es/fr/it/ja/ko/pt/zh), so
+  multilingual dictation stays on WhisperKit. `AppleAudioConverter` bridges our 16 kHz mono buffers
+  to Apple's required format; language assets auto-download via `AssetInventory`; Speech
+  authorization is requested on load. **Provider selection is the design lever: English → Apple,
+  Hinglish/Gujarati → WhisperKit** (PRD 0008 §Outcome).
 - `TranscriptionResult` is provider-agnostic (carries `provider` + `model`).
 
 **`TextCleanup`** (`TextCleanup.swift`) — the cleanup model (the on-device LLM that polishes

@@ -55,7 +55,6 @@ struct OnboardingView: View {
 
                 MicCard(appState: appState)
                 AccessibilityCard(appState: appState)
-                InputMonitoringCard(appState: appState)
                 HotkeyCard(appState: appState)
                 LaunchCard(appState: appState)
 
@@ -178,25 +177,8 @@ private struct AccessibilityCard: View {
     }
 }
 
-private struct InputMonitoringCard: View {
-    @ObservedObject var appState: AppState
-
-    var body: some View {
-        Card(number: 3, title: "Input Monitoring", done: appState.inputMonitoringGranted) {
-            Text("Lets Just Talk see your activation key press. macOS treats this separately "
-                 + "from Accessibility — both are needed for the hotkey to work reliably.")
-                .font(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-            if !appState.inputMonitoringGranted {
-                Button("Allow Input Monitoring…") { appState.requestInputMonitoring() }
-                Text("Turn **Just Talk** on under Input Monitoring. macOS may need a relaunch to "
-                     + "notice — use the relaunch button in step 2 if it stays grey.")
-                    .font(.caption).foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-}
+// (Input Monitoring is intentionally NOT required — the hotkey uses an active CGEventTap that needs
+//  only Accessibility, matching Wispr Flow's Mic + Accessibility footprint.)
 
 private struct HotkeyCard: View {
     @ObservedObject var appState: AppState
@@ -213,11 +195,12 @@ private struct HotkeyCard: View {
     }
 
     private var competitors: [NSRunningApplication] { HotkeyConflict.runningCompetitors() }
-    private var osClaimsFn: Bool { HotkeyConflict.osClaimsFn(for: appState.hotkeyConfig) }
-    private var hasConflict: Bool { osClaimsFn || (appState.hotkeyConfig.isFn && !competitors.isEmpty) }
+    // Only a real competitor (another app already tapping Fn) is a conflict now — macOS claiming Fn
+    // for the emoji picker no longer matters, since the active tap swallows Fn before macOS sees it.
+    private var hasConflict: Bool { appState.hotkeyConfig.isFn && !competitors.isEmpty }
 
     var body: some View {
-        Card(number: 4, title: "Activation key", done: appState.hotkeyTestPassed) {
+        Card(number: 3, title: "Activation key", done: appState.hotkeyTestPassed) {
             Picker("Key", selection: Binding(
                 get: { appState.hotkeyConfig },
                 set: { appState.setHotkey($0) }
@@ -241,18 +224,9 @@ private struct HotkeyCard: View {
                 .font(.caption).foregroundStyle(.tertiary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            // Conflict hints for the SELECTED key — shown regardless of Accessibility, so
-            // changing the key immediately reflects whether it's likely to collide.
-            if osClaimsFn {
-                ConflictRow(
-                    text: "macOS uses the Globe key for “\(HotkeyConflict.appleFnUsageLabel())”. Set it to “Do Nothing”, or pick a non-Fn key above.",
-                    actionLabel: "Keyboard settings"
-                ) {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.keyboard") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-            }
+            // NOTE: no "set Fn to Do Nothing" hint anymore — the active CGEventTap consumes the Fn
+            // key, so the macOS emoji picker is suppressed regardless of the system Fn setting.
+            // Only a genuine conflict (another app already tapping Fn) is worth warning about.
             if appState.hotkeyConfig.isFn, !competitors.isEmpty {
                 ConflictRow(
                     text: "\(competitors.compactMap { $0.localizedName }.joined(separator: ", ")) is running and uses Fn by default — macOS can't share one key between two apps. Quit it, or pick a non-Fn key above.",
@@ -300,7 +274,7 @@ private struct LaunchCard: View {
     @ObservedObject var appState: AppState
 
     var body: some View {
-        Card(number: 5, title: "Launch at login (optional)", done: appState.launchAtLogin) {
+        Card(number: 4, title: "Launch at login (optional)", done: appState.launchAtLogin) {
             Toggle("Start Just Talk automatically when I log in", isOn: Binding(
                 get: { appState.launchAtLogin },
                 set: { appState.setLaunchAtLogin($0) }

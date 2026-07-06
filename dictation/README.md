@@ -72,7 +72,10 @@ DEVELOPMENT_TEAM=XXXXXXXXXX ./deploy-local.sh
 
 Two model layers, both swappable behind a contract (`{provider, model}`):
 
-- **Speech-to-text** — `SpeechTranscriber` (WhisperKit today; Apple SpeechTranscriber next).
+- **Speech-to-text** — `SpeechTranscriber`, two live providers chosen by dictation language:
+  **Apple SpeechAnalyzer** (macOS 26, fast + native streaming — best for **English**) and
+  **WhisperKit** (multilingual — the only one covering **Hinglish/Gujarati**). A `StreamingTranscriber`
+  sibling drives the live per-word pill (PRD 0008).
 - **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
 
 All targets share the **DictationCore** Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is wired into both the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix for free).
@@ -83,12 +86,12 @@ All targets share the **DictationCore** Swift package for recording, transcripti
 
 1. The app lives in the menu bar (no Dock icon by design).
 2. Hold your **activation key** (default **Fn / Globe**) to record; release to transcribe, clean, and paste. A floating HUD near the bottom of the screen shows a live mic level while you speak.
-3. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. For Fn, also set System Settings → Keyboard → "Press 🌐 key to" → **Do Nothing**.
+3. **Hotkey conflicts:** if another app (e.g. Wispr Flow) already owns Fn, quit it or choose a different key in the wizard — macOS can't share one key between two apps. (No need to touch the Fn/Globe system setting — Just Talk's tap swallows the key, so the emoji picker won't pop.)
 
 Settings (menu bar → Settings):
 - **Recording** — activation key (Fn, right ⌘/⌥/⌃, F5/F6/F13), activation mode (hold-to-talk or tap-to-toggle), auto-paste, start/stop sounds. "Re-run setup…" reopens the wizard.
 - **Startup** — launch at login.
-- **Speech-to-text** — provider + model.
+- **Speech-to-text** — provider (Apple SpeechTranscriber for English / WhisperKit for multilingual) + model/locale, and a "live pill grows word-by-word" toggle.
 - **AI Cleanup** — level (Off / Light / **Full**, default) + engine (Foundation Models / rule-based).
 - **Custom Vocabulary** — names/jargon that bias transcription and force spelling after cleanup.
 
@@ -126,7 +129,10 @@ dictation/
 │   └── Sources/DictationCore/
 │       ├── RecordingEngine.swift          AVAudioEngine tap + format conversion + VAD + level
 │       ├── SpeechTranscriber.swift        STT contract + provider/config/factory + mock
-│       ├── WhisperKitTranscriber.swift    WhisperKit impl + ModelTier + hallucination filter
+│       ├── WhisperKitTranscriber.swift    WhisperKit impl + ModelTier + hallucination filter + streaming session
+│       ├── AppleSpeechTranscriber.swift   Apple SpeechAnalyzer impl (macOS 26) — batch + streaming
+│       ├── StreamingTranscriber.swift     Live-pill streaming contract + mock
+│       ├── StreamingAgreement.swift       Pure LocalAgreement-2 confirmed/hypothesis logic (PRD 0008)
 │       ├── TextCleanup.swift              Cleanup contract + config + pack loader + factory
 │       ├── FoundationModelsCleanup.swift  On-device LLM cleanup (Apple Foundation Models)
 │       ├── RuleBasedCleanup.swift         Deterministic fallback + shared text transforms
@@ -172,4 +178,5 @@ dictation/
 | C — Daily-driver ergonomics | Done | Launch at login, recording HUD, custom vocabulary, toggle mode, sounds |
 | D — Permanent install | Done | `build.sh` / `run.sh` / `deploy-local.sh`, docs |
 | 3 — iOS keyboard | PAUSED — code-complete, compiles for Simulator; device validation pending paid Apple Developer Program | KeyboardViewController, in-keyboard mic UI, on-device AI cleanup, App Group SQLite telemetry |
-| E — Optional | Future | Streaming partials, per-app profiles, history search |
+| E1 — Live streaming pill + Apple provider | Done | Per-word roll-up pill (LocalAgreement-2), Apple SpeechAnalyzer provider (fast English), pill redesign (wave, gold border, frosted glass) — PRD 0008 |
+| E — Optional | Future | Streaming as final output (post-stop speed win), per-app profiles, history search |

@@ -67,22 +67,8 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.menu)
                 .tint(Theme.Palette.accent)
-
-                Toggle("Auto-paste after transcription", isOn: Binding(
-                    get: { appState.autoPaste },
-                    set: { appState.setAutoPaste($0) }
-                ))
-                .tint(Theme.Palette.accent)
-
-                Toggle("Play start/stop sounds", isOn: Binding(
-                    get: { appState.soundEnabled },
-                    set: { appState.setSoundEnabled($0) }
-                ))
-                .tint(Theme.Palette.accent)
-
-                // Live text (words appear as you speak) is now always on — there is a single
-                // capture→transcribe path, so no toggle. The former "Streaming (BETA)" switch was
-                // removed when the second (preview) model was deleted.
+                // Auto-paste, start/stop sounds, and the word-by-word live pill are always on now —
+                // opinionated defaults, no toggles (fewer knobs for the user).
             } header: {
                 sectionHeader("Dictation")
             }
@@ -104,10 +90,13 @@ struct SettingsView: View {
                 Picker("Provider", selection: Binding(
                     get: { appState.sttConfig.provider },
                     set: { newProvider in
-                        let model = newProvider == .whisperKit
-                            ? (ModelTier(rawValue: appState.sttConfig.model)?.rawValue
-                               ?? ModelTier.largeV3Turbo.rawValue)
-                            : "default"
+                        // Auto model per provider — no tier/locale picker.
+                        let model: String
+                        switch newProvider {
+                        case .whisperKit:  model = ModelTier.largeV3Turbo.rawValue   // multilingual default
+                        case .appleSpeech: model = "en-US"                            // fast English
+                        case .mock:        model = "default"
+                        }
                         appState.setSTTConfig(STTConfig(provider: newProvider, model: model))
                     }
                 )) {
@@ -121,21 +110,14 @@ struct SettingsView: View {
                 .pickerStyle(.menu)
                 .tint(Theme.Palette.accent)
 
-                // Model — only WhisperKit exposes selectable tiers today.
-                if appState.sttConfig.provider == .whisperKit {
-                    Picker("Model", selection: Binding(
-                        get: { ModelTier(rawValue: appState.sttConfig.model) ?? .largeV3Turbo },
-                        set: { tier in
-                            appState.setSTTConfig(STTConfig(provider: .whisperKit, model: tier.rawValue))
-                        }
-                    )) {
-                        ForEach(ModelTier.allCases, id: \.self) { tier in
-                            Text(tier.displayName).tag(tier)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                    .tint(Theme.Palette.accent)
-                }
+                // No model-tier / locale picker — the tier is auto (WhisperKit → Large Turbo, Apple →
+                // your English locale). Only the provider is switchable, and only because Apple can't
+                // do Hinglish/Gujarati — pick WhisperKit for those.
+                Text(appState.sttConfig.provider == .appleSpeech
+                     ? "Apple's fast on-device model (English). For Hinglish/Gujarati, switch to WhisperKit."
+                     : "WhisperKit multilingual (Hinglish/Gujarati). Apple is faster for English.")
+                    .font(.caption)
+                    .foregroundStyle(Theme.Palette.textTertiary)
 
                 if appState.availability == .warmingUp {
                     HStack(spacing: Theme.Space.sm) {
@@ -191,15 +173,8 @@ struct SettingsView: View {
                 sectionHeader("AI Cleanup")
             }
 
-            // MARK: Per-app cleanup section
-            Section {
-                AppProfilesEditor()
-                Text("Override the cleanup level for specific apps — e.g. Off in your terminal or code editor.")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.Palette.textTertiary)
-            } header: {
-                sectionHeader("Per-App Cleanup")
-            }
+            // Per-App Cleanup is hidden for now — revisit once there's traction (the AppProfilesEditor
+            // + setAppProfile plumbing is retained, just not surfaced).
 
             // MARK: Custom vocabulary section
             Section {
@@ -217,7 +192,6 @@ struct SettingsView: View {
                 LabeledContent("Transcripts", value: "\(s.totalCount)")
                 LabeledContent("Audio dictated",
                                value: String(format: "%.1f min", s.totalAudioMs / 60_000.0))
-                LabeledContent("Avg confidence", value: "\(Int(s.avgConfidence * 100))%")
                 LabeledContent("Correction rate",
                                value: "\(String(format: "%.1f", s.correctionRate * 100))%")
                 LabeledContent("Avg latency", value: "\(Int(s.avgLatencyMs)) ms")
@@ -227,18 +201,14 @@ struct SettingsView: View {
                 sectionHeader("This Week")
             }
 
-            // MARK: Usage & cost projection
+            // MARK: Usage
             Section {
                 let t = appState.usageTotals
                 LabeledContent("Total dictations", value: "\(t.totalCount)")
                 LabeledContent("Total audio",
                                value: String(format: "%.1f min · %.2f hrs", t.totalMinutes, t.totalHours))
-                LabeledContent("Est. cloud STT cost",
-                               value: String(format: "≈ ₹%.0f", t.totalHours * 45))
-                Text("On-device STT + cleanup is free. The estimate shows what a cloud model billed ~₹45/hr would cost at this usage — a reference for Road to Sale pricing.")
-                    .font(.caption2).foregroundStyle(Theme.Palette.textTertiary)
             } header: {
-                sectionHeader("Usage & Cost (all-time)")
+                sectionHeader("Usage")
             }
         }
         .formStyle(.grouped)
