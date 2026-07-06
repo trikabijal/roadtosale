@@ -65,4 +65,12 @@ final class PermissionsService {
             NSWorkspace.shared.open(url)
         }
     }
+
+    /// Open Keyboard settings, where macOS Dictation's shortcut lives. macOS exposes no deep anchor to
+    /// the Dictation sub-section, so we land on Keyboard settings and tell the user to scroll to it.
+    func openKeyboardSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") {
+            NSWorkspace.shared.open(url)
+        }
+    }
 }

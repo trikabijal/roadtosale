@@ -29,11 +29,15 @@ struct JustTalkApp: App {
 /// item. Idle/recording use the **Just Talk mark** (the brand mic); transcribing keeps the waveform.
 /// All are template images — `contentTintColor` colors them (nil idle = adapts to the menu bar).
 enum MenuBarGlyph {
-    static func image(for state: DictationState) -> (image: NSImage?, tint: NSColor?) {
+    /// The menu-bar image for a state. Recording/transcribing are pre-tinted **non-template** images
+    /// so their color actually renders — a template image + `contentTintColor` is ignored by the
+    /// status bar until it's hovered, which is why "recording" looked black. Idle stays a template
+    /// so it adapts to the light/dark menu bar.
+    static func image(for state: DictationState) -> NSImage? {
         switch state {
-        case .idle:         return (mark(), nil)                                          // adapts to menu bar
-        case .recording:    return (mark(), NSColor(srgbRed: 1.0, green: 0.271, blue: 0.227, alpha: 1))  // recording #FF453A
-        case .transcribing: return (symbol("waveform"), NSColor(srgbRed: 1.0, green: 0.624, blue: 0.039, alpha: 1))  // warning #FF9F0A
+        case .idle:         return mark()                                                   // template — adapts
+        case .recording:    return tinted(mark(), NSColor(srgbRed: 1.0, green: 0.271, blue: 0.227, alpha: 1))  // #FF453A red — matches the HUD wave
+        case .transcribing: return tinted(symbol("waveform"), NSColor(srgbRed: 1.0, green: 0.624, blue: 0.039, alpha: 1))  // #FF9F0A amber
         }
     }
 
@@ -48,7 +52,20 @@ enum MenuBarGlyph {
     private static func symbol(_ name: String) -> NSImage? {
         let img = NSImage(systemSymbolName: name, accessibilityDescription: "Just Talk")
         img?.isTemplate = true
+        img?.size = NSSize(width: 18, height: 18)
         return img
+    }
+
+    /// Render a template image filled with a solid color as a NON-template image, so the status bar
+    /// shows exactly this color instead of applying its own menu-bar tint.
+    private static func tinted(_ image: NSImage?, _ color: NSColor) -> NSImage? {
+        guard let image, let copy = image.copy() as? NSImage else { return image }
+        copy.isTemplate = false
+        copy.lockFocus()
+        color.set()
+        NSRect(origin: .zero, size: copy.size).fill(using: .sourceAtop)
+        copy.unlockFocus()
+        return copy
     }
 }
 
@@ -108,9 +125,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateIcon(for state: DictationState) {
         guard let button = statusItem?.button else { return }
-        let (image, tint) = MenuBarGlyph.image(for: state)
-        button.image = image
-        button.contentTintColor = tint     // nil (idle) → template adapts to the menu bar
+        button.image = MenuBarGlyph.image(for: state)
+        // Color is baked into the image now (recording = red, transcribing = amber, idle = template
+        // that adapts to the menu bar) — no contentTintColor, which the status bar was ignoring.
+        button.contentTintColor = nil
     }
 
     /// Take an exclusive, non-blocking advisory lock on a fixed file. Returns false if another

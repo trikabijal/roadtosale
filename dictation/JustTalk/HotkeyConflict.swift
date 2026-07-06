@@ -38,6 +38,29 @@ enum HotkeyConflict {
         config.isFn && appleFnUsageType() != 0
     }
 
+    // MARK: - macOS Dictation (the "second yellow microphone")
+
+    /// macOS's own Dictation is enabled. Its default shortcut on Globe/Fn Macs is "Press 🌐", which
+    /// fires alongside our Fn tap and pops the system's yellow microphone — the extra icon the user
+    /// sees. This is a SEPARATE mapping from `AppleFnUsageType` (which governs emoji/input-source), so
+    /// it collides even when Fn usage is "Show Emoji". We can't disable it programmatically; we warn.
+    static func macOSDictationEnabled() -> Bool {
+        if let d = UserDefaults(suiteName: "com.apple.assistant.support") {
+            if let b = d.object(forKey: "Dictation Enabled") as? Bool { return b }
+            if let n = d.object(forKey: "Dictation Enabled") as? Int { return n != 0 }
+        }
+        // Fallback: the Fn dictation auto-enable flag in HIToolbox.
+        if let n = UserDefaults(suiteName: "com.apple.HIToolbox")?.object(forKey: "AppleDictationAutoEnable") as? Int {
+            return n != 0
+        }
+        return false
+    }
+
+    /// True when Fn is our key AND macOS Dictation is on — they collide on the Globe key.
+    static func macOSDictationClaimsFn(for config: HotkeyConfig) -> Bool {
+        config.isFn && macOSDictationEnabled()
+    }
+
     // MARK: - Known competitor apps
 
     /// Apps known to grab Fn / act as dictation drivers. Bundle ids drift across releases,

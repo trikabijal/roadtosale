@@ -454,6 +454,12 @@ public final class AppState: NSObject, ObservableObject {
         permissions.promptAccessibility()
     }
 
+    /// Open Keyboard settings so the user can turn off macOS Dictation's Globe/Fn shortcut — the
+    /// "second yellow microphone" that collides with our Fn key.
+    func openKeyboardSettings() {
+        permissions.openKeyboardSettings()
+    }
+
     /// Begin the wizard "press your key to test" step: route presses to a confirmation
     /// signal only (no recording) so we can prove the key reaches us — the definitive
     /// conflict check, since macOS won't tell us who else holds the key.
