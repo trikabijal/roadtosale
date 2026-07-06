@@ -198,7 +198,10 @@ public final class AppState: NSObject, ObservableObject {
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
     private var recordingPeakLevel: Float = 0
-    private static let lowInputPeakThreshold: Float = 0.04
+    // Warn "too quiet" only when even the PEAK stays near silence. Speech transcribes down to the VAD
+    // threshold (0.01); 0.04 was above many normal-speech peaks and cried wolf while transcribing fine.
+    // 0.02 matches the wizard mic-test pass so the two never disagree.
+    private static let lowInputPeakThreshold: Float = 0.02
     /// Transcript text retention window (privacy) — records older than this are purged on launch.
     private static let transcriptRetentionDays = 30
     /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
