@@ -121,6 +121,7 @@ struct OnboardingView: View {
                     .controlSize(.large).buttonStyle(.plain).foregroundStyle(.secondary)
                 Button("Start talking") { appState.submitContact(); appState.completeOnboarding() }
                     .controlSize(.large).buttonStyle(BrandButton(color: step.accent))
+                    .disabled(!emailLooksValid)
             } else {
                 Button(step == .welcome ? "Let's go" : "Continue") {
                     goTo(Step(rawValue: step.rawValue + 1) ?? .stayInTouch)
@@ -140,6 +141,14 @@ struct OnboardingView: View {
         case .tryIt:         return !appState.onboardingTranscript.isEmpty
         case .stayInTouch:   return true
         }
+    }
+
+    /// Soft email check — enough to catch a blank/typo without being pedantic.
+    private var emailLooksValid: Bool {
+        let e = appState.contactEmail.trimmingCharacters(in: .whitespaces)
+        guard let at = e.firstIndex(of: "@"), at != e.startIndex else { return false }
+        let domain = e[e.index(after: at)...]
+        return domain.contains(".") && !domain.hasSuffix(".")
     }
 
     private func goTo(_ next: Step) { withAnimation(.easeInOut(duration: 0.2)) { step = next } }
@@ -505,14 +514,15 @@ private struct ContactStep: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             StepTitle(title: "You're all set. 🎉",
-                      subtitle: "Your voice never leaves your Mac. Leave your details so we can send updates and help if you get stuck.")
+                      subtitle: "Your voice never leaves your Mac. Leave your email so we can send updates and help if you get stuck.")
             VStack(alignment: .leading, spacing: 12) {
-                LabeledField(label: "Name", text: Binding(get: { appState.contactName }, set: { appState.contactName = $0 }), prompt: "Your name")
+                LabeledField(label: "Name", text: Binding(get: { appState.contactName }, set: { appState.contactName = $0 }), prompt: "Your name (optional)")
                 LabeledField(label: "Email", text: Binding(get: { appState.contactEmail }, set: { appState.contactEmail = $0 }), prompt: "you@example.com")
-                LabeledField(label: "Phone", text: Binding(get: { appState.contactPhone }, set: { appState.contactPhone = $0 }), prompt: "Optional")
             }
-            Text("Optional — you can skip. We won't spam you or share it.")
+            Text("We'll only use it for product updates and support — never shared, never spammed. "
+                 + "Prefer not to? Just hit Skip.")
                 .font(.caption).foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
             MenuBarLocator()
         }
     }

@@ -96,13 +96,36 @@ else
 fi
 
 # --- 4. Build a DMG ----------------------------------------------------------------------------
+# Use `create-dmg` for a real install window: the app icon on the left, an arrow (baked into the
+# background) pointing at the Applications folder on the right — so "drag me in" is obvious. Falls
+# back to a plain hdiutil DMG if create-dmg isn't installed.
 DMG="$OUT_DIR/$APP_NAME.dmg"
-STAGE="$OUT_DIR/dmg-stage"
-rm -rf "$STAGE"; mkdir -p "$STAGE"
-cp -R "$APP_PATH" "$STAGE/"
-ln -s /Applications "$STAGE/Applications"          # drag-to-install affordance
-hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
-rm -rf "$STAGE"
+rm -f "$DMG"
+BG="$(cd "$(dirname "$0")" && pwd)/packaging/dmg-background.png"
+
+if command -v create-dmg >/dev/null 2>&1; then
+  create-dmg \
+    --volname "$APP_NAME" \
+    ${BG:+--background "$BG"} \
+    --window-pos 200 120 \
+    --window-size 640 400 \
+    --icon-size 120 \
+    --icon "$APP_NAME.app" 170 235 \
+    --app-drop-link 470 235 \
+    --hide-extension "$APP_NAME.app" \
+    --no-internet-enable \
+    "$DMG" "$APP_PATH" \
+  || { echo "create-dmg failed — falling back to a plain DMG"; rm -f "$DMG"; }
+fi
+
+if [[ ! -f "$DMG" ]]; then
+  STAGE="$OUT_DIR/dmg-stage"
+  rm -rf "$STAGE"; mkdir -p "$STAGE"
+  cp -R "$APP_PATH" "$STAGE/"
+  ln -s /Applications "$STAGE/Applications"          # drag-to-install affordance
+  hdiutil create -volname "$APP_NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+  rm -rf "$STAGE"
+fi
 # Sign the DMG too (recommended; notarize it as well for the cleanest first-open experience).
 codesign --force --sign "$DEV_ID" --timestamp "$DMG"
 if [[ "${SKIP_NOTARIZE:-0}" != "1" ]]; then

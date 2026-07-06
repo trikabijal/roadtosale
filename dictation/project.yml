@@ -67,6 +67,11 @@ targets:
         # (SpeechAnalyzer requires it). The default WhisperKit provider needs no Speech permission —
         # so a fresh install asks only Microphone + Accessibility + Input Monitoring, matching Wispr.
         NSSpeechRecognitionUsageDescription: "Just Talk uses Apple's on-device speech recognizer to transcribe your voice. Audio never leaves your Mac."
+        # Optional install-signal endpoint. When set, the onboarding "stay in touch" step POSTs the
+        # user's (explicitly entered) name/email/phone here so we know someone installed. Empty = no-op;
+        # voice/audio NEVER go here — only the contact the user typed. Set to a Google Apps Script
+        # web-app URL (see docs/install-ping.md).
+        JustTalkInstallPingURL: ""
         LSUIElement: true
         # OS-level guard: LaunchServices won't launch a second instance of this bundle. Backed up
         # by a process-wide file lock in AppDelegate, which also catches a differently-signed copy.

@@ -87,7 +87,7 @@ struct SettingsView: View {
             // MARK: Speech-to-text section
             Section {
                 // Provider — the voice-understanding model, swappable behind a contract.
-                Picker("Provider", selection: Binding(
+                Picker("Voice model", selection: Binding(
                     get: { appState.sttConfig.provider },
                     set: { newProvider in
                         // Auto model per provider — no tier/locale picker.
@@ -128,13 +128,13 @@ struct SettingsView: View {
                     }
                 }
             } header: {
-                sectionHeader("Speech-to-text")
+                sectionHeader("Understanding your voice")
             }
 
             // MARK: AI cleanup section
             Section {
                 // Level — how aggressively to rewrite dictated speech.
-                Picker("Cleanup", selection: Binding(
+                Picker("Tidy-up strength", selection: Binding(
                     get: { appState.cleanupConfig.level },
                     set: { level in
                         appState.setCleanupConfig(
@@ -149,7 +149,7 @@ struct SettingsView: View {
                 .tint(Theme.Palette.accent)
 
                 // Provider — the cleanup model, swappable behind a contract.
-                Picker("Engine", selection: Binding(
+                Picker("Cleanup model", selection: Binding(
                     get: { appState.cleanupConfig.provider },
                     set: { provider in
                         appState.setCleanupConfig(
@@ -170,7 +170,7 @@ struct SettingsView: View {
                     .font(.caption2)
                     .foregroundStyle(Theme.Palette.textTertiary)
             } header: {
-                sectionHeader("AI Cleanup")
+                sectionHeader("Tidying up what you said")
             }
 
             // Per-App Cleanup is hidden for now — revisit once there's traction (the AppProfilesEditor
@@ -192,10 +192,10 @@ struct SettingsView: View {
                 LabeledContent("Transcripts", value: "\(s.totalCount)")
                 LabeledContent("Audio dictated",
                                value: String(format: "%.1f min", s.totalAudioMs / 60_000.0))
-                LabeledContent("Correction rate",
+                LabeledContent("Times you edited after",
                                value: "\(String(format: "%.1f", s.correctionRate * 100))%")
-                LabeledContent("Avg latency", value: "\(Int(s.avgLatencyMs)) ms")
-                LabeledContent("Avg audio length",
+                LabeledContent("Avg response time", value: "\(Int(s.avgLatencyMs)) ms")
+                LabeledContent("Avg clip length",
                                value: "\(String(format: "%.1f", s.avgAudioDurationMs / 1000.0)) s")
             } header: {
                 sectionHeader("This Week")
