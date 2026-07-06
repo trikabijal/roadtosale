@@ -1,0 +1,110 @@
+# Machine manifest: qc plan → executable test. CI-checkable (plan ids should all resolve to a test
+# method, or be listed under `deferred`). test paths are relative to dictation/.
+# Format: <feature>: { covered: {<plan-id>: <TestFile::testMethod>}, deferred: [<plan-id> — reason] }
+
+f2_streaming_pill:
+  covered:
+    agreement_below_window: Shared/Tests/DictationCoreTests/StreamingAgreementTests.swift::testHoldsEverythingAsHypothesisBelowWindow
+    agreement_confirm_window: "…::testConfirmsAllButTrailingWindow"
+    agreement_tail_revision_safe: "…::testTailRevisionNeverRewritesConfirmed"
+    agreement_monotonic_nodup: "…::testMonotonicNoDuplication"
+    agreement_clipped_feed: "…::testClippedFeedConfirmsForward"
+    agreement_flush: "…::testFlushHypothesisPromotesTail"
+    sanitize_tokens: "…::testSanitizeStripsTimestampAndSpecialTokens"
+    session_assembly: StreamingDictationTests.swift::testAssemblesRawThenCleansOnceAtFinish
+    session_incomplete_on_throw: "…::testThrownSegmentMarksResultIncomplete"
+  deferred:
+    - live_whisperkit_stream — model-gated (Tier 3)
+    - live_apple_stream — model-gated (Tier 3)
+    - batch_output_unchanged_seam — needs AppState/mock seam (C4)
+
+f3_stt_providers:
+  covered:
+    factory_whisperkit: Shared/Tests/DictationCoreTests/STTContractTests.swift::testFactoryBuildsWhisperKit
+    factory_bad_model_defaults: "…::testFactoryDefaultsTierOnBadModel"
+    factory_mock: "…::testFactoryBuildsMock"
+    factory_apple_os_gated: "…::testFactoryApplePerOSAvailability"
+    provider_availability: "…::testProviderAvailability"
+    provider_selectable_excludes_mock: "…::testSelectableExcludesMock"
+    config_default: "…::testConfigDefault"
+    config_display_name: "…::testModelDisplayName"
+    mock_transcribe: "…::testMockTranscriberReturnsCanned"
+    unavailable_throws: "…::testUnavailableTranscriberThrows"
+    apple_converter_roundtrip: "…::testAppleAudioConverterConvertsFormat (macOS 26 gated)"
+  deferred:
+    - real_transcription_ordered_complete — model-gated (Tier 3)
+    - vocab_bias_efficacy — model-gated (Tier 3)
+    - apple_locale_fallback — model-gated (Tier 3)
+
+f4_cleanup:
+  covered:
+    rule_based_full: CleanupTests.swift::testRemovesFillersAndCapitalizes
+    content_drop_lead: "…::testDegenerateWhenCleanupDropsLeadingClause"
+    content_drop_trail: "…::testDegenerateWhenCleanupDropsTrailingClause"
+    content_guard_ignores_filler: "…::testContentGuardIgnoresNormalFillerTrim"
+    echo_strip_f10: "…::testStripsEchoedKnownNamesAndTermsBlock"
+    pack_drift_guard: "…::testBundledPackMatchesFallback"
+    fm_fallback: FoundationModelsCleanupTests.swift::testCleanNeverBlocksPasteAndFallsBackWhenModelUnavailable
+  deferred:
+    - fm_live_question_not_answered — model-gated (Tier 3)
+
+f5_capture_persistence:
+  covered:
+    capture_order_concurrent: CapturedAudioStreamTests.swift::testConcurrentAppendsAllLand
+    capture_drain: "…::testDrainReturnsTailAndNewCount"
+    store_roundtrip: RecordingStoreTests.swift::testSaveThenLoadRoundTripsSamples
+    store_retention: "…::testRetainsOnlyNewestFive"
+    bridge_roundtrip: "…::testBufferBridgeRoundTrip"
+  deferred:
+    - recording_engine_live_capture — needs audio harness (Tier 3)
+
+f6_telemetry:
+  covered:
+    weekly_stats: TelemetryRetentionTests.swift::testWeeklyStatsAggregateInWindowRecords
+    mark_corrected: "…::testMarkCorrectedRaisesCorrectionRate"
+    usage_totals: "…::testUsageTotalsSumAllRecordsIgnoringWindow"
+    retention_purge: "…::testPurgeRemovesRecordsOlderThanWindow"
+    search: "…::testSearchMatchesSubstringNewestFirst"
+  deferred:
+    - ios_app_group_cross_process — iOS keyboard is a stub (commit 1554186)
+
+f7_system_requirements:
+  covered:
+    decide_capable_macos26: Shared/Tests/DictationCoreTests/SystemCapabilitiesTests.swift::testCapableAppleSiliconMacOS26RecommendsApple
+    decide_capable_macos14: "…::testAppleSiliconOlderOSRecommendsWhisperKit"
+    decide_intel_blocked: "…::testIntelIsBlocked"
+    decide_os_too_old: "…::testOldMacOSIsBlocked"
+    decide_low_ram: "…::testLowRAMIsBlocked"
+    decide_ram_8_passes: "…::testEightGBPasses"
+    decide_ram_7_blocked: "…::testSevenGBBlocked"
+    decide_low_disk: "…::testLowDiskIsBlocked"
+    decide_multi_blocker: "…::testIntelAndLowRAMListBoth"
+    decide_apple_needs_silicon: "…::testAppleAvailableButIntelRecommendsWhisperKit"
+  deferred:
+    - requirements_view_render — SwiftUI, manual (Tier 2)
+    - appstate_setup_blocks_onboarding — orchestrator seam (Tier 2)
+
+f8_activation_hotkey_permissions:
+  covered:
+    config_roundtrip: JustTalkTests/HotkeyConfigTests.swift::testPersistenceRoundTrip
+    fn_match: "…::testFnMatchesViaFnModifier"
+    conflict_labels: "…::testAppleFnUsageLabelCoversAllValues"
+  deferred:
+    - live_tap_behavior — hardware, user-verified (Tier 3)
+    - permissions_gating — TCC, manual (Tier 2)
+
+f1_dictation_pipeline:
+  covered:
+    dictate_then_clean: PipelineTests.swift::testDictateThenCleanProducesPolishedText
+    timeout_fires: TimeoutTests.swift::testFiresEvenWhenOperationIgnoresCancellation
+    session_once_at_stop: StreamingDictationTests.swift::testNoCleanupDuringSpeechOnlyAtFinish
+  deferred:
+    - appstate_happy_path_j2 — needs capture seam + MockTranscriber (Tier 1)
+    - never_lose_audio_j6 — AppState seam (Tier 1)
+    - soak_j13 — soak harness (Tier 3)
+
+f9_insertion_hud:
+  covered: {}
+  deferred:
+    - clipboard_paste_restore — scripted target app / XCUITest (Tier 2)
+    - hud_states — SwiftUI view harness (Tier 2)

@@ -42,46 +42,48 @@ public enum SystemPreflight {
     public static let minRAMGB: Double = 8.0
 
     public static func check() -> SystemCapabilities {
-        var blockers: [SystemCapabilities.Blocker] = []
-
-        // Apple Silicon is a HARD requirement per both vendors' published specs (WhisperKit is "for
-        // Apple Silicon" / no Intel support; Apple Intelligence needs M1+). Intel Macs — even the few
-        // that run macOS 26 — get neither a supported STT engine nor on-device cleanup, so we block
-        // them with a clear message rather than a degraded experience.
-        if !isAppleSilicon() { blockers.append(.notAppleSilicon) }
-
+        // Read the real machine, then hand the raw facts to the PURE `decide` — which is unit-tested
+        // with synthetic inputs (the env reads themselves can't be faked in a test).
         let os = ProcessInfo.processInfo.operatingSystemVersion
-        let osString = "\(os.majorVersion).\(os.minorVersion)"
-        if os.majorVersion < minOSMajor {
-            blockers.append(.osBelow(minMajor: minOSMajor, current: osString))
-        }
+        return decide(
+            isAppleSilicon: isAppleSilicon(),
+            osMajor: os.majorVersion,
+            osVersion: "\(os.majorVersion).\(os.minorVersion)",
+            freeDiskGB: freeDiskGB(),
+            ramGB: physicalRAMGB(),
+            appleAvailable: STTProvider.appleSpeech.isAvailable,
+            cleanupIsFoundationModels: CleanupProvider.foundationModels.isAvailable
+        )
+    }
 
-        let freeGB = freeDiskGB()
-        if freeGB < minDiskGB {
-            blockers.append(.lowDisk(neededGB: minDiskGB, freeGB: freeGB))
-        }
+    /// Pure requirements decision — no environment reads, so it is deterministically unit-testable.
+    /// Requirements are vendor-sourced: Apple Silicon (WhisperKit "for Apple Silicon" / Apple
+    /// Intelligence M1+), 8 GB RAM (Apple's published on-device-AI minimum), macOS 14 (WhisperKit /
+    /// deployment target), ~2 GB disk (model). Apple SpeechAnalyzer is recommended only on the safe
+    /// known-good config (Apple Silicon + macOS 26); everywhere else WhisperKit Large Turbo.
+    static func decide(
+        isAppleSilicon: Bool,
+        osMajor: Int,
+        osVersion: String,
+        freeDiskGB: Double,
+        ramGB: Double,
+        appleAvailable: Bool,
+        cleanupIsFoundationModels: Bool
+    ) -> SystemCapabilities {
+        var blockers: [SystemCapabilities.Blocker] = []
+        if !isAppleSilicon { blockers.append(.notAppleSilicon) }
+        if osMajor < minOSMajor { blockers.append(.osBelow(minMajor: minOSMajor, current: osVersion)) }
+        if freeDiskGB < minDiskGB { blockers.append(.lowDisk(neededGB: minDiskGB, freeGB: freeDiskGB)) }
+        // Small margin below 8 GB so a true 8 GB Mac (reports exactly 8.0 GiB) passes; only 4/6 GB caught.
+        if ramGB < minRAMGB - 0.5 { blockers.append(.lowRAM(neededGB: minRAMGB, actualGB: ramGB)) }
 
-        // "Powerful enough" gate = RAM (a reliable, checkable proxy; CPU generation isn't). Use a
-        // small margin below 8 GB so a true 8 GB Mac (reports exactly 8.0 GiB) passes and only 4/6 GB
-        // machines are caught.
-        let ramGB = physicalRAMGB()
-        if ramGB < minRAMGB - 0.5 {
-            blockers.append(.lowRAM(neededGB: minRAMGB, actualGB: ramGB))
-        }
-
-        // Recommend Apple SpeechAnalyzer (fast, English) only where it's the safe known-good bet:
-        // Apple Silicon + macOS 26. Everywhere else — Intel, or macOS 14–25 — default to WhisperKit
-        // Large Turbo, which runs on any supported Mac. (Apple stays user-switchable; if it can't
-        // run on an odd Intel-macOS-26 config, its load fails and we fall back to WhisperKit.)
-        let appleAvailable = isAppleSilicon() && STTProvider.appleSpeech.isAvailable
-        let provider: STTProvider = appleAvailable ? .appleSpeech : .whisperKit
-
+        let useApple = isAppleSilicon && appleAvailable
         return SystemCapabilities(
             blockers: blockers,
-            recommendedProvider: provider,
-            cleanupIsFoundationModels: CleanupProvider.foundationModels.isAvailable,
-            freeDiskGB: freeGB,
-            osVersion: osString
+            recommendedProvider: useApple ? .appleSpeech : .whisperKit,
+            cleanupIsFoundationModels: cleanupIsFoundationModels,
+            freeDiskGB: freeDiskGB,
+            osVersion: osVersion
         )
     }
 
