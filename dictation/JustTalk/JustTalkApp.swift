@@ -57,15 +57,21 @@ enum MenuBarGlyph {
     }
 
     /// Render a template image filled with a solid color as a NON-template image, so the status bar
-    /// shows exactly this color instead of applying its own menu-bar tint.
-    private static func tinted(_ image: NSImage?, _ color: NSColor) -> NSImage? {
-        guard let image, let copy = image.copy() as? NSImage else { return image }
-        copy.isTemplate = false
-        copy.lockFocus()
+    /// shows exactly this color instead of applying its own menu-bar tint. Draws the base image FIRST
+    /// (rasterizing the vector mark), THEN tints with source-atop — the previous copy-then-fill left
+    /// vector images un-rasterized, so the recording glyph came out blank (no red in the menu bar).
+    private static func tinted(_ base: NSImage?, _ color: NSColor) -> NSImage? {
+        guard let base else { return nil }
+        let size = NSSize(width: 18, height: 18)
+        let out = NSImage(size: size)
+        out.lockFocus()
+        let rect = NSRect(origin: .zero, size: size)
+        base.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
         color.set()
-        NSRect(origin: .zero, size: copy.size).fill(using: .sourceAtop)
-        copy.unlockFocus()
-        return copy
+        rect.fill(using: .sourceAtop)
+        out.unlockFocus()
+        out.isTemplate = false
+        return out
     }
 }
 
