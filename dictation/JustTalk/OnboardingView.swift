@@ -372,28 +372,22 @@ private struct AccessibilityStep: View {
                 Label("Granted. You're good.", systemImage: "checkmark.circle.fill")
                     .font(.title3).foregroundStyle(Brand.green)
             } else {
-                Button("Allow Accessibility…") { appState.requestAccessibility() }
+                Button("Open Accessibility Settings") { appState.requestAccessibility() }
                     .buttonStyle(BrandButton(color: Brand.blue))
-                Text("macOS shows a dialog — click **Open System Settings**, find **Just Talk** in the "
-                     + "list, and switch it **on**.")
+                Text("System Settings will open (in front). Under **Accessibility**, find **Just Talk** "
+                     + "and switch it **on**. If it lands on the Privacy & Security page, click "
+                     + "**Accessibility** in the list.")
                     .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Label("System Settings opens in front of this window and won't switch back on its own. "
-                      + "When you're done, click the **Just Talk icon in your menu bar** (up top) to "
-                      + "return here — then Quit & Relaunch.", systemImage: "arrow.uturn.left")
+                Label("It's detected here automatically — no need to quit or restart. Once it's on, "
+                      + "switch back to this window (click the Just Talk icon in your menu bar).",
+                      systemImage: "checkmark.circle")
                     .font(.callout).foregroundStyle(Brand.blue)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(10)
                     .background(Brand.blue.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
-                HStack(spacing: 14) {
-                    Button("Didn't open? Open Settings") { appState.openAccessibilitySettings() }
-                        .controlSize(.small)
-                    Button("I've enabled it — Quit & Relaunch") { appState.relaunch() }
-                        .controlSize(.small)
-                }
-                Text("Heads up: macOS often needs a relaunch to notice — use Quit & Relaunch if this stays grey after you flip it on.")
-                    .font(.caption).foregroundStyle(.tertiary)
-                    .fixedSize(horizontal: false, vertical: true)
+                Button("Didn't open? Try again") { appState.openAccessibilitySettings() }
+                    .controlSize(.small)
             }
         }
     }

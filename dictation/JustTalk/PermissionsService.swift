@@ -48,17 +48,27 @@ final class PermissionsService {
     /// Non-prompting check — safe to poll.
     var accessibilityGranted: Bool { AXIsProcessTrusted() }
 
-    /// Ask for Accessibility. The **version-proof** route is `AXIsProcessTrustedWithOptions` with the
-    /// prompt option: it shows Apple's own dialog whose "Open System Settings" button navigates to the
-    /// exact Accessibility pane on every macOS — no fragile URL. (The dialog only appears the FIRST
-    /// time; for repeats the wizard offers `openAccessibilitySettings()` as a manual fallback.)
+    /// Ask for Accessibility: register the app in the list (AXIsProcessTrustedWithOptions with the
+    /// prompt option), open the Accessibility pane, and bring System Settings to the FRONT — otherwise
+    /// it opens behind our window and the user has to hunt for it.
     func promptAccessibility() {
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as NSString: true]
         _ = AXIsProcessTrustedWithOptions(options)
+        openAccessibilitySettings()
     }
 
     func openAccessibilitySettings() {
         openPrivacyPane(.accessibility)
+        bringSystemSettingsToFront()
+    }
+
+    /// System Settings opens behind the frontmost app; pull it forward so the user actually sees it.
+    private func bringSystemSettingsToFront() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            NSWorkspace.shared.runningApplications
+                .first { $0.bundleIdentifier == "com.apple.systempreferences" }?
+                .activate()
+        }
     }
 
     /// Open Keyboard settings, where macOS Dictation's shortcut lives. macOS exposes no deep anchor to
