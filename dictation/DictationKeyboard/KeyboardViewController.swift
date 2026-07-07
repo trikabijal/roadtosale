@@ -68,9 +68,20 @@ public final class KeyboardViewController: UIInputViewController {
     /// and calling `openURL:` on the first responder that answers — UIApplication, up the chain. The
     /// standard voice-keyboard technique to launch the container app.
     private func openURLFromKeyboard(_ url: URL) {
+        // On iOS 26 the deprecated openURL: still RESPONDS but no-ops; the modern
+        // open(_:options:completionHandler:) is what actually launches. The compiler blocks calling
+        // UIApplication.open directly from an extension, so invoke it through its IMP.
+        let modern = NSSelectorFromString("openURL:options:completionHandler:")
         let legacy = NSSelectorFromString("openURL:")
-        var responder: UIResponder? = self.next   // skip self — it isn't an opener
+        var responder: UIResponder? = self.next   // skip self
         while let r = responder {
+            if r.responds(to: modern) {
+                typealias OpenIMP = @convention(c) (NSObject, Selector, NSURL, NSDictionary, Any?) -> Void
+                let imp = r.method(for: modern)
+                let fn = unsafeBitCast(imp, to: OpenIMP.self)
+                fn(r, modern, url as NSURL, NSDictionary(), nil)
+                return
+            }
             if r.responds(to: legacy) {
                 _ = r.perform(legacy, with: url)
                 return
