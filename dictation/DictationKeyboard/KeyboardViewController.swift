@@ -22,8 +22,10 @@ public final class KeyboardViewController: UIInputViewController {
             self?.textDocumentProxy.insertText(text)
         }
         // Open the container app for a Flow Session (the keyboard can't use the mic itself).
+        // extensionContext.open doesn't work from a keyboard extension, so walk the responder chain to
+        // find UIApplication and call openURL: on it (the standard keyboard URL-open workaround).
         viewModel.openApp = { [weak self] url in
-            self?.extensionContext?.open(url, completionHandler: nil)
+            self?.openURLFromKeyboard(url)
         }
 
         let rootView = KeyboardView(
@@ -60,6 +62,20 @@ public final class KeyboardViewController: UIInputViewController {
         super.viewWillAppear(animated)
         // Returning from a Flow Session: pull any transcript the container app left and insert it.
         viewModel.checkForHandoff()
+    }
+
+    /// Open a URL from inside a keyboard extension by walking the responder chain to UIApplication and
+    /// invoking `openURL:` via a selector (the compiler blocks direct UIApplication use in extensions).
+    private func openURLFromKeyboard(_ url: URL) {
+        let selector = NSSelectorFromString("openURL:")
+        var responder: UIResponder? = self
+        while let r = responder {
+            if r.responds(to: selector) {
+                _ = r.perform(selector, with: url)
+                return
+            }
+            responder = r.next
+        }
     }
 
     public override func viewWillTransition(
