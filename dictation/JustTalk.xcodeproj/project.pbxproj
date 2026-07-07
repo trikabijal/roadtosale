@@ -315,7 +315,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5FD6D1B3E8E710133A144A10 = {
-						DevelopmentTeam = 2TZPM5QG3Z;
+						DevelopmentTeam = BMRZ94XB47;
 						ProvisioningStyle = Automatic;
 					};
 					C2B3645C6B4A4E5B978FEF46 = {
@@ -323,7 +323,7 @@
 						ProvisioningStyle = Manual;
 					};
 					EC8A256113552E983C2D2A82 = {
-						DevelopmentTeam = 2TZPM5QG3Z;
+						DevelopmentTeam = BMRZ94XB47;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -446,7 +446,7 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
+				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -542,7 +542,7 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
+				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -631,7 +631,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
+				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -651,7 +651,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
+				DEVELOPMENT_TEAM = BMRZ94XB47;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

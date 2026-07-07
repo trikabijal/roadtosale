@@ -119,7 +119,7 @@ targets:
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: 2TZPM5QG3Z
+        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationKeyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationKeyboard/DictationKeyboard.entitlements
     info:
@@ -160,7 +160,7 @@ targets:
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: 2TZPM5QG3Z
+        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationContainerApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationContainerApp/DictationContainerApp.entitlements
     info:
