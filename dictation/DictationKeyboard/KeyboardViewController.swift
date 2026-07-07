@@ -1,6 +1,14 @@
 import UIKit
 import SwiftUI
 
+/// Type-safe handle for UIApplication's `open(_:options:completionHandler:)` — the compiler blocks
+/// calling it directly in an extension, but a responder cast to this @objc protocol (whose selector
+/// matches) invokes it cleanly, no unsafe bit-casting.
+@objc private protocol AppLauncher {
+    @objc(openURL:options:completionHandler:)
+    func openURL(_ url: URL, options: [AnyHashable: Any], completionHandler: ((Bool) -> Void)?)
+}
+
 /// The extension's principal class. Hosts `KeyboardView` in a `UIHostingController`
 /// and wires the text-insertion callback to `textDocumentProxy`.
 ///
@@ -15,6 +23,8 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+        KBLog.log("=== keyboard viewDidLoad, hasFullAccess=\(hasFullAccess) ===")
+        KBLog.probe()
 
         viewModel = KeyboardViewModel()
         // Route final text into whatever text field the user has focused.
@@ -71,23 +81,34 @@ public final class KeyboardViewController: UIInputViewController {
         // On iOS 26 the deprecated openURL: still RESPONDS but no-ops; the modern
         // open(_:options:completionHandler:) is what actually launches. The compiler blocks calling
         // UIApplication.open directly from an extension, so invoke it through its IMP.
-        let modern = NSSelectorFromString("openURL:options:completionHandler:")
+        KBLog.log("openURLFromKeyboard START url=\(url.absoluteString)")
         let legacy = NSSelectorFromString("openURL:")
+        let modern = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self.next   // skip self
+        var i = 0
         while let r = responder {
-            if r.responds(to: modern) {
-                typealias OpenIMP = @convention(c) (NSObject, Selector, NSURL, NSDictionary, Any?) -> Void
-                let imp = r.method(for: modern)
-                let fn = unsafeBitCast(imp, to: OpenIMP.self)
-                fn(r, modern, url as NSURL, NSDictionary(), nil)
-                return
-            }
-            if r.responds(to: legacy) {
-                _ = r.perform(legacy, with: url)
+            let cls = String(describing: type(of: r))
+            let l = r.responds(to: legacy)
+            let m = r.responds(to: modern)
+            let isLauncher = (r as? AppLauncher) != nil
+            KBLog.log("[\(i)] \(cls)  legacy=\(l) modern=\(m) launcher=\(isLauncher)")
+            if let launcher = r as? AppLauncher {
+                KBLog.log("  -> calling open on \(cls)")
+                launcher.openURL(url, options: [:]) { [weak self] ok in
+                    KBLog.log("  -> completion ok=\(ok)")
+                    DispatchQueue.main.async {
+                        self?.viewModel.setDiagnostic("open on \(cls): \(ok ? "TRUE" : "FALSE")")
+                    }
+                }
+                KBLog.log("  -> open call returned synchronously")
+                viewModel.setDiagnostic("called open on \(cls)…")
                 return
             }
             responder = r.next
+            i += 1
         }
+        KBLog.log("NO LAUNCHER in chain (\(i) responders past self)")
+        viewModel.setDiagnostic("no opener in chain (\(i))")
     }
 
     public override func viewWillTransition(

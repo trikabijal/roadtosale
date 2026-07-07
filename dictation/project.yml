@@ -110,7 +110,9 @@ targets:
         product: DictationCoreBase
     entitlements:
       path: DictationKeyboard/DictationKeyboard.entitlements
-      properties: {}
+      properties:
+        com.apple.security.application-groups:
+          - group.com.trika.dictation
     settings:
       base:
         # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
@@ -153,7 +155,9 @@ targets:
         codeSign: true
     entitlements:
       path: DictationContainerApp/DictationContainerApp.entitlements
-      properties: {}
+      properties:
+        com.apple.security.application-groups:
+          - group.com.trika.dictation
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios
