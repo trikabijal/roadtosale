@@ -120,19 +120,31 @@ final class KeyboardViewModel: ObservableObject {
 
     private func startRecording() {
         guard transcriber.isLoaded else { return }
-        audio.reset()
-        recordingPeakLevel = 0
-        recordingStartDate = Date()
-        // Warm the cleanup model while the user speaks so the cleanup at stop is fast.
-        cleanup.prewarm()
-        do {
-            try recordingEngine.start()
-            state = .recording
-            statusMessage = "Listening…"
-            showCorrectionPrompt = false
-        } catch {
-            statusMessage = "Mic error — check permissions"
-            log.error("RecordingEngine start: \(error.localizedDescription, privacy: .public)")
+        // A keyboard extension must REQUEST mic permission before starting the audio engine — on
+        // first tap this shows the system prompt; without it start() just throws. Needs the keyboard's
+        // "Allow Full Access" to be on.
+        Task { @MainActor in
+            do {
+                try await recordingEngine.requestPermission()
+            } catch {
+                statusMessage = "Allow the mic — turn on Full Access for the Just Talk keyboard"
+                log.error("mic permission: \(error.localizedDescription, privacy: .public)")
+                return
+            }
+            audio.reset()
+            recordingPeakLevel = 0
+            recordingStartDate = Date()
+            // Warm the cleanup model while the user speaks so the cleanup at stop is fast.
+            cleanup.prewarm()
+            do {
+                try recordingEngine.start()
+                state = .recording
+                statusMessage = "Listening…"
+                showCorrectionPrompt = false
+            } catch {
+                statusMessage = "Mic error — check permissions"
+                log.error("RecordingEngine start: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 
