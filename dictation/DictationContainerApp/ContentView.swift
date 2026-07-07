@@ -1,5 +1,5 @@
 import SwiftUI
-import DictationCore
+import DictationCoreBase
 
 struct ContentView: View {
     var body: some View {

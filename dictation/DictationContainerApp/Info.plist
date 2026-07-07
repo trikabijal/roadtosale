@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Just Talk uses the microphone to transcribe your speech on-device.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Just Talk uses Apple Speech Recognition to transcribe your voice on-device.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>

@@ -17,14 +17,15 @@
 		4A706E93FB63FC3280BC4814 /* HotkeyConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E032C8F75167281AA70243 /* HotkeyConfig.swift */; };
 		4EB8970BB8BB9BB88EADFE21 /* KeyboardViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351C23993E3EF252AA709668 /* KeyboardViewController.swift */; };
 		5FB99EB0FBB9D3C79C4219B7 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4CAF2D28601C4A9EE7AA105B /* Assets.xcassets */; };
+		7AE40CAE069C12059FFF7715 /* DictationCoreBase in Frameworks */ = {isa = PBXBuildFile; productRef = 766F3C1BCE1AA3999EB1C395 /* DictationCoreBase */; };
 		87DB9C88ABAEBE0CA6D5D1C2 /* PermissionsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 993BC46DBE7A4778A9C4FE18 /* PermissionsService.swift */; };
 		8B9BB1826F9CD55FB355DD68 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BEC0F0210BB98D90297A4066 /* ContentView.swift */; };
-		8CE78CB1A2CCCB015E4301BA /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 3C0CCA85C47A65A3B9DDE930 /* DictationCore */; };
+		8CE78CB1A2CCCB015E4301BA /* DictationCoreBase in Frameworks */ = {isa = PBXBuildFile; productRef = 5F069C262FA3F2BBDFF37D28 /* DictationCoreBase */; };
 		95AF0B53FCEA9B4DDFDABC88 /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74FA4087D41C617C22B09290 /* LoginItem.swift */; };
 		A1B2AEF4E14138FE4601A9E2 /* RecordingHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4169A37D9C2D1977D6B169 /* RecordingHUD.swift */; };
 		A3381B7DF7E36EAB5AC4C2A2 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E92228F9B190F400D60A2E6 /* HistoryView.swift */; };
 		BCBBC5AB6714F38095D2AE71 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 05CFE98659B37878934EC36F /* DictationCore */; };
-		C248632971AAF2DE5521AB99 /* DictationKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 89A2F0485E5280F14166D929 /* DictationKeyboard.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		C248632971AAF2DE5521AB99 /* DictationKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 89A2F0485E5280F14166D929 /* DictationKeyboard.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D6CD02E72F0E271DD7C40B5B /* HotkeyConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FD6B18A4EFFCAF9102F2CC /* HotkeyConfigTests.swift */; };
 		DA2B53F8205E5E6FC3229B19 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76746E2E60A6DCC056DE40EA /* MenuBarView.swift */; };
 		DB839A2E05861856F5A2FFB5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AD14382E804A900A1DD5FA /* Assets.xcassets */; };
@@ -75,10 +76,10 @@
 		2B4491D9625EC22BBB53DD30 /* JustTalkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JustTalkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardPaster.swift; sourceTree = "<group>"; };
 		351C23993E3EF252AA709668 /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
-		367B8C381718F98E3BE732D0 /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Shared; path = Shared; sourceTree = SOURCE_ROOT; };
+		367B8C381718F98E3BE732D0 /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; path = Shared; sourceTree = SOURCE_ROOT; };
 		4CAF2D28601C4A9EE7AA105B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		604B255F85D233ADFFBCDDC2 /* KeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
-		67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6D602FBD95895B0EED269984 /* KeyboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewModel.swift; sourceTree = "<group>"; };
 		74FA4087D41C617C22B09290 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
@@ -87,7 +88,7 @@
 		79FD6B18A4EFFCAF9102F2CC /* HotkeyConfigTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConfigTests.swift; sourceTree = "<group>"; };
 		7E4169A37D9C2D1977D6B169 /* RecordingHUD.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordingHUD.swift; sourceTree = "<group>"; };
 		7E92228F9B190F400D60A2E6 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
-		89A2F0485E5280F14166D929 /* DictationKeyboard.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = DictationKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		89A2F0485E5280F14166D929 /* DictationKeyboard.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = DictationKeyboard.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		9400B0D4896004BF8C91126D /* DictationContainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DictationContainerApp.swift; sourceTree = "<group>"; };
 		993BC46DBE7A4778A9C4FE18 /* PermissionsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionsService.swift; sourceTree = "<group>"; };
 		9989335E128E025C92F4A1B9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -100,6 +101,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		406E5C1A076D44CBB671A2C9 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7AE40CAE069C12059FFF7715 /* DictationCoreBase in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		526D45CB168B50E185EE9D34 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -112,7 +121,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8CE78CB1A2CCCB015E4301BA /* DictationCore in Frameworks */,
+				8CE78CB1A2CCCB015E4301BA /* DictationCoreBase in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -231,6 +240,7 @@
 			buildConfigurationList = 88F2777F2304D2E177B8535F /* Build configuration list for PBXNativeTarget "DictationKeyboard" */;
 			buildPhases = (
 				31A505C33C4C7A4106EB4CFB /* Sources */,
+				406E5C1A076D44CBB671A2C9 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -238,6 +248,7 @@
 			);
 			name = DictationKeyboard;
 			packageProductDependencies = (
+				766F3C1BCE1AA3999EB1C395 /* DictationCoreBase */,
 			);
 			productName = DictationKeyboard;
 			productReference = 89A2F0485E5280F14166D929 /* DictationKeyboard.appex */;
@@ -279,7 +290,7 @@
 			);
 			name = DictationContainerApp;
 			packageProductDependencies = (
-				3C0CCA85C47A65A3B9DDE930 /* DictationCore */,
+				5F069C262FA3F2BBDFF37D28 /* DictationCoreBase */,
 			);
 			productName = DictationContainerApp;
 			productReference = 67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */;
@@ -295,7 +306,6 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5FD6D1B3E8E710133A144A10 = {
-						DevelopmentTeam = BMRZ94XB47;
 						ProvisioningStyle = Automatic;
 					};
 					C2B3645C6B4A4E5B978FEF46 = {
@@ -303,7 +313,6 @@
 						ProvisioningStyle = Manual;
 					};
 					EC8A256113552E983C2D2A82 = {
-						DevelopmentTeam = BMRZ94XB47;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -423,14 +432,14 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
+				DEVELOPMENT_TEAM = 233QZ68HK5;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -519,14 +528,14 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
+				DEVELOPMENT_TEAM = 233QZ68HK5;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -604,7 +613,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
+				DEVELOPMENT_TEAM = 233QZ68HK5;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -612,7 +621,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios.keyboard;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios.keyboard;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -624,7 +633,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = BMRZ94XB47;
+				DEVELOPMENT_TEAM = 233QZ68HK5;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -632,7 +641,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios.keyboard;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios.keyboard;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -764,9 +773,13 @@
 			isa = XCSwiftPackageProductDependency;
 			productName = DictationCore;
 		};
-		3C0CCA85C47A65A3B9DDE930 /* DictationCore */ = {
+		5F069C262FA3F2BBDFF37D28 /* DictationCoreBase */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = DictationCore;
+			productName = DictationCoreBase;
+		};
+		766F3C1BCE1AA3999EB1C395 /* DictationCoreBase */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = DictationCoreBase;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -82,23 +82,20 @@ targets:
     deploymentTarget: "17.0"
     sources:
       - path: DictationKeyboard
+    dependencies:
+      - package: DictationCore
+        product: DictationCoreBase
     entitlements:
       path: DictationKeyboard/DictationKeyboard.entitlements
-      # Declared here so `xcodegen generate` regenerates the file WITH the App
-      # Group instead of wiping it to an empty <dict/> (shared storage between
-      # the keyboard extension and its container app).
-      properties:
-        com.apple.security.application-groups:
-          - group.com.trika.dictation
+      properties: {}
     settings:
       base:
         # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
         # app-extension's bundle id has to be a child of its host app's.
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.trishashah.justtalk.ios.keyboard
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationKeyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationKeyboard/DictationKeyboard.entitlements
     info:
@@ -125,22 +122,20 @@ targets:
       - path: DictationContainerApp/Assets.xcassets
     dependencies:
       - package: DictationCore
+        product: DictationCoreBase
       - target: DictationKeyboard
         embed: true
+        link: false
+        codeSign: true
     entitlements:
       path: DictationContainerApp/DictationContainerApp.entitlements
-      # Declared here so `xcodegen generate` regenerates the file WITH the App
-      # Group instead of wiping it (shared storage with the keyboard extension).
-      properties:
-        com.apple.security.application-groups:
-          - group.com.trika.dictation
+      properties: {}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.trishashah.justtalk.ios
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
-        DEVELOPMENT_TEAM: BMRZ94XB47
         INFOPLIST_FILE: DictationContainerApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationContainerApp/DictationContainerApp.entitlements
     info:
@@ -149,6 +144,7 @@ targets:
         CFBundleName: Just Talk
         CFBundleDisplayName: Just Talk
         NSMicrophoneUsageDescription: "Just Talk uses the microphone to transcribe your speech on-device."
+        NSSpeechRecognitionUsageDescription: "Just Talk uses Apple Speech Recognition to transcribe your voice on-device."
         UILaunchScreen:
           UIColorName: ""
     scheme:

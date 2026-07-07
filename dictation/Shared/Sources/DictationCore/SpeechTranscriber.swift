@@ -71,7 +71,7 @@ public enum STTProvider: String, CaseIterable, Sendable {
     public var isAvailable: Bool {
         switch self {
         case .whisperKit, .mock: return true
-        case .appleSpeech:       return false   // contract-ready, not yet implemented
+        case .appleSpeech:       return true
         }
     }
 
@@ -98,23 +98,6 @@ public struct STTConfig: Sendable, Equatable {
         switch provider {
         case .whisperKit: return ModelTier(rawValue: model)?.displayName ?? model
         case .appleSpeech, .mock: return provider.displayName
-        }
-    }
-}
-
-// MARK: - Factory
-
-@MainActor
-public enum SpeechTranscriberFactory {
-    public static func make(_ config: STTConfig) -> any SpeechTranscriber {
-        switch config.provider {
-        case .whisperKit:
-            let tier = ModelTier(rawValue: config.model) ?? .largeV3Turbo
-            return WhisperKitTranscriber(modelTier: tier)
-        case .mock:
-            return MockTranscriber()
-        case .appleSpeech:
-            return UnavailableTranscriber(providerName: STTProvider.appleSpeech.displayName)
         }
     }
 }
