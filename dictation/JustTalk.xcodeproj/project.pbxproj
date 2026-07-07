@@ -315,6 +315,7 @@
 				LastUpgradeCheck = 1600;
 				TargetAttributes = {
 					5FD6D1B3E8E710133A144A10 = {
+						DevelopmentTeam = 2TZPM5QG3Z;
 						ProvisioningStyle = Automatic;
 					};
 					C2B3645C6B4A4E5B978FEF46 = {
@@ -322,6 +323,7 @@
 						ProvisioningStyle = Manual;
 					};
 					EC8A256113552E983C2D2A82 = {
+						DevelopmentTeam = 2TZPM5QG3Z;
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -444,13 +446,14 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -539,13 +542,14 @@
 				CODE_SIGN_ENTITLEMENTS = DictationContainerApp/DictationContainerApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
 				INFOPLIST_FILE = DictationContainerApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -627,6 +631,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -634,7 +639,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios.keyboard;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios.keyboard;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -646,6 +651,7 @@
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = DictationKeyboard/DictationKeyboard.entitlements;
 				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 2TZPM5QG3Z;
 				INFOPLIST_FILE = DictationKeyboard/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -653,7 +659,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.trishashah.justtalk.ios.keyboard;
+				PRODUCT_BUNDLE_IDENTIFIER = com.trika.justtalk.ios.keyboard;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
 				TARGETED_DEVICE_FAMILY = "1,2";

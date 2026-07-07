@@ -115,10 +115,11 @@ targets:
       base:
         # Must be prefixed by the container app's id (com.trika.dictation.ios) — an
         # app-extension's bundle id has to be a child of its host app's.
-        PRODUCT_BUNDLE_IDENTIFIER: com.trishashah.justtalk.ios.keyboard
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios.keyboard
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 2TZPM5QG3Z
         INFOPLIST_FILE: DictationKeyboard/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationKeyboard/DictationKeyboard.entitlements
     info:
@@ -155,10 +156,11 @@ targets:
       properties: {}
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.trishashah.justtalk.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.ios
         SWIFT_VERSION: "5.9"
         IPHONEOS_DEPLOYMENT_TARGET: "17.0"
         CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 2TZPM5QG3Z
         INFOPLIST_FILE: DictationContainerApp/Info.plist
         CODE_SIGN_ENTITLEMENTS: DictationContainerApp/DictationContainerApp.entitlements
     info:
