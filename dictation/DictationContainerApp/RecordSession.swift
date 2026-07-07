@@ -134,9 +134,16 @@ struct RecordSessionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await model.begin() }
         .onChange(of: model.phase) { _, p in
-            // Auto-close shortly after a successful capture so the user pops back to their app.
+            // Wispr-style "hops you back": once the transcript is in the App Group, background this
+            // app so iOS returns to the app you were in; the keyboard reads + inserts on reappear.
             if p == .done {
-                Task { try? await Task.sleep(for: .seconds(1)); onClose() }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(500))
+                    onClose()
+                    try? await Task.sleep(for: .milliseconds(150))
+                    // Private "suspend" — backgrounds the app to return to the previous one.
+                    UIApplication.shared.perform(NSSelectorFromString("suspend"))
+                }
             }
         }
     }
