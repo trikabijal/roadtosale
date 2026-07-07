@@ -170,6 +170,11 @@ targets:
         CFBundleDisplayName: Just Talk
         NSMicrophoneUsageDescription: "Just Talk uses the microphone to transcribe your speech on-device."
         NSSpeechRecognitionUsageDescription: "Just Talk uses Apple Speech Recognition to transcribe your voice on-device."
+        # URL scheme the keyboard opens to start a Flow-Session dictation handoff (justtalk://record).
+        CFBundleURLTypes:
+          - CFBundleURLName: com.trika.justtalk.ios
+            CFBundleURLSchemes:
+              - justtalk
         UILaunchScreen:
           UIColorName: ""
     scheme:

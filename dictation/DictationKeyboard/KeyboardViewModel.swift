@@ -44,6 +44,9 @@ final class KeyboardViewModel: ObservableObject {
 
     /// Wired by `KeyboardViewController` — inserts the final text into the host text field.
     var insertText: ((String) -> Void)?
+    /// Wired by `KeyboardViewController` — opens the container app (Flow Session) to record, since a
+    /// keyboard extension can't access the microphone.
+    var openApp: ((URL) -> Void)?
 
     // MARK: Private engines
 
@@ -101,6 +104,27 @@ final class KeyboardViewModel: ObservableObject {
     // MARK: - Public control
 
     func toggleRecording() {
+        // A keyboard extension cannot record audio (iOS blocks mic capture in extensions), so tapping
+        // mic launches the container app for a "Flow Session": it records + transcribes, writes the
+        // text to the App Group, and `checkForHandoff()` inserts it when the keyboard reappears.
+        statusMessage = "Opening Just Talk…"
+        openApp?(DictationHandoff.recordURL)
+    }
+
+    /// Called when the keyboard reappears (user returns from the Flow Session): insert any transcript
+    /// the container app left in the App Group.
+    func checkForHandoff() {
+        guard let text = DictationHandoff.consume() else { return }
+        insertText?(text)
+        statusMessage = "Inserted ✓"
+        correctionWindowTask?.cancel()
+        correctionWindowTask = Task { [weak self] in
+            do { try await Task.sleep(for: .seconds(3)) } catch { return }
+            self?.statusMessage = "Tap mic to dictate"
+        }
+    }
+
+    private func legacyToggleRecording_unused() {
         switch state {
         case .idle:         startRecording()
         case .recording:    stopRecordingAndTranscribe()

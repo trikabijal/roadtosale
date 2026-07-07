@@ -34,6 +34,7 @@
 		DB839A2E05861856F5A2FFB5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AD14382E804A900A1DD5FA /* Assets.xcassets */; };
 		DF5E1DCE86A187E986B2BC7E /* KeyboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D602FBD95895B0EED269984 /* KeyboardViewModel.swift */; };
 		E039C21DEE4C6CDA55AA70C2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */; };
+		E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A61E7598085DE6F8175CC5 /* RecordSession.swift */; };
 		F157BE4D0DE453FFF438AD46 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 260D32E67CFC9947167AF965 /* OnboardingView.swift */; };
 /* End PBXBuildFile section */
 
@@ -100,6 +101,7 @@
 		BBA871F89ABBCFE95F000751 /* RequirementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequirementsView.swift; sourceTree = "<group>"; };
 		BEC0F0210BB98D90297A4066 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C2529F3629EBE1A1EB5E16E0 /* JustTalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JustTalk.entitlements; sourceTree = "<group>"; };
+		C6A61E7598085DE6F8175CC5 /* RecordSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordSession.swift; sourceTree = "<group>"; };
 		DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConflict.swift; sourceTree = "<group>"; };
 		E3E032C8F75167281AA70243 /* HotkeyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConfig.swift; sourceTree = "<group>"; };
 		EC97E12498B580746A9D4FBB /* DictationKeyboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DictationKeyboard.entitlements; sourceTree = "<group>"; };
@@ -154,6 +156,7 @@
 				EED2292ED30E1663318BE820 /* DictationContainerApp.entitlements */,
 				9400B0D4896004BF8C91126D /* DictationContainerApp.swift */,
 				24DCF20C439D665D3A9E4BB3 /* Info.plist */,
+				C6A61E7598085DE6F8175CC5 /* RecordSession.swift */,
 			);
 			path = DictationContainerApp;
 			sourceTree = "<group>";
@@ -379,6 +382,7 @@
 			files = (
 				8B9BB1826F9CD55FB355DD68 /* ContentView.swift in Sources */,
 				33433838F497E5B26ED117D0 /* DictationContainerApp.swift in Sources */,
+				E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

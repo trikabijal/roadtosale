@@ -21,6 +21,10 @@ public final class KeyboardViewController: UIInputViewController {
         viewModel.insertText = { [weak self] text in
             self?.textDocumentProxy.insertText(text)
         }
+        // Open the container app for a Flow Session (the keyboard can't use the mic itself).
+        viewModel.openApp = { [weak self] url in
+            self?.extensionContext?.open(url, completionHandler: nil)
+        }
 
         let rootView = KeyboardView(
             viewModel: viewModel,
@@ -50,6 +54,12 @@ public final class KeyboardViewController: UIInputViewController {
         h.priority = .required
         h.isActive = true
         heightConstraint = h
+    }
+
+    public override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // Returning from a Flow Session: pull any transcript the container app left and insert it.
+        viewModel.checkForHandoff()
     }
 
     public override func viewWillTransition(
