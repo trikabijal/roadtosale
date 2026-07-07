@@ -12,7 +12,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import * as yaml from 'js-yaml';
 import type { CuePackEntry } from '../session/types';
 
@@ -27,10 +26,7 @@ interface RawYaml {
   entries: RawYamlEntry[];
 }
 
-// Support both CommonJS (__dirname) and ESM (import.meta.url)
-const SRC_DIR = (typeof __dirname !== 'undefined')
-  ? __dirname
-  : path.dirname(fileURLToPath(import.meta.url));
+const SRC_DIR = __dirname;
 const yamlPath = path.join(SRC_DIR, 'road-to-sale-v1.yaml');
 const jsonPath = path.join(SRC_DIR, 'road-to-sale-v1.json');
 

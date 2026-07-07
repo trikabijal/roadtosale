@@ -44,10 +44,10 @@ public protocol SpeechTranscriber: AnyObject {
     /// Release the loaded model so orphaned/timed-out work can't keep holding resources; the
     /// next `transcribe` reloads. Default: no-op (only heavyweight engines need it).
     func reset()
-    /// Vend a streaming session for the LIVE PILL (PRD 0008), reusing THIS transcriber's already-
-    /// loaded model — no second model, no second mic. Returns `nil` when the provider can't stream
-    /// (the caller then falls back to the per-segment preview). The accurate PASTED text always
-    /// comes from `transcribe(buffers:)`, never from the streaming session. Default: `nil`.
+    /// Vend a streaming session for the LIVE PILL, reusing THIS transcriber's loaded model. Returns
+    /// nil when the provider can't stream (batch-only, e.g. the keyboard) — the caller falls back to
+    /// the per-segment preview. The authoritative pasted text always comes from `transcribe`. Keeping
+    /// this on the shared contract keeps the SAME shape on every platform. Default: nil.
     func makeStreamingSession() -> (any StreamingTranscriber)?
 }
 
@@ -77,9 +77,7 @@ public enum STTProvider: String, CaseIterable, Sendable {
     public var isAvailable: Bool {
         switch self {
         case .whisperKit, .mock: return true
-        case .appleSpeech:
-            // Apple SpeechAnalyzer requires macOS 26 / iOS 26.
-            if #available(macOS 26.0, iOS 26.0, *) { return true } else { return false }
+        case .appleSpeech:       return true
         }
     }
 
@@ -106,27 +104,6 @@ public struct STTConfig: Sendable, Equatable {
         switch provider {
         case .whisperKit: return ModelTier(rawValue: model)?.displayName ?? model
         case .appleSpeech, .mock: return provider.displayName
-        }
-    }
-}
-
-// MARK: - Factory
-
-@MainActor
-public enum SpeechTranscriberFactory {
-    public static func make(_ config: STTConfig) -> any SpeechTranscriber {
-        switch config.provider {
-        case .whisperKit:
-            let tier = ModelTier(rawValue: config.model) ?? .largeV3Turbo
-            return WhisperKitTranscriber(modelTier: tier)
-        case .mock:
-            return MockTranscriber()
-        case .appleSpeech:
-            if #available(macOS 26.0, iOS 26.0, *) {
-                // config.model carries the BCP-47 locale (e.g. "en-US") for the Apple provider.
-                return AppleSpeechTranscriber(localeIdentifier: config.model)
-            }
-            return UnavailableTranscriber(providerName: STTProvider.appleSpeech.displayName)
         }
     }
 }

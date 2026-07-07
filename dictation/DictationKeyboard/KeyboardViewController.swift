@@ -1,35 +1,63 @@
 import UIKit
+import SwiftUI
 
-// ⚠️ DIAGNOSTIC STUB — temporarily replaces the real keyboard to isolate whether the heavy
-// DictationCore/WhisperKit dependency tree is what stops iOS registering the extension.
-// The real implementation is in git; restore with `git checkout dictation/DictationKeyboard`.
+/// The extension's principal class. Hosts `KeyboardView` in a `UIHostingController`
+/// and wires the text-insertion callback to `textDocumentProxy`.
+///
+/// Note: the keyboard needs Full Access (already declared in Info.plist via
+/// `RequestsOpenAccess = true`) so that `SFSpeechRecognizer` and the App Group
+/// shared database are reachable. The container app (`DictationContainerApp`) should
+/// prompt for microphone and speech recognition permissions before first use.
 public final class KeyboardViewController: UIInputViewController {
+
+    private var viewModel: KeyboardViewModel!
+    private var heightConstraint: NSLayoutConstraint?
 
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        let label = UILabel()
-        label.text = "Just Talk (test build)"
-        label.textAlignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
+        viewModel = KeyboardViewModel()
+        // Route final text into whatever text field the user has focused.
+        viewModel.insertText = { [weak self] text in
+            self?.textDocumentProxy.insertText(text)
+        }
 
-        let next = UIButton(type: .system)
-        next.setTitle("🌐 Next Keyboard", for: .normal)
-        next.translatesAutoresizingMaskIntoConstraints = false
-        next.addTarget(self, action: #selector(handleInputModeList(from:with:)), for: .allTouchEvents)
+        let rootView = KeyboardView(
+            viewModel: viewModel,
+            onNextKeyboard: { [weak self] in
+                self?.advanceToNextInputMode()
+            }
+        )
 
-        view.addSubview(label)
-        view.addSubview(next)
+        let host = UIHostingController(rootView: rootView)
+        host.view.translatesAutoresizingMaskIntoConstraints = false
+        host.view.backgroundColor = .clear
+
+        addChild(host)
+        view.addSubview(host.view)
+        host.didMove(toParent: self)
+
         NSLayoutConstraint.activate([
-            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            label.topAnchor.constraint(equalTo: view.topAnchor, constant: 24),
-            next.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            next.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 16),
+            host.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            host.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            host.view.topAnchor.constraint(equalTo: view.topAnchor),
+            host.view.bottomAnchor.constraint(equalTo: view.bottomAnchor),
         ])
+
+        // Pin the keyboard height. The constraint is retained so it can be updated
+        // for different device orientations without creating duplicate constraints.
+        let h = view.heightAnchor.constraint(equalToConstant: 216)
+        h.priority = .required
+        h.isActive = true
+        heightConstraint = h
     }
 
-    public override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        view.heightAnchor.constraint(equalToConstant: 200).isActive = true
+    public override func viewWillTransition(
+        to size: CGSize,
+        with coordinator: UIViewControllerTransitionCoordinator
+    ) {
+        super.viewWillTransition(to: size, with: coordinator)
+        // Landscape is wider but the same interaction, so keep 216 pt tall.
+        heightConstraint?.constant = 216
     }
 }

@@ -21,12 +21,12 @@ final class SystemCapabilitiesTests: XCTestCase {
             cleanupIsFoundationModels: true)
     }
 
-    func testCapableAppleSiliconMacOS26RecommendsWhisperKit() {
-        // WhisperKit is the default even on a capable Mac: no Speech Recognition permission
-        // (Wispr-parity) and multilingual. Apple SpeechAnalyzer is an opt-in in Settings.
+    func testCapableAppleSiliconMacOS26RecommendsApple() {
+        // Apple Speech is the default on a capable Mac (fast, and the same provider the iOS keyboard
+        // uses → same shape). WhisperKit is the multilingual backup.
         let c = decide()
         XCTAssertTrue(c.canRun)
-        XCTAssertEqual(c.recommendedProvider, .whisperKit)
+        XCTAssertEqual(c.recommendedProvider, .appleSpeech)
     }
 
     func testAppleSiliconOlderOSRecommendsWhisperKit() {

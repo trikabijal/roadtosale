@@ -1,5 +1,6 @@
 import AVFoundation
 import WhisperKit
+import DictationCoreBase
 
 // MARK: - WhisperKit model tiers
 
@@ -123,7 +124,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
     public func transcribe(
         buffers: [AVAudioPCMBuffer],
         audioStartDate: Date
-    ) async throws -> TranscriptionResult {
+    ) async throws -> DictationCoreBase.TranscriptionResult {
         guard let wk = whisperKit else {
             throw TranscriptionError.modelNotLoaded
         }
@@ -206,7 +207,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
             throw TranscriptionError.emptyResult
         }
 
-        return TranscriptionResult(
+        return DictationCoreBase.TranscriptionResult(
             text: text,
             confidence: confidence,
             audioDurationMs: audioDurationMs,

@@ -77,14 +77,14 @@ public enum SystemPreflight {
         // Small margin below 8 GB so a true 8 GB Mac (reports exactly 8.0 GiB) passes; only 4/6 GB caught.
         if ramGB < minRAMGB - 0.5 { blockers.append(.lowRAM(neededGB: minRAMGB, actualGB: ramGB)) }
 
-        // Default to WhisperKit: it needs NO Speech Recognition permission (Wispr-parity: mic +
-        // Accessibility only) and is multilingual (Hinglish/Gujarati). Apple SpeechAnalyzer is faster
-        // for English but requires the Speech Recognition prompt — so it's an opt-in in Settings, not
-        // the default. `appleAvailable` is kept in the signature for that opt-in gating.
-        _ = appleAvailable
+        // Default to Apple Speech when available (Apple Silicon + macOS/iOS 26): it's the fast, smooth
+        // streaming path and the SAME provider the memory-capped iOS keyboard must use (SFSpeech), so
+        // the shape is consistent across platforms. WhisperKit is the multilingual BACKUP (and the
+        // fallback if Speech Recognition is denied). Denial is handled gracefully at load time.
+        let useApple = isAppleSilicon && appleAvailable
         return SystemCapabilities(
             blockers: blockers,
-            recommendedProvider: .whisperKit,
+            recommendedProvider: useApple ? .appleSpeech : .whisperKit,
             cleanupIsFoundationModels: cleanupIsFoundationModels,
             freeDiskGB: freeDiskGB,
             osVersion: osVersion
