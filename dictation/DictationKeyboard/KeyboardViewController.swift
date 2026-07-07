@@ -64,15 +64,17 @@ public final class KeyboardViewController: UIInputViewController {
         viewModel.checkForHandoff()
     }
 
-    /// Open a URL from inside a keyboard extension by walking the responder chain to UIApplication and
-    /// invoking `openURL:` via a selector (the compiler blocks direct UIApplication use in extensions).
+    // Local declaration so #selector(openURL(_:)) resolves; matches UIApplication.openURL(_:).
+    @objc func openURL(_ url: URL) -> Bool { false }
+
+    /// Open a URL from inside a keyboard extension by walking the responder chain and invoking
+    /// `openURL:` on every responder that answers it (UIApplication is up the chain). Officially
+    /// unsupported by Apple, but the standard technique voice keyboards use to launch their app.
     private func openURLFromKeyboard(_ url: URL) {
-        let selector = NSSelectorFromString("openURL:")
         var responder: UIResponder? = self
         while let r = responder {
-            if r.responds(to: selector) {
-                _ = r.perform(selector, with: url)
-                return
+            if r.responds(to: #selector(openURL(_:))) {
+                r.perform(#selector(openURL(_:)), with: url)
             }
             responder = r.next
         }
