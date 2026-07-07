@@ -179,6 +179,10 @@ targets:
           - CFBundleURLName: com.trika.justtalk.ios
             CFBundleURLSchemes:
               - justtalk
+        # Keep recording alive after the app suspends itself back to the previous app (Wispr-style
+        # invisible capture — the mic keeps running in the background until the transcript is done).
+        UIBackgroundModes:
+          - audio
         UILaunchScreen:
           UIColorName: ""
     scheme:

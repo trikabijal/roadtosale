@@ -79,6 +79,7 @@ final class KeyboardViewModel: ObservableObject {
         // Apple Speech: no model download, ~10 MB — fits comfortably inside the keyboard extension.
         transcriber = AppleSpeechTranscriber()
         recordingEngine.delegate = self
+        startListeningForDone()
         Task { await setup() }
     }
 
@@ -107,18 +108,41 @@ final class KeyboardViewModel: ObservableObject {
     func setDiagnostic(_ s: String) { statusMessage = s }
 
     func toggleRecording() {
-        // A keyboard extension cannot record audio (iOS blocks mic capture in extensions), so tapping
-        // mic launches the container app for a "Flow Session": it records + transcribes, writes the
-        // text to the App Group, and `checkForHandoff()` inserts it when the keyboard reappears.
-        statusMessage = "Opening Just Talk…"
-        openApp?(DictationHandoff.recordURL)
+        // The keyboard is the toggle. A keyboard extension can't touch the mic, so the container app
+        // records invisibly in the background (it flash-launches to start the mic, then suspends back).
+        // tap-to-start → launch app; tap-to-stop → Darwin-signal the app, which transcribes and posts
+        // `done`; we then read the App Group and insert.
+        switch state {
+        case .idle:
+            state = .recording
+            statusMessage = "Listening… tap to stop"
+            openApp?(DictationHandoff.recordURL)
+        case .recording:
+            state = .transcribing
+            statusMessage = "Transcribing…"
+            DictationHandoff.post(DictationHandoff.stopNotification)
+        case .transcribing:
+            break
+        }
     }
 
-    /// Called when the keyboard reappears (user returns from the Flow Session): insert any transcript
-    /// the container app left in the App Group.
+    /// Register for the app's `done` signal so we insert the moment the transcript is ready — the app
+    /// finishes asynchronously in the background after the keyboard has already reappeared.
+    func startListeningForDone() {
+        DictationHandoff.observe(DictationHandoff.doneNotification,
+                                 observer: Unmanaged.passUnretained(self).toOpaque()) { _, observer, _, _, _ in
+            guard let observer else { return }
+            let vm = Unmanaged<KeyboardViewModel>.fromOpaque(observer).takeUnretainedValue()
+            Task { @MainActor in vm.checkForHandoff() }
+        }
+    }
+
+    /// Insert any transcript the container app left in the App Group (called on the `done` signal and
+    /// when the keyboard reappears).
     func checkForHandoff() {
         guard let text = DictationHandoff.consume() else { return }
         insertText?(text)
+        state = .idle
         statusMessage = "Inserted ✓"
         correctionWindowTask?.cancel()
         correctionWindowTask = Task { [weak self] in

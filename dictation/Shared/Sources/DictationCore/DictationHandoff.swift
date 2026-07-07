@@ -33,4 +33,26 @@ public enum DictationHandoff {
         store?.removeObject(forKey: key)
         return text
     }
+
+    // MARK: - Cross-process signals (Darwin notifications)
+
+    /// App → keyboard: the transcript is ready in the App Group, come read it.
+    public static let doneNotification = "com.trika.dictation.handoff.done"
+    /// Keyboard → app: stop recording now.
+    public static let stopNotification = "com.trika.dictation.handoff.stop"
+
+    /// Post a Darwin notification (delivered cross-process, keyboard ⇄ container app).
+    public static func post(_ name: String) {
+        CFNotificationCenterPostNotification(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            CFNotificationName(name as CFString), nil, nil, true)
+    }
+
+    /// Observe a Darwin notification. `observer` must be a stable pointer (e.g. Unmanaged.passUnretained).
+    public static func observe(_ name: String, observer: UnsafeRawPointer,
+                               callback: @escaping CFNotificationCallback) {
+        CFNotificationCenterAddObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(), observer, callback,
+            name as CFString, nil, .deliverImmediately)
+    }
 }

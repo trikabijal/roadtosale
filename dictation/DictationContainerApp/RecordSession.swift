@@ -55,8 +55,22 @@ final class RecordSessionModel: ObservableObject {
             startDate = Date()
             try engine.start()
             phase = .recording
+            registerStopObserver()
+            // Invisible capture: hand focus back to the previous app immediately. Recording keeps
+            // running in the background (UIBackgroundModes: audio) until the keyboard signals stop.
+            UIApplication.shared.perform(NSSelectorFromString("suspend"))
         } catch {
             phase = .failed(error.localizedDescription)
+        }
+    }
+
+    /// Keyboard → app: stop signal (Darwin). Stops the background recording and transcribes.
+    private func registerStopObserver() {
+        DictationHandoff.observe(DictationHandoff.stopNotification,
+                                 observer: Unmanaged.passUnretained(self).toOpaque()) { _, observer, _, _, _ in
+            guard let observer else { return }
+            let m = Unmanaged<RecordSessionModel>.fromOpaque(observer).takeUnretainedValue()
+            Task { @MainActor in m.stop() }
         }
     }
 
@@ -79,7 +93,8 @@ final class RecordSessionModel: ObservableObject {
             }
             guard !text.isEmpty else { phase = .failed("Didn't catch that"); return }
             transcript = text
-            DictationHandoff.write(text)   // keyboard picks this up
+            DictationHandoff.write(text)                       // keyboard reads this
+            DictationHandoff.post(DictationHandoff.doneNotification)   // ...on this signal
             phase = .done
         } catch {
             phase = .failed("Didn't catch that")
