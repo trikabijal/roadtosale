@@ -142,7 +142,8 @@ final class KeyboardViewModel: ObservableObject {
                 statusMessage = "Listening…"
                 showCorrectionPrompt = false
             } catch {
-                statusMessage = "Mic error — check permissions"
+                // TEMP: surface the real error on the keyboard to diagnose the device mic failure.
+                statusMessage = "Mic: \(error.localizedDescription)"
                 log.error("RecordingEngine start: \(error.localizedDescription, privacy: .public)")
             }
         }

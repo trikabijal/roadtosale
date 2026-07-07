@@ -114,7 +114,11 @@ public final class RecordingEngine: NSObject {
 
         #if os(iOS)
         let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+        // In a keyboard extension the host app owns the audio session; `.measurement` + `.duckOthers`
+        // fights it and AVAudioEngine.start() fails with 'what' (2003329396). `.playAndRecord` +
+        // `.mixWithOthers` lets the extension record alongside the foreground app.
+        try session.setCategory(.playAndRecord, mode: .default,
+                                options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker])
         try session.setActive(true, options: .notifyOthersOnDeactivation)
         #endif
 
