@@ -1,6 +1,8 @@
 export { VoiceEngine } from './facade.js';
 export { CueMatcher, matchCues, matchCuesAsync } from './matcher/cue-matcher.js';
 export { MockTranscriptionStrategy } from './strategies/mock.js';
+export { AppleSpeechTranscriberStrategy } from './strategies/apple-speech-transcriber.js';
+export type { NativeVoiceAdapter } from './strategies/apple-speech-transcriber.js';
 export type { Session, TranscriptionStrategy } from './strategies/base.js';
 export {
   registerStrategy,

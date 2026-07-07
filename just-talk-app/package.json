@@ -9,14 +9,15 @@
     "prebuild": "expo prebuild --clean"
   },
   "dependencies": {
-    "voice-engine": "file:../voice-engine",
     "expo": "~56.0.4",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-safe-area-context": "^5.8.0"
+    "react-native-safe-area-context": "^5.8.0",
+    "voice-engine": "file:../voice-engine"
   },
   "devDependencies": {
+    "@types/node": "^26.1.0",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   }
