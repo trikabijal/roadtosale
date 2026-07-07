@@ -12,3 +12,4 @@ dist-prod/
 dist-local/
 dist-dev/
 build-check/
+build-ios-check/
