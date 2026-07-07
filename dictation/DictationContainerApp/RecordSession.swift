@@ -56,9 +56,9 @@ final class RecordSessionModel: ObservableObject {
             try engine.start()
             phase = .recording
             registerStopObserver()
-            // Invisible capture: hand focus back to the previous app immediately. Recording keeps
-            // running in the background (UIBackgroundModes: audio) until the keyboard signals stop.
-            UIApplication.shared.perform(NSSelectorFromString("suspend"))
+            // No auto-suspend: iOS drops a self-suspended app on the home screen, not the caller. Like
+            // Wispr, the user swipes back to their app; recording keeps running in the background
+            // (UIBackgroundModes: audio) until the keyboard signals stop.
         } catch {
             phase = .failed(error.localizedDescription)
         }
@@ -128,10 +128,9 @@ struct RecordSessionView: View {
                 Text("Getting ready…").foregroundStyle(.secondary)
             case .recording:
                 MicPulse(level: model.level)
-                Text("Listening… tap to finish").font(.title3).foregroundStyle(.secondary)
-                Button(action: model.stop) {
-                    Image(systemName: "stop.circle.fill").font(.system(size: 64)).foregroundStyle(.red)
-                }.buttonStyle(.plain)
+                Text("Recording…").font(.title).bold()
+                Text("Swipe back to your app and keep talking.\nTap the keyboard mic to finish.")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
             case .transcribing:
                 ProgressView().controlSize(.large)
                 Text("Transcribing…").foregroundStyle(.secondary)
@@ -152,13 +151,7 @@ struct RecordSessionView: View {
             // Wispr-style "hops you back": once the transcript is in the App Group, background this
             // app so iOS returns to the app you were in; the keyboard reads + inserts on reappear.
             if p == .done {
-                Task {
-                    try? await Task.sleep(for: .milliseconds(500))
-                    onClose()
-                    try? await Task.sleep(for: .milliseconds(150))
-                    // Private "suspend" — backgrounds the app to return to the previous one.
-                    UIApplication.shared.perform(NSSelectorFromString("suspend"))
-                }
+                Task { try? await Task.sleep(for: .milliseconds(300)); onClose() }
             }
         }
     }
