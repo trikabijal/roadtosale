@@ -101,21 +101,16 @@ fi
 # back to a plain hdiutil DMG if create-dmg isn't installed.
 DMG="$OUT_DIR/$APP_NAME.dmg"
 rm -f "$DMG"
-BG="$(cd "$(dirname "$0")" && pwd)/packaging/dmg-background.png"
+BG="$(cd "$(dirname "$0")" && pwd)/packaging/dmg-background.tiff"
 
-if command -v create-dmg >/dev/null 2>&1; then
-  create-dmg \
-    --volname "$APP_NAME" \
-    ${BG:+--background "$BG"} \
-    --window-pos 300 160 \
-    --window-size 540 380 \
-    --icon-size 116 \
-    --icon "$APP_NAME.app" 150 215 \
-    --app-drop-link 390 215 \
-    --hide-extension "$APP_NAME.app" \
-    --no-internet-enable \
-    "$DMG" "$APP_PATH" \
-  || { echo "create-dmg failed — falling back to a plain DMG"; rm -f "$DMG"; }
+# dmgbuild writes the window geometry + icon layout straight into the volume's .DS_Store — no live
+# Finder AppleScript (which resized unreliably here, leaving white space + duplicate windows).
+if python3 -c "import dmgbuild" >/dev/null 2>&1; then
+  DMG_APP="$APP_PATH" DMG_BG="$BG" \
+    python3 -m dmgbuild -s packaging/dmg-settings.py "$APP_NAME" "$DMG" \
+  || { echo "dmgbuild failed — falling back to a plain DMG"; rm -f "$DMG"; }
+else
+  echo "dmgbuild not installed (pip3 install --user dmgbuild) — using a plain DMG"
 fi
 
 if [[ ! -f "$DMG" ]]; then
