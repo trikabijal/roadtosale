@@ -82,33 +82,31 @@ public final class KeyboardViewController: UIInputViewController {
         // open(_:options:completionHandler:) is what actually launches. The compiler blocks calling
         // UIApplication.open directly from an extension, so invoke it through its IMP.
         KBLog.log("openURLFromKeyboard START url=\(url.absoluteString)")
-        let legacy = NSSelectorFromString("openURL:")
-        let modern = NSSelectorFromString("openURL:options:completionHandler:")
+        let sel = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self.next   // skip self
-        var i = 0
         while let r = responder {
-            let cls = String(describing: type(of: r))
-            let l = r.responds(to: legacy)
-            let m = r.responds(to: modern)
-            let isLauncher = (r as? AppLauncher) != nil
-            KBLog.log("[\(i)] \(cls)  legacy=\(l) modern=\(m) launcher=\(isLauncher)")
-            if let launcher = r as? AppLauncher {
-                KBLog.log("  -> calling open on \(cls)")
-                launcher.openURL(url, options: [:]) { [weak self] ok in
-                    KBLog.log("  -> completion ok=\(ok)")
-                    DispatchQueue.main.async {
-                        self?.viewModel.setDiagnostic("open on \(cls): \(ok ? "TRUE" : "FALSE")")
-                    }
-                }
-                KBLog.log("  -> open call returned synchronously")
-                viewModel.setDiagnostic("called open on \(cls)…")
+            // Target UIApplication by concrete class (`as? AppLauncher` needs formal conformance,
+            // which it lacks; and other responders like _UIScreenBasedWindowScene also answer the
+            // modern selector but aren't the app). UIApplication.open is unavailable to extensions at
+            // compile time, so invoke it through its IMP.
+            if let app = r as? UIApplication {
+                KBLog.log("found UIApplication — invoking modern open via IMP")
+                typealias OpenIMP = @convention(c)
+                    (NSObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
+                let imp = app.method(for: sel)
+                let fn = unsafeBitCast(imp, to: OpenIMP.self)
+                fn(app, sel, url as NSURL, NSDictionary(), { [weak self] ok in
+                    KBLog.log("open completion ok=\(ok)")
+                    DispatchQueue.main.async { self?.viewModel.setDiagnostic("open: \(ok ? "TRUE" : "FALSE")") }
+                })
+                KBLog.log("open call returned synchronously")
+                viewModel.setDiagnostic("called open…")
                 return
             }
             responder = r.next
-            i += 1
         }
-        KBLog.log("NO LAUNCHER in chain (\(i) responders past self)")
-        viewModel.setDiagnostic("no opener in chain (\(i))")
+        KBLog.log("UIApplication NOT found in chain")
+        viewModel.setDiagnostic("no UIApplication in chain")
     }
 
     public override func viewWillTransition(
