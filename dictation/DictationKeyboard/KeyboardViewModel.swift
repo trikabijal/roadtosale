@@ -103,6 +103,9 @@ final class KeyboardViewModel: ObservableObject {
 
     // MARK: - Public control
 
+    /// TEMP diagnostic: let the controller surface responder-chain findings on the keyboard.
+    func setDiagnostic(_ s: String) { statusMessage = s }
+
     func toggleRecording() {
         // A keyboard extension cannot record audio (iOS blocks mic capture in extensions), so tapping
         // mic launches the container app for a "Flow Session": it records + transcribes, writes the
