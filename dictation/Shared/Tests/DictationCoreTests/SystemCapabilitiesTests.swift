@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 /// f7 — the launch requirements gate. Drives the PURE `SystemPreflight.decide(...)` with synthetic
 /// machine facts (the real env reads can't be faked). Requirements are vendor-sourced: Apple Silicon

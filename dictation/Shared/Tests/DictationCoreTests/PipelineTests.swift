@@ -1,6 +1,7 @@
 import XCTest
 import AVFoundation
 @testable import DictationCore
+@testable import DictationCoreBase
 
 /// Runnable version of journey J2's core (dictate → clean) at the contract level, with the mock
 /// transcriber so it's deterministic and needs no model: STT output flows through cleanup and

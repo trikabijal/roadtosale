@@ -1,6 +1,7 @@
 import AVFoundation
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 /// A fresh 16 kHz mono buffer. Free function (not a method) so it's safely callable from the
 /// concurrent-append task group without capturing a non-Sendable test instance.

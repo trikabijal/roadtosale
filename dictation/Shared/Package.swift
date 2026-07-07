@@ -42,7 +42,10 @@ let package = Package(
         ),
         .testTarget(
             name: "DictationCoreTests",
-            dependencies: ["DictationCore"]
+            // Both: DictationCore (full — WhisperKit/factory internals) and DictationCoreBase (the
+            // contract + Apple/cleanup/capabilities internals live here after the package split).
+            // @testable only exposes the directly-imported module's internals, not re-exports.
+            dependencies: ["DictationCore", "DictationCoreBase"]
         ),
         // Dev-only latency benchmark harness (not shipped, not a product). Measures batch vs
         // chunked STT + cleanup across clip lengths. Run: `swift run bench <clips-dir>`.

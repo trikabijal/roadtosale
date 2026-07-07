@@ -1,6 +1,7 @@
 import XCTest
 import AVFoundation
 @testable import DictationCore
+@testable import DictationCoreBase
 
 /// f3 — the STT provider contract: factory, provider gating, config, test doubles, and the
 /// model-free `AppleAudioConverter`. No real model is loaded (that's Tier 3, model-gated).
@@ -10,7 +11,7 @@ final class STTContractTests: XCTestCase {
     // MARK: factory
 
     func testFactoryBuildsWhisperKit() {
-        let t = SpeechTranscriberFactory.make(STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue))
+        let t = SpeechTranscriberFactory.make(STTConfig(provider: .whisperKit, model: DictationCoreBase.ModelTier.largeV3Turbo.rawValue))
         let wk = t as? WhisperKitTranscriber
         XCTAssertNotNil(wk)
         XCTAssertEqual(wk?.modelTier, .largeV3Turbo)
@@ -25,13 +26,14 @@ final class STTContractTests: XCTestCase {
         XCTAssertTrue(SpeechTranscriberFactory.make(STTConfig(provider: .mock, model: "x")) is MockTranscriber)
     }
 
-    /// Apple provider resolves per OS: the real impl on macOS 26+, else a graceful `UnavailableTranscriber`.
+    /// Apple provider resolves per OS: SpeechAnalyzer (AppleAnalyzerTranscriber) on macOS/iOS 26+,
+    /// else the lightweight SFSpeechRecognizer (AppleSpeechTranscriber) that fits the keyboard cap.
     func testFactoryApplePerOSAvailability() {
         let t = SpeechTranscriberFactory.make(STTConfig(provider: .appleSpeech, model: "en-US"))
-        if #available(macOS 26.0, *) {
-            XCTAssertTrue(t is AppleSpeechTranscriber)
+        if #available(macOS 26.0, iOS 26.0, *) {
+            XCTAssertTrue(t is AppleAnalyzerTranscriber)
         } else {
-            XCTAssertTrue(t is UnavailableTranscriber)
+            XCTAssertTrue(t is AppleSpeechTranscriber)
         }
     }
 
@@ -54,12 +56,12 @@ final class STTContractTests: XCTestCase {
 
     func testConfigDefault() {
         XCTAssertEqual(STTConfig.default.provider, .whisperKit)
-        XCTAssertEqual(STTConfig.default.model, ModelTier.largeV3Turbo.rawValue)
+        XCTAssertEqual(STTConfig.default.model, DictationCoreBase.ModelTier.largeV3Turbo.rawValue)
     }
 
     func testModelDisplayName() {
-        let cfg = STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue)
-        XCTAssertEqual(cfg.modelDisplayName, ModelTier.largeV3Turbo.displayName)
+        let cfg = STTConfig(provider: .whisperKit, model: DictationCoreBase.ModelTier.largeV3Turbo.rawValue)
+        XCTAssertEqual(cfg.modelDisplayName, DictationCoreBase.ModelTier.largeV3Turbo.displayName)
         XCTAssertEqual(STTConfig(provider: .appleSpeech, model: "en-US").modelDisplayName,
                        STTProvider.appleSpeech.displayName)
     }

@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 final class RuleBasedCleanupTests: XCTestCase {
 

@@ -1,6 +1,7 @@
 import AVFoundation
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 // Streaming dictation (PRD 0007): StreamingDictationSession assembly — raw during speech, one
 // cleanup pass at stop, and the segment-failure safety net. Deterministic — mock STT + cleanup.

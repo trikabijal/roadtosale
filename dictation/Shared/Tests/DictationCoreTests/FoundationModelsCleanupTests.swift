@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 // FoundationModelsCleanup is only compiled where the framework is importable and the OS is
 // new enough. These tests exercise the parts that DON'T need the live on-device model:

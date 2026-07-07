@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 /// Tests for the pure LocalAgreement-2 logic (PRD 0008). No model — synthetic segments only.
 final class StreamingAgreementTests: XCTestCase {

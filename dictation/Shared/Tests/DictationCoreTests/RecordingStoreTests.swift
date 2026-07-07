@@ -1,5 +1,6 @@
 import XCTest
 @testable import DictationCore
+@testable import DictationCoreBase
 
 #if canImport(AVFoundation)
 final class RecordingStoreTests: XCTestCase {
