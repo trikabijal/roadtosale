@@ -26,6 +26,12 @@ targets:
       - package: DictationCore
     entitlements:
       path: JustTalk/JustTalk.entitlements
+      properties:
+        # REQUIRED for the microphone under hardened runtime (the notarized DMG). Without it macOS
+        # suppresses the mic permission prompt and denies capture — the app never even appears under
+        # System Settings ▸ Privacy ▸ Microphone. A non-hardened Debug build works without it, which
+        # is why local dev didn't catch this; the shipped/notarized build must have it.
+        com.apple.security.device.audio-input: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.trika.justtalk.mac
