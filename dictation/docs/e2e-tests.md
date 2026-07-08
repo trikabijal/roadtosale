@@ -201,7 +201,7 @@ These are the narrower, contract-level cases a failing journey decomposes into �
 - Privacy: no test writes real user audio/text into the repo; fixtures are synthetic or public-domain.
 
 ## 7. Known gaps to close (tracked separately)
-- iOS keyboard extension is currently a diagnostic stub in the working tree — adapter tests (T-INS iOS, T-TEL-2) can't pass until the real extension is restored.
+- iOS keyboard is fully built (Flow Session handoff) but can't run in the Simulator — adapter tests (T-INS iOS, T-TEL-2, handoff round-trip) need a signed device.
 - No data-retention/clear-data controls yet (T-TEL-3 will fail) — see the privacy task.
 
 > The §8 coverage ledger and §9 backlog below reconcile these gaps against the **actual** test
@@ -237,8 +237,8 @@ model-free unit tests. The **§2.5 end-to-end journey suite — the stated PRIMA
 almost entirely unautomated.** What exists are contract/component backstops (§3); the real
 record→transcribe→clean→**paste/insert** journeys, every platform *adapter* (insertion,
 activation tap, permissions, HUD), and all model-backed STT remain **manual / PENDING**. The
-iOS keyboard is a diagnostic stub on this branch (see [architecture.md](architecture.md);
-real impl in commit `1554186`), so no iOS adapter test can run.
+iOS keyboard is fully built as the Flow Session handoff (see [architecture.md](architecture.md)),
+but no iOS adapter test can run without a signed device (custom keyboards don't run in the Simulator).
 
 ### 8.1 Facade Coverage Ledger (reconciled with §1)
 
@@ -278,15 +278,16 @@ real impl in commit `1554186`), so no iOS adapter test can run.
 | **J12** Clear my data | 3 (pending feature) | ⛔ PENDING | retention purge primitive exists (`TelemetryRetentionTests`) but the user-facing "clear all data" control / audio wipe does not |
 | **J13** Sustained real-world use | 1 (trust case) | ⛔ PENDING | needs a soak harness; entirely manual today |
 
-### 8.3 iOS line — blocked by the stub
+### 8.3 iOS line — blocked on device signing
 
-Per [architecture.md](architecture.md), `DictationKeyboard/*.swift` on this branch are
-**diagnostic stubs** (a bare `UIInputViewController`; the real `KeyboardViewController` +
-`KeyboardViewModel` + `KeyboardView` live in commit `1554186`). Consequently **every iOS
-adapter assertion is ⛔ PENDING and currently un-runnable**: T-INS (iOS), T-TEL-2 (App-Group
-cross-process), the keyboard-extension memory-ceiling check (§4), and Flow 5 in
-[flows.md](flows.md). These cannot be automated until the real extension is restored — restoring
-it is the prerequisite, not writing the tests.
+Per [architecture.md](architecture.md), the iOS keyboard is now **fully built** as the
+**Flow Session** container-app handoff (`KeyboardViewController` + `KeyboardViewModel` +
+`KeyboardView`, plus `DictationContainerApp/RecordSession` and the `DictationHandoff` bridge). The
+adapter assertions remain **⛔ PENDING** because the handoff round-trip can't be exercised in the
+Simulator: T-INS (iOS `textDocumentProxy` insert), T-TEL-2 (App-Group cross-process), the
+keyboard-extension memory-ceiling check (§4), the URL-scheme launch + Darwin stop/done handoff, and
+Flow 5 in [flows.md](flows.md). These need a **signed device** (paid Apple Developer account) — that
+provisioning is the prerequisite, not writing the tests.
 
 ### 8.4 Summary count
 
@@ -340,10 +341,10 @@ surface it would drive.
 19. **Sustained soak (J13).** Many back-to-back fixture dictations under load; every one inserts, keyboard never freezes.
 
 ### iOS adapter line (blocked — §7, §8.3)
-*Prerequisite: restore the real keyboard extension from commit `1554186`; these are un-runnable against the current stub.*
-20. **iOS insert via `textDocumentProxy` (T-INS iOS / Flow 5).** XCUITest the keyboard committing cleaned text in a host app.
-21. **App-Group cross-process telemetry (T-TEL-2).** A record written by the host app is readable by the extension and vice-versa.
-22. **Keyboard-extension memory ceiling (§4).** The extension loads under its ~50 MB budget on the `tinyEn` tier without the heavy STT/LLM deps faulting it.
+*Prerequisite: a signed device (paid Apple Developer account); the Flow Session handoff can't run in the Simulator.*
+20. **iOS insert via `textDocumentProxy` (T-INS iOS / Flow 5).** XCUITest the keyboard committing the handed-off text in a host app after the Flow Session round-trip.
+21. **App-Group cross-process telemetry (T-TEL-2).** A record written by the container app is readable by the extension and vice-versa; the `DictationHandoff` transcript + Darwin stop/done signals cross correctly.
+22. **Keyboard-extension memory ceiling (§4).** The extension (linking only `DictationCoreBase`, no WhisperKit) loads under its ~70 MB budget without faulting.
 
 **Backlog count:** **27 pending tests** — 5 Tier 1, 14 Tier 2 (incl. streaming/Apple items 14a–14e), 5 Tier 3, 3 iOS-blocked. Highest-value quick wins that need no model: **14a, 14b, 14c** (Apple gating, converter, batch-output-unchanged seam) — all pure/mockable.
 Implementing #1–#5 would convert the Tier-1 journeys (J2, J6, J7) and the capture/STT

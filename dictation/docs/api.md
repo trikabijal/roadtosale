@@ -5,15 +5,26 @@
 
 Just Talk has **no backend** — it runs entirely on-device. The "API" is therefore the public
 Swift surface of the **DictationCore** package
-([`dictation/Shared/Sources/DictationCore/`](../Shared/Sources/DictationCore)), i.e. the facade
-the macOS app (`JustTalk/AppState`) and the iOS keyboard (`DictationKeyboard/KeyboardViewModel`)
-program against. Nothing behind these types is consumed directly by a target.
+([`dictation/Shared/Sources/`](../Shared/Sources)), i.e. the facade the macOS app
+(`JustTalk/AppState`), the iOS keyboard (`DictationKeyboard/KeyboardViewModel`) and the iOS
+container app (`DictationContainerApp/RecordSessionModel`) program against. Nothing behind these
+types is consumed directly by a target.
 
-Everything below is `public`. Types are grouped by the file that defines them.
+**The package ships two products** (see [architecture.md](architecture.md#dictationcore--the-shared-swift-package)):
+
+- **`DictationCoreBase`** (`Sources/DictationCore/`) — GRDB only, no WhisperKit. Contains every
+  contract and type below **except** `WhisperKitTranscriber` and `SpeechTranscriberFactory`. Linked
+  by the memory-capped iOS keyboard extension and the iOS container app.
+- **`DictationCore`** (full, `Sources/DictationCoreWhisper/`) — `@_exported import DictationCoreBase`
+  + WhisperKit + `WhisperKitTranscriber` + `SpeechTranscriberFactory`. Linked by the macOS app.
+
+Types that live in the **full `DictationCore`** product (WhisperKit + factory) are flagged as such;
+everything else is in **`DictationCoreBase`**. Everything is `public`, grouped by the file that
+defines it.
 
 ---
 
-## 1. Speech-to-text — `SpeechTranscriber.swift`
+## 1. Speech-to-text — `SpeechTranscriber.swift` (`DictationCoreBase`)
 
 The speech-to-text model, behind a provider-agnostic contract.
 
@@ -68,27 +79,40 @@ public enum STTProvider: String, CaseIterable, Sendable {
 }
 ```
 
-- **`appleSpeech`** — `AppleSpeechTranscriber` (macOS 26+), backed by Apple's on-device
-  `SpeechAnalyzer`/`SpeechTranscriber`. The FAST + native-streaming path, best for **English**
-  (`config.model` = a BCP-47 locale, e.g. `en-US`). Apple ships **no Hindi/Gujarati** model
-  (verified on-device), so multilingual/Hinglish dictation stays on **WhisperKit**. Its
-  `makeStreamingSession()` returns `AppleStreamingSession`, which exposes Apple's finalized results
-  as the pill's append-only confirmed stream — no re-decode cost.
+- **`appleSpeech`** — the FAST + native-streaming path, best for **English** (`config.model` = a
+  BCP-47 locale, e.g. `en-US`), and the **default provider** (see `STTConfig.default` note). It has
+  **two implementations**, both in `DictationCoreBase`, picked by the factory: `AppleAnalyzerTranscriber`
+  on macOS 26 / iOS 26 (Apple's `SpeechAnalyzer` — streaming, ~2× faster) and `AppleSpeechTranscriber`
+  on older OSes (`SFSpeechRecognizer` — batch-only, ~10 MB, fits the keyboard budget). Apple ships **no
+  Hindi/Gujarati** model (verified on-device), so multilingual/Hinglish dictation stays on **WhisperKit**.
+  `AppleAnalyzerTranscriber.makeStreamingSession()` returns `AppleStreamingSession` (Apple's
+  finalized + volatile results as the pill's live stream — no re-decode cost); the `SFSpeechRecognizer`
+  path is batch-only (returns `nil`).
 
 ```swift
 
 public struct STTConfig: Sendable, Equatable {
     public var provider: STTProvider
-    public var model: String                           // whisperKit: a ModelTier.rawValue
-    public static let `default`                        // whisperKit + largeV3Turbo
+    public var model: String                           // whisperKit: ModelTier.rawValue; appleSpeech: BCP-47 locale
+    public static let `default`                        // whisperKit + largeV3Turbo (a safe fallback constant)
     public var modelDisplayName: String { get }
 }
 
+// SpeechTranscriberFactory lives in the FULL `DictationCore` product (it needs WhisperKit).
+// The base product has no factory — the iOS side instantiates Apple transcribers directly.
 @MainActor
-public enum SpeechTranscriberFactory {
+public enum SpeechTranscriberFactory {            // DictationCore (full) — DictationCoreWhisper/
     public static func make(_ config: STTConfig) -> any SpeechTranscriber
+    // .whisperKit → WhisperKitTranscriber(tier)
+    // .appleSpeech → AppleAnalyzerTranscriber (macOS/iOS 26) else AppleSpeechTranscriber
+    // .mock → MockTranscriber
 }
 ```
+
+> **`STTConfig.default` is `whisperKit`, but that's just a fallback constant.** The *effective*
+> first-launch default is `SystemCapabilities.recommendedProvider` (§9) — **Apple Speech** on a
+> capable machine (Apple Silicon + macOS 26), else WhisperKit. On macOS, if Apple Speech load fails
+> (Speech Recognition denied), `AppState.setup()` falls back to WhisperKit and persists the switch.
 
 ### Errors + test doubles
 
@@ -103,13 +127,15 @@ public enum TranscriptionError: Error, LocalizedError {
 
 ---
 
-## 2. WhisperKit implementation — `WhisperKitTranscriber.swift`
+## 2. WhisperKit implementation — `WhisperKitTranscriber.swift` (`DictationCore` full)
 
-The live `whisperKit` provider.
+The multilingual/accuracy **backup** `whisperKit` provider. Lives in the full `DictationCore`
+product (`Sources/DictationCoreWhisper/`) — **not** in `DictationCoreBase`, so the keyboard extension
+never links WhisperKit. `ModelTier` itself lives in `DictationCoreBase` (`ModelTier.swift`).
 
 ```swift
 public enum ModelTier: String, CaseIterable, Sendable {
-    case tinyEn  = "openai_whisper-tiny.en"               // ~40 MB — fits iOS keyboard memory budget
+    case tinyEn  = "openai_whisper-tiny.en"               // ~40 MB — fastest English-only
     case baseEn  = "openai_whisper-base.en"               // ~75 MB
     case smallEn = "openai_whisper-small.en"              // ~150 MB — fast English-only
     case small   = "openai_whisper-small"                 // multilingual small
@@ -138,7 +164,39 @@ pasting garbage).
 
 ---
 
-## 3. Cleanup — `TextCleanup.swift`
+## 2b. Apple implementations — `AppleAnalyzerTranscriber.swift` / `AppleSpeechTranscriber.swift` (`DictationCoreBase`)
+
+The two `appleSpeech` implementations. Both live in `DictationCoreBase` (no WhisperKit), so the iOS
+side can use them without the heavyweight dependency. `config.model` is a BCP-47 locale.
+
+```swift
+@available(macOS 26.0, iOS 26.0, *)
+@MainActor
+public final class AppleAnalyzerTranscriber: SpeechTranscriber {   // PRIMARY on modern OSes
+    public init(localeIdentifier: String = "")     // "" → en-US
+    // load() requests Speech authorization + verifies the locale is supported, THROWS
+    //   providerUnavailable if denied/unsupported (macOS then falls back to WhisperKit).
+    //   Downloads the language asset on first use via AssetInventory.
+    // transcribe(...) runs a one-shot SpeechAnalyzer over all buffers (the pasted-output path).
+    // makeStreamingSession() → AppleStreamingSession (native volatile/finalized, no re-decode).
+}
+
+@MainActor
+public final class AppleSpeechTranscriber: SpeechTranscriber {     // OLDER OS / keyboard budget
+    public init(language: String = "en-US")
+    // Batch-only on SFSpeechRecognizer — no download, ~10 MB. No makeStreamingSession (returns nil).
+    // Feeds all buffers into an SFSpeechAudioBufferRecognitionRequest, returns the single final result.
+    // Maps SFSpeech "cancelled"/"no speech" (203/1110) → TranscriptionError.emptyResult.
+}
+```
+
+`AppleAudioConverter` (internal) bridges our 16 kHz mono buffers to Apple's required analyzer format;
+`AppleStreamingSession` (public, in `AppleAnalyzerTranscriber.swift`) adapts our pull-based
+`step(samples:)` onto Apple's push-based analyzer (see §8).
+
+---
+
+## 3. Cleanup — `TextCleanup.swift` (`DictationCoreBase`)
 
 The cleanup model (the on-device LLM that polishes the text), behind a provider-agnostic
 contract. **`clean` never throws** — cleanup must never block paste; implementations fall back
@@ -322,7 +380,7 @@ A Swift `actor` over GRDB SQLite.
 ```swift
 public struct TranscriptRecord: Identifiable, Codable, FetchableRecord, PersistableRecord, Sendable {
     public var id: String
-    public var platform: String            // "mac" | "ios"
+    public var platform: String            // "mac" | "ios-keyboard"
     public var recordedAt: Date
     public var audioDurationMs: Int
     public var transcriptText: String      // final pasted text (post-cleanup)
@@ -493,12 +551,82 @@ model-warmth — something a single `Bool` can't express).
 
 ---
 
+## 9b. iOS Flow Session bridge — `DictationHandoff.swift` (`DictationCoreBase`)
+
+The single facade for the iOS keyboard's **container-app handoff** — a keyboard extension can't
+touch the mic, so the keyboard launches the container app to record and reads the result back. All
+constants and channels funnel through here (backed by the App Group `group.com.trika.dictation`).
+
+```swift
+public enum DictationHandoff {
+    public static let appGroup: String             // "group.com.trika.dictation"
+    public static let urlScheme: String            // "justtalk"
+    public static var recordURL: URL { get }        // justtalk://record — keyboard opens to start a session
+
+    // Transcript hand-off (App Group UserDefaults)
+    public static func write(_ text: String)        // container app: store the finished transcript
+    public static func consume(maxAgeSeconds: TimeInterval = 120) -> String?  // keyboard: read + clear (stale-guarded)
+
+    // Cross-process signals (Darwin notifications)
+    public static let doneNotification: String      // app → keyboard: transcript ready
+    public static let stopNotification: String      // keyboard → app: stop recording now
+    public static func post(_ name: String)
+    public static func observe(_ name: String, observer: UnsafeRawPointer, callback: @escaping CFNotificationCallback)
+}
+```
+
+See [flows.md §Flow 5](flows.md) for the full round-trip.
+
+## 9c. System pre-flight — `SystemCapabilities.swift` (`DictationCoreBase`)
+
+Launch-time check of whether this Mac can run Just Talk and which STT provider to default to.
+
+```swift
+public struct SystemCapabilities: Sendable, Equatable {
+    public enum Blocker: Sendable, Equatable {
+        case notAppleSilicon
+        case osBelow(minMajor: Int, current: String)
+        case lowDisk(neededGB: Double, freeGB: Double)
+        case lowRAM(neededGB: Double, actualGB: Double)
+    }
+    public let blockers: [Blocker]
+    public let recommendedProvider: STTProvider     // appleSpeech on Apple Silicon + macOS 26, else whisperKit
+    public let cleanupIsFoundationModels: Bool
+    public let freeDiskGB: Double
+    public let osVersion: String
+    public var canRun: Bool { get }                 // blockers.isEmpty
+}
+
+public enum SystemPreflight {
+    public static let minDiskGB: Double             // 2.0
+    public static let minOSMajor: Int               // 14
+    public static let minRAMGB: Double              // 8.0
+    public static func check() -> SystemCapabilities             // reads the real machine
+    static func decide(...) -> SystemCapabilities                // pure, unit-testable
+    public static func isAppleSilicon() -> Bool
+    public static func physicalRAMGB() -> Double
+    public static func freeDiskGB() -> Double
+}
+```
+
+`AppState.init` calls `check()`, gates onboarding on `canRun`, and uses `recommendedProvider` as the
+first-launch STT default.
+
+---
+
 ## How the app targets use this facade
 
-- **macOS** (`JustTalk/AppState.swift`): builds a transcriber via `SpeechTranscriberFactory`
-  and cleanup via `TextCleanupFactory`, loads a `CleanupPack` via `CleanupPackLoader`, drives
+- **macOS** (`JustTalk/AppState.swift`, links **`DictationCore`** full): runs `SystemPreflight.check()`,
+  builds a transcriber via `SpeechTranscriberFactory` (Apple by default, WhisperKit as multilingual
+  backup) and cleanup via `TextCleanupFactory`, loads a `CleanupPack` via `CleanupPackLoader`, drives
   `RecordingEngine`, and writes through `FileRecordingStore` + `TelemetryStore`.
-- **iOS** (`DictationKeyboard/KeyboardViewModel.swift`, in git history): the same pattern with
-  the `tinyEn` tier and the App Group `TelemetryStore`, inserting via `textDocumentProxy`.
+- **iOS keyboard** (`DictationKeyboard/KeyboardViewModel.swift`, links **`DictationCoreBase`**): drives
+  the Flow Session through `DictationHandoff` — opens `justtalk://record`, posts `stopNotification`,
+  and inserts the consumed transcript via `textDocumentProxy`. Apple-only (no WhisperKit in the base
+  product).
+- **iOS container app** (`DictationContainerApp/RecordSessionModel.swift`, links **`DictationCoreBase`**):
+  the headless record engine — instantiates the Apple transcriber directly (`AppleAnalyzerTranscriber`
+  on 26, else `AppleSpeechTranscriber`), records under `UIBackgroundModes: audio`, cleans, then
+  `DictationHandoff.write` + `post(doneNotification)`.
 
 See [flows.md](flows.md) for the end-to-end traces.

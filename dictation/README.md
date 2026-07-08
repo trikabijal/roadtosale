@@ -1,6 +1,6 @@
 # Just Talk
 
-**Just Talk** is an on-device macOS dictation app (a Wispr Flow replacement built on WhisperKit): press your activation key, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Neither audio nor text ever leaves the machine. An iOS custom keyboard (DictationKeyboard + DictationContainerApp) shares the same engine but is **paused pending a paid Apple Developer account** (custom keyboards can't run in the Simulator).
+**Just Talk** is an on-device macOS dictation app (a Wispr Flow replacement): press your activation key, speak, and your words appear in the frontmost app — cleaned into polished writing by an on-device LLM. Neither audio nor text ever leaves the machine. STT defaults to **Apple Speech** (fast, no download) with **WhisperKit** as the multilingual backup (Hinglish/Gujarati). An iOS custom keyboard (DictationKeyboard + DictationContainerApp) shares the same engine via a **container-app handoff** (a keyboard extension can't touch the mic, so the keyboard launches the host app to record — same trick Wispr uses); it's fully built but device-signing gated (custom keyboards can't run in the Simulator).
 
 ---
 
@@ -36,7 +36,7 @@ Expected results:
 - **`./test.sh`** → DictationCore (40 tests) + JustTalkTests (9 tests) both pass, ending in `** TEST SUCCEEDED **`.
 - **`./deploy-local.sh`** → installs into `/Applications`. Because a local build is **unsigned / development-signed** (not notarized), the first launch may trip Gatekeeper: **right-click the app → Open** once to bypass it. (Use `./deploy-local.sh --user` to install into `~/Applications` without admin rights.)
 
-First launch opens a **setup wizard** — grant **Microphone** and **Accessibility**, pick your activation key, and press it once to confirm it reaches the app. First dictation downloads the selected WhisperKit model (~40 MB–1 GB depending on tier); progress shows in the menu bar item.
+First launch opens a **setup wizard** — grant **Microphone** and **Accessibility**, pick your activation key, and press it once to confirm it reaches the app. On a capable Mac (Apple Silicon + macOS 26) the default provider is **Apple Speech** (no model download — just a Speech-Recognition grant); if you switch to **WhisperKit** (multilingual), the first dictation downloads its model (~40 MB–1 GB depending on tier), with progress in the menu bar item.
 
 More detail: **[docs/build.md](docs/build.md)** (build/run/deploy, environments, troubleshooting) and **[docs/architecture.md](docs/architecture.md)** (components, contracts, isolation).
 
@@ -47,7 +47,7 @@ More detail: **[docs/build.md](docs/build.md)** (build/run/deploy, environments,
 ```bash
 ./build.sh                 # Release build into ./build (default = macos)
 ./build.sh install         # build + copy to /Applications
-./build.sh ios             # build the (paused) iOS container app for the Simulator
+./build.sh ios             # build the iOS container app + keyboard for the Simulator
 ./test.sh                  # all: DictationCore + JustTalkTests
 ./test.sh core             # DictationCore SwiftPM tests only (fast, no Xcode project)
 ./test.sh app              # JustTalkTests xcodebuild scheme only
@@ -72,13 +72,19 @@ DEVELOPMENT_TEAM=XXXXXXXXXX ./deploy-local.sh
 
 Two model layers, both swappable behind a contract (`{provider, model}`):
 
-- **Speech-to-text** — `SpeechTranscriber`, two live providers chosen by dictation language:
-  **Apple SpeechAnalyzer** (macOS 26, fast + native streaming — best for **English**) and
-  **WhisperKit** (multilingual — the only one covering **Hinglish/Gujarati**). A `StreamingTranscriber`
-  sibling drives the live per-word pill (PRD 0008).
+- **Speech-to-text** — `SpeechTranscriber`, chosen by dictation language. **Apple Speech is the
+  default** (two impls behind one provider: `AppleAnalyzerTranscriber` on macOS 26 / iOS 26 — fast +
+  native streaming, best for **English**; `AppleSpeechTranscriber` on older OSes — lightweight
+  `SFSpeechRecognizer`). **WhisperKit** is the multilingual backup — the only one covering
+  **Hinglish/Gujarati**. On macOS the first-launch default comes from `SystemCapabilities.recommendedProvider`.
+  A `StreamingTranscriber` sibling drives the live per-word pill (PRD 0008).
 - **Cleanup** — `TextCleanup` (Apple Foundation Models, with a deterministic rule-based fallback).
 
-All targets share the **DictationCore** Swift package for recording, transcription, cleanup, and telemetry. AI cleanup is wired into both the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix for free).
+The **DictationCore** Swift package ships two products: **`DictationCoreBase`** (GRDB only, no
+WhisperKit — linked by the memory-capped iOS keyboard + container app) and the full **`DictationCore`**
+(base + WhisperKit + `SpeechTranscriberFactory` — linked by the macOS app). AI cleanup is wired into
+both the macOS app and the iOS keyboard (same contract + data pack, so iOS inherits every cleanup fix
+for free).
 
 ---
 
@@ -99,24 +105,26 @@ Your clipboard is preserved: auto-paste restores whatever you had copied. Cleanu
 
 ---
 
-## iOS Usage (DictationContainerApp + DictationKeyboard) — PAUSED
+## iOS Usage (DictationContainerApp + DictationKeyboard) — Flow Session handoff
 
-The iOS keyboard is code-complete and compiles for the Simulator, but full device validation is **deferred until a paid Apple Developer Program account is set up** (custom keyboards don't run in the Simulator, and `Allow Full Access` for the microphone needs signing). Once available:
+An iOS keyboard extension **cannot access the microphone** (a hard sandbox limit — Wispr/Gboard/SwiftKey all hit it). So dictation is a **container-app handoff ("Flow Session")**: the keyboard opens `justtalk://record` to launch the host app, the app records + transcribes in the background (`UIBackgroundModes: audio`), writes the transcript to the App Group and Darwin-signals the keyboard, which inserts it via `textDocumentProxy`. All of this is built; full device validation is **deferred until a paid Apple Developer Program account is set up** (custom keyboards don't run in the Simulator, and `Allow Full Access` needs signing). Once available:
 
-1. Connect your iOS 17 device, select the **DictationContainerApp** scheme, set your Team for each target, and add the App Groups capability `group.com.trika.dictation` to **DictationKeyboard** and **DictationContainerApp** (shared SQLite telemetry container).
-2. Build and install. On the device: **Settings → General → Keyboard → Keyboards → Add New Keyboard → Dictation**, then enable **Allow Full Access**.
-3. Switch to the Dictation keyboard in any app (globe key), tap the mic, speak, tap again to insert.
+1. Connect your iOS 17+ device, select the **DictationContainerApp** scheme, set your Team for each target, and confirm the App Groups capability `group.com.trika.dictation` on **DictationKeyboard** and **DictationContainerApp** (shared store for the handoff + telemetry).
+2. Build and install. On the device: **Settings → General → Keyboard → Keyboards → Add New Keyboard → Just Talk**, then enable **Allow Full Access**.
+3. Switch to the Just Talk keyboard in any app (globe key), tap the mic (the host app flashes up to record), swipe back and keep talking, then tap the keyboard mic again — the text is inserted where your cursor is.
 
 ---
 
-## Model Tiers
+## Model Tiers (WhisperKit backup provider — macOS only)
+
+WhisperKit is the multilingual backup on macOS; iOS uses Apple Speech (no download) exclusively.
 
 | Tier | Size | Best for |
 |------|------|---------|
-| Tiny | ~40 MB | iOS keyboard extension (tight memory budget) |
-| Base | ~75 MB | iOS app — good balance of speed and accuracy |
-| Small | ~150 MB | iOS app or Mac when latency matters |
-| Large Turbo | ~800 MB | macOS — best accuracy, recommended for daily use |
+| Tiny | ~40 MB | fastest, lowest accuracy |
+| Base | ~75 MB | good balance of speed and accuracy |
+| Small | ~150 MB | when latency matters |
+| Large Turbo | ~954 MB | **default** — multilingual, best accuracy for daily use |
 
 ---
 
@@ -124,21 +132,28 @@ The iOS keyboard is code-complete and compiles for the Simulator, but full devic
 
 ```
 dictation/
-├── Shared/                     DictationCore Swift Package (shared by all targets)
-│   ├── Package.swift           Dependency manifest: GRDB + WhisperKit
-│   └── Sources/DictationCore/
-│       ├── RecordingEngine.swift          AVAudioEngine tap + format conversion + VAD + level
-│       ├── SpeechTranscriber.swift        STT contract + provider/config/factory + mock
-│       ├── WhisperKitTranscriber.swift    WhisperKit impl + ModelTier + hallucination filter + streaming session
-│       ├── AppleSpeechTranscriber.swift   Apple SpeechAnalyzer impl (macOS 26) — batch + streaming
-│       ├── StreamingTranscriber.swift     Live-pill streaming contract + mock
-│       ├── StreamingAgreement.swift       Pure LocalAgreement-2 confirmed/hypothesis logic (PRD 0008)
-│       ├── TextCleanup.swift              Cleanup contract + config + pack loader + factory
-│       ├── FoundationModelsCleanup.swift  On-device LLM cleanup (Apple Foundation Models)
-│       ├── RuleBasedCleanup.swift         Deterministic fallback + shared text transforms
-│       ├── TelemetryStore.swift           GRDB SQLite — TranscriptRecord, WeeklyStats
-│       └── Resources/
-│           └── dictation-cleanup-pack.json  Cleanup data pack (canonical: voice-engine/)
+├── Shared/                     DictationCore Swift Package — two products (shared by all targets)
+│   ├── Package.swift           Manifest: DictationCoreBase (GRDB) + DictationCore (full, +WhisperKit)
+│   ├── Sources/DictationCore/           → product DictationCoreBase (GRDB only, no WhisperKit)
+│   │   ├── RecordingEngine.swift          AVAudioEngine tap + format conversion + VAD + level
+│   │   ├── SpeechTranscriber.swift        STT contract + provider/config + mock (no factory)
+│   │   ├── ModelTier.swift                WhisperKit model-tier enum
+│   │   ├── AppleAnalyzerTranscriber.swift Apple SpeechAnalyzer impl (macOS/iOS 26) — batch + streaming
+│   │   ├── AppleSpeechTranscriber.swift   Apple SFSpeechRecognizer impl (older OS / keyboard budget)
+│   │   ├── DictationHandoff.swift         iOS Flow-Session bridge (URL scheme + App Group + Darwin)
+│   │   ├── SystemCapabilities.swift       Launch pre-flight + recommendedProvider default
+│   │   ├── StreamingTranscriber.swift     Live-pill streaming contract + mock
+│   │   ├── StreamingAgreement.swift       Pure LocalAgreement-2 confirmed/hypothesis logic (PRD 0008)
+│   │   ├── TextCleanup.swift              Cleanup contract + config + pack loader + factory
+│   │   ├── FoundationModelsCleanup.swift  On-device LLM cleanup (Apple Foundation Models)
+│   │   ├── RuleBasedCleanup.swift         Deterministic fallback + shared text transforms
+│   │   ├── TelemetryStore.swift           GRDB SQLite — TranscriptRecord, WeeklyStats
+│   │   └── Resources/
+│   │       └── dictation-cleanup-pack.json  Cleanup data pack (canonical: voice-engine/)
+│   └── Sources/DictationCoreWhisper/    → product DictationCore (re-exports Base + WhisperKit)
+│       ├── Reexport.swift                 @_exported import DictationCoreBase
+│       ├── WhisperKitTranscriber.swift    WhisperKit impl + hallucination filter + streaming session
+│       └── SpeechTranscriberFactory.swift STT factory (picks WhisperKit / Apple / mock)
 ├── JustTalk/                   macOS menu bar app
 │   ├── JustTalkApp.swift, AppState.swift, MenuBarView.swift, SettingsView.swift
 │   ├── HotkeyManager.swift     CGEventTap listener, matches the active HotkeyConfig
@@ -150,8 +165,8 @@ dictation/
 │   ├── RecordingHUD.swift      Floating live-level HUD
 │   └── LoginItem.swift         Launch-at-login (SMAppService)
 ├── JustTalkTests/              macOS app unit tests (HotkeyConfig, HotkeyConflict)
-├── DictationKeyboard/          iOS custom keyboard extension (PAUSED)
-├── DictationContainerApp/      iOS container app (PAUSED)
+├── DictationKeyboard/          iOS custom keyboard extension (Flow-Session handoff; DictationCoreBase)
+├── DictationContainerApp/      iOS container app — records for the keyboard (RecordSession; DictationCoreBase)
 ├── docs/
 │   ├── build.md                Build / run / deploy guide
 │   ├── architecture.md
@@ -177,6 +192,6 @@ dictation/
 | B — AI cleanup | Done | On-device Foundation Models cleanup (default Full) + rule-based fallback |
 | C — Daily-driver ergonomics | Done | Launch at login, recording HUD, custom vocabulary, toggle mode, sounds |
 | D — Permanent install | Done | `build.sh` / `run.sh` / `deploy-local.sh`, docs |
-| 3 — iOS keyboard | PAUSED — code-complete, compiles for Simulator; device validation pending paid Apple Developer Program | KeyboardViewController, in-keyboard mic UI, on-device AI cleanup, App Group SQLite telemetry |
+| 3 — iOS keyboard | Built (device-signing gated) — compiles for Simulator; device validation pending paid Apple Developer Program | Flow-Session container-app handoff (keyboard can't touch the mic): `justtalk://record` launch, background recording, `DictationHandoff` App-Group + Darwin bridge, Apple Speech STT, on-device AI cleanup, App Group SQLite telemetry |
 | E1 — Live streaming pill + Apple provider | Done | Per-word roll-up pill (LocalAgreement-2), Apple SpeechAnalyzer provider (fast English), pill redesign (wave, gold border, frosted glass) — PRD 0008 |
 | E — Optional | Future | Streaming as final output (post-stop speed win), per-app profiles, history search |

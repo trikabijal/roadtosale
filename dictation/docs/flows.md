@@ -4,7 +4,7 @@
 > **Related deep-dive:** [macos-input-paste-audit.md](macos-input-paste-audit.md) (the hotkey/paste subsystem)
 
 These are the real code paths, with the files and methods involved. The macOS flow is
-the shipping product; the iOS flow is code-complete but paused (see
+the shipping product; the iOS flow is fully built and device-signing gated (see
 [architecture.md](architecture.md)).
 
 ---
@@ -177,9 +177,14 @@ Recovers a junk/failed dictation without re-speaking.
 
 ## Flow 4 — Startup, permissions & model load
 
-1. `JustTalkApp` (`@main`) creates `AppState`; `AppState.init` reads persisted settings and
-   builds the transcriber + cleanup from config, then kicks off `setup()`.
+1. `JustTalkApp` (`@main`) creates `AppState`; `AppState.init` runs `SystemPreflight.check()`
+   (Apple Silicon / OS / disk / RAM), picks the STT provider — the saved one, else
+   `SystemCapabilities.recommendedProvider` (**Apple Speech** on Apple Silicon + macOS 26, else
+   WhisperKit) — builds the transcriber via `SpeechTranscriberFactory` + cleanup from config, then
+   kicks off `setup()`.
 2. `setup()`:
+   - **Hard-requirements gate:** if `systemCapabilities.canRun` is false (Intel, macOS too old, no
+     disk), show the requirements screen and stop — never a broken onboarding.
    - `refreshPermissions()` reads **non-prompting** status (mic, Accessibility, Input
      Monitoring) via `PermissionsService`.
    - Builds `HotkeyManager`; installs the event tap only once both tap permissions are present.
@@ -187,8 +192,11 @@ Recovers a junk/failed dictation without re-speaking.
      live.
    - Shows the onboarding wizard (`OnboardingView`/`OnboardingWindow`) on first launch or when
      a required permission is missing.
-   - `transcriber.load(onProgress:)` downloads (first run) and loads the WhisperKit model,
-     streaming progress to the status line.
+   - `transcriber.load(onProgress:)` loads the model. **Apple Speech** needs no download (just Speech
+     authorization + a one-time language-asset install); **WhisperKit** downloads the model on first
+     run, streaming progress to the status line. If Apple Speech load fails (Speech Recognition denied
+     or locale unsupported), `setup()` **falls back to WhisperKit** and persists the switch, so the
+     denied prompt doesn't return next launch.
    - Opens `TelemetryStore`, runs the **30-day privacy purge**, and loads recent transcripts.
 3. The wizard's "press your key to test" step routes a press to
    `hotkeyDidReceiveConfiguredKey()` only (`HotkeyManager.isTesting`) to prove the key reaches
@@ -196,39 +204,80 @@ Recovers a junk/failed dictation without re-speaking.
 
 ---
 
-## Flow 5 — iOS keyboard (high level, paused)
+## Flow 5 — iOS keyboard dictation: the Flow Session handoff
 
-Mirrors Flow 1 with the keyboard's constraints. Driven by `KeyboardViewModel` (the full
-implementation is in git history; current files on this branch are diagnostic stubs).
+An iOS keyboard extension **cannot access the microphone** (a hard sandbox limit — no entitlement
+exists; Wispr/Gboard/SwiftKey all hit it). So dictation is a **container-app handoff**: the keyboard
+launches the host app to record, the app records + transcribes in the background, and the keyboard
+inserts the result. The app-switch is unavoidable and Wispr pays the same cost. Every constant and
+signal on this path goes through the one `DictationHandoff` facade (`DictationCore/DictationHandoff.swift`).
 
-> The macOS engine change to a single unified streaming path with once-at-stop cleanup was
-> **macOS-only**. iOS was not touched: it still legitimately uses the batch `performTranscription`
-> path described below (transcribe the whole buffer at stop, then one cleanup pass).
+### Sequence
 
-1. The user enables the **Dictation** keyboard and grants **Allow Full Access** (microphone),
-   then switches to it in any app.
-2. `KeyboardViewModel.init` loads the cleanup pack and builds the cleanup engine; `setup()`
-   requests mic permission, loads the **`tinyEn`** WhisperKit tier (~40 MB, fits the
-   extension's memory budget), and opens the App Group `TelemetryStore`.
-3. **Tap the mic** → `toggleRecording()` → `startRecording()`: `RecordingEngine.start()` (iOS
-   `AVAudioSession` path), state `.recording`.
-4. Buffers accumulate via the `RecordingEngineDelegate`.
-5. **Tap again** → `stopRecordingAndTranscribe()` → `performTranscription`:
-   - `transcriber.transcribe(...)` → raw text.
-   - Same `TextCleanup` contract + cleanup pack as macOS (Foundation Models with rule-based
-     fallback) — every macOS cleanup fix is inherited for free.
-   - Insert the cleaned text via the controller's `insertTextCallback` (writes through
-     `textDocumentProxy`) — **no clipboard/paste**, unlike macOS.
-   - Save a `TranscriptRecord` with `platform: "ios"`.
-6. `markLastCorrected()` flags the most recent record on correction.
+1. **Enable.** The user adds the **Just Talk** keyboard and grants **Allow Full Access** (needed so
+   the App Group and URL-open are reachable), then switches to it with the globe key.
+2. **Tap-to-start (keyboard).** `KeyboardViewModel.toggleRecording()` (state `idle → recording`) calls
+   `openApp?(DictationHandoff.recordURL)`. `KeyboardViewController.openURLFromKeyboard(_:)`
+   (`DictationKeyboard/KeyboardViewController.swift`) **walks the responder chain past `self`** to find
+   `UIApplication` and invokes its modern `open(_:options:completionHandler:)` through the IMP — the
+   compiler blocks calling it directly from an extension, and `extensionContext.open` won't launch the
+   container app.
+3. **App launches + records.** `DictationContainerApp.onOpenURL` (`DictationContainerApp.swift`) routes
+   `justtalk://record` to a full-screen `RecordSessionView`. `RecordSessionModel.begin()`
+   (`DictationContainerApp/RecordSession.swift`) loads the Apple transcriber directly
+   (`AppleAnalyzerTranscriber` on iOS 26, else `AppleSpeechTranscriber` — the base product has no
+   factory), requests mic permission, and starts `RecordingEngine`. It **does not self-suspend**: iOS
+   would drop it to the home screen, not the caller, so — like Wispr — the user swipes back to their app
+   and keeps talking. Recording continues in the background under **`UIBackgroundModes: audio`**.
+   `RecordSessionModel` registers a Darwin observer for `stopNotification`.
+4. **Tap-to-stop (keyboard).** The second tap (`state recording → transcribing`) posts
+   `DictationHandoff.stopNotification`. `RecordSessionModel.stop()` fires: stop the engine, snapshot the
+   buffers, `transcriber.transcribe(...)` → raw text, then one `cleanup.clean(...)` pass (same
+   `TextCleanup` contract + cleanup pack as macOS, so cleanup fixes are inherited for free).
+5. **Hand back.** `RecordSessionModel.finish()` writes the text with `DictationHandoff.write(text)` and
+   posts `DictationHandoff.doneNotification`; `RecordSessionView` then backgrounds itself (`onClose`) so
+   iOS returns to the app the user was in.
+6. **Insert (keyboard).** `KeyboardViewModel` observes `doneNotification` (and also re-checks in
+   `KeyboardViewController.viewWillAppear`) → `checkForHandoff()` → `DictationHandoff.consume()` reads +
+   clears the pending transcript (ignoring entries older than ~120 s) → `insertText?(text)` →
+   `textDocumentProxy.insertText(...)`. **No clipboard, no paste.** Status shows "Inserted ✓" with a
+   "Mark wrong" correction affordance.
+
+### Diagram
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant KV as KeyboardViewModel
+    participant KC as KeyboardViewController
+    participant APP as ContainerApp (RecordSessionModel)
+    participant H as DictationHandoff (App Group + Darwin)
+
+    U->>KV: tap mic (start)
+    KV->>KC: openApp(justtalk://record)
+    KC->>APP: UIApplication.open via responder chain
+    APP->>APP: begin() — mic + RecordingEngine (UIBackgroundModes: audio)
+    U-->>APP: swipe back to original app, keep talking
+    U->>KV: tap mic (stop)
+    KV->>H: post(stopNotification)
+    H-->>APP: stop()
+    APP->>APP: transcribe (Apple) + cleanup (one pass)
+    APP->>H: write(text) + post(doneNotification)
+    H-->>KV: doneNotification
+    KV->>H: consume() → text
+    KV->>U: textDocumentProxy.insertText(text) — "Inserted ✓"
+```
 
 ### Key macOS-vs-iOS differences
 
-| Aspect | macOS (`AppState`) | iOS (`KeyboardViewModel`) |
-|--------|--------------------|---------------------------|
+| Aspect | macOS (`AppState`) | iOS (keyboard + container app) |
+|--------|--------------------|--------------------------------|
 | Trigger | Global hotkey (`CGEventTap`) | In-keyboard mic button |
+| Mic owner | The app itself | **Container app** (keyboard can't touch the mic) → Flow Session handoff |
+| Cross-process | n/a | `DictationHandoff`: `justtalk://` URL + App Group + Darwin notifications |
+| STT provider | Apple Speech (default) / WhisperKit (multilingual) | Apple only — `AppleAnalyzerTranscriber` (26) / `AppleSpeechTranscriber` |
+| Package | Full `DictationCore` (+ WhisperKit) | Light `DictationCoreBase` (no WhisperKit) |
 | Output | Synthetic ⌘V paste + clipboard restore | `textDocumentProxy` insert |
-| STT tier | `largeV3Turbo` (multilingual) | `tinyEn` (memory budget) |
-| Telemetry DB | App Support SQLite | App Group SQLite |
+| Telemetry DB | App Support SQLite | App Group SQLite (`platform: "ios-keyboard"`) |
 | Cleanup | Same contract + pack | Same contract + pack |
-| Status | Shipping | Code-complete, paused on signing |
+| Status | Shipping | Built; device-signing gated |

@@ -13,11 +13,13 @@ app.
 | Product line | Scheme(s) | Status | Bundle ID |
 |--------------|-----------|--------|-----------|
 | **macOS menu-bar app** (`JustTalk`) | `JustTalk`, `JustTalkTests` | **Shipping / daily driver** | `com.trika.justtalk.mac` |
-| **iOS keyboard** (paused) | `DictationContainerApp`, `DictationKeyboard` | **PAUSED, secondary** | `com.trika.justtalk.ios` (+ `.keyboard`) |
+| **iOS keyboard** (Flow-Session handoff) | `DictationContainerApp`, `DictationKeyboard` | **Built, device-signing gated** | `com.trika.justtalk.ios` (+ `.keyboard`) |
 
-All product logic lives in **DictationCore**, a local SwiftPM package (`Shared/Package.swift`)
-that every target consumes. Its third-party deps — **GRDB** and **WhisperKit** — are resolved
-transitively through that package the first time you build (needs network on first run).
+Product logic lives in the local SwiftPM package (`Shared/Package.swift`), which ships **two
+products**: **`DictationCoreBase`** (GRDB only, no WhisperKit — the iOS keyboard + container app link
+this to stay under the extension memory limit) and the full **`DictationCore`** (base + WhisperKit +
+factory — the macOS app links this). Third-party deps — **GRDB** and **WhisperKit** — resolve
+transitively the first time you build (needs network on first run).
 
 The Xcode project (`JustTalk.xcodeproj`) is **generated** from `project.yml` by
 [XcodeGen](https://github.com/yonaskolb/XcodeGen). Do not edit the `.xcodeproj` by hand —
@@ -56,7 +58,7 @@ is missing.
 |---------|--------|
 | `./build.sh` (or `./build.sh macos`) | Build the macOS app (Release) into `./build` |
 | `./build.sh install` | Build, then copy the app into `/Applications` |
-| `./build.sh ios` | Build the **paused** iOS container app for the Simulator |
+| `./build.sh ios` | Build the iOS container app + keyboard for the Simulator (device-signing gated) |
 
 Steps: verifies macOS + Xcode + xcodegen → `xcodegen generate` → `xcodebuild build`.
 
@@ -126,16 +128,19 @@ transcribed text into the frontmost app and suppresses the emoji picker on the F
 
 ---
 
-## iOS line (paused — read before building `ios`)
+## iOS line (device-signing gated — read before building `ios`)
 
-The iOS keyboard is **paused and secondary**:
+The iOS keyboard is **fully built** (the container-app **Flow Session** handoff — the keyboard can't
+touch the mic, so it launches the container app to record; see
+[architecture.md](architecture.md#ios-subsystem-dictationkeyboard--dictationcontainerapp--flow-session-handoff)),
+but final on-device validation is gated on signing:
 
 - Custom keyboards **cannot run in the Simulator** and need device provisioning, which needs
   a paid Apple Developer account.
-- On the current branch, `DictationKeyboard/*.swift` are **diagnostic stubs** (the real
-  implementation lives in git history, commit `1554186`), so the extension target may not
-  build meaningfully. `./build.sh ios` builds the **container app** target and prints a
-  warning. Treat the iOS path as optional.
+- Both iOS targets link the light **`DictationCoreBase`** product (no WhisperKit) to stay under the
+  extension's ~70 MB memory limit; STT is Apple Speech only on iOS.
+- `./build.sh ios` builds the container app + keyboard for the Simulator (it compiles, but the
+  handoff round-trip can only be exercised on a signed device). Treat the iOS path as secondary.
 
 ---
 
