@@ -100,9 +100,6 @@ public enum SystemPreflight {
         return result == 0 && value == 1
     }
 
-    /// Free space (GB) on the home volume, using the "important usage" figure macOS reports to apps
-    /// (accounts for purgeable space). Returns a large value if it can't be read, so disk never
-    /// blocks on an unknown.
     /// Installed physical RAM in GiB, from `hw.memsize`.
     public static func physicalRAMGB() -> Double {
         var bytes: UInt64 = 0
@@ -112,6 +109,9 @@ public enum SystemPreflight {
         return Double(bytes) / (1024 * 1024 * 1024)
     }
 
+    /// Free space (GB) on the home volume, using the "important usage" figure macOS reports to apps
+    /// (accounts for purgeable space). Returns a large value if it can't be read, so disk never
+    /// blocks on an unknown.
     public static func freeDiskGB() -> Double {
         let url = URL(fileURLWithPath: NSHomeDirectory())
         if let vals = try? url.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),

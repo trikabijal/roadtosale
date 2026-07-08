@@ -194,6 +194,10 @@ public final class AppState: NSObject, ObservableObject {
     // Loudest mic level seen during the current recording — drives the live "too quiet" HUD
     // warning. If even the peak stays below this after a couple seconds, the mic is too low.
     private var recordingPeakLevel: Float = 0
+    // Set once the transcriber produces any live text this recording. If we're getting words we're
+    // clearly hearing the user, so the raw-RMS "too quiet" warning is a false alarm — suppress it.
+    // (RMS of normal speech can sit under `audibleThreshold` on quiet mics while STT works fine.)
+    private var heardTranscript: Bool = false
     /// Transcript text retention window (privacy) — records older than this are purged on launch.
     private static let transcriptRetentionDays = 30
     /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
@@ -346,7 +350,13 @@ public final class AppState: NSObject, ObservableObject {
             if sttConfig.provider == .appleSpeech {
                 log.notice("Apple Speech unavailable (\(error.localizedDescription, privacy: .public)) — falling back to WhisperKit")
                 statusMessage = "Setting up the multilingual model…"
-                setSTTConfig(STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue))
+                // Fall back for THIS session only — do NOT persist. A transient failure (network
+                // hiccup during the language-asset download, a momentary SpeechAnalyzer error) must
+                // not permanently downgrade the user to the slower path forever. Next launch retries
+                // Apple; if the cause was a genuine Speech-Recognition denial it fails fast (already
+                // denied → no prompt) and falls back again — cheap and self-healing. The user can
+                // still pick a provider explicitly in Settings, which DOES persist.
+                setSTTConfig(STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue), persist: false)
             } else {
                 statusMessage = "Model load failed: \(error.localizedDescription)"
             }
@@ -597,6 +607,7 @@ public final class AppState: NSObject, ObservableObject {
         if micTestActive { endMicTest() }
         audio.reset()
         recordingPeakLevel = 0
+        heardTranscript = false
         recordingStartDate = Date()
         // Warm the cleanup model now, while the user talks, so the cleanup at stop is fast
         // (~355ms warm vs ~1.3s cold). No-op for non-LLM cleanup providers.
@@ -621,9 +632,9 @@ public final class AppState: NSObject, ObservableObject {
 
     func stopRecordingAndTranscribe() {
         guard dictationState == .recording else { return }
-        // ONE stop path: every recording runs through the streaming session (started in
-        // startRecording). No-pause recordings simply ingest the whole buffer as the final tail
-        // in stopStreaming; the retry/timeout safety net lives in finalizeStreaming → failWithRetry.
+        // ONE stop path: `stopStreaming` tears down the live-preview session and hands the FULL
+        // captured audio to the batch `performTranscription` (which owns the pasted output plus the
+        // 3× retry + timeout safety net). The streaming session was only ever the live pill.
         stopStreaming()
     }
 
@@ -704,6 +715,7 @@ public final class AppState: NSObject, ObservableObject {
                 guard !samples.isEmpty else { continue }
                 let t = await pill.step(samples: samples)
                 guard dictationState == .recording, streamingPill === pill else { break }
+                if !t.confirmed.isEmpty { heardTranscript = true }   // words flowing → we hear you
                 recordingHUD.update(previewText: t.confirmed)   // confirmed only — append-only, no chatter
             }
         }
@@ -731,7 +743,7 @@ public final class AppState: NSObject, ObservableObject {
             // Drive the growing HUD pill from the session's own raw transcription (no second model).
             guard self.dictationState == .recording else { return }
             let shown = session.confirmedText
-            if !shown.isEmpty { self.recordingHUD.update(previewText: shown) }
+            if !shown.isEmpty { self.heardTranscript = true; self.recordingHUD.update(previewText: shown) }
         }
     }
 
@@ -767,45 +779,6 @@ public final class AppState: NSObject, ObservableObject {
             _ = await tick?.value  // let any in-flight streaming step finish before batch touches the model
             await performTranscription(buffers: all, audioStartDate: startDate)
         }
-    }
-
-    /// Paste + persist a completed streaming dictation. Mirrors the tail of `performTranscription`
-    /// (paste, History record, correction window) with streaming-derived values. On an empty
-    /// result it applies the same safety net as the batch `handleEmpty`: if there was substantial
-    /// audio the user likely spoke and STT dropped it, so preserve the audio and offer a retry
-    /// (which re-runs through `performTranscription` with full retry + timeout); only truly quiet
-    /// clips reset silently.
-    private func finalizeStreaming(result: StreamingResult?, buffers: [AVAudioPCMBuffer],
-                                   audioStartDate: Date, audioMs: Int, frontmostApp: String?) async {
-        // A segment's transcription threw mid-stream → the streamed text is missing a disjoint
-        // slice (the "middle dropped" failure). Don't paste a silently-truncated result: re-run the
-        // FULL audio through the batch path (3× retry + timeout), which recovers the lost segment.
-        if result?.incomplete == true {
-            log.notice("streaming had a failed segment — re-transcribing full audio for completeness")
-            await performTranscription(buffers: buffers, audioStartDate: audioStartDate)
-            return
-        }
-        let finalText = result?.cleanedText.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        guard !finalText.isEmpty else {
-            // Same safety net as the batch path: substantial audio but no text → preserve + retry.
-            handleEmpty(buffers: buffers, audioStartDate: audioStartDate)
-            return
-        }
-        let rawText = result?.rawText ?? finalText
-        let level = effectiveLevel(forBundleId: frontmostApp)
-        let record = TranscriptRecord(
-            platform: "mac",
-            audioDurationMs: audioMs,
-            transcriptText: finalText,
-            whisperkitConfidence: result?.confidence ?? 0,
-            latencyMs: result?.latencyMs ?? 0,
-            modelTier: "\(sttConfig.provider.rawValue)/\(sttConfig.model)+streaming",
-            frontmostApp: frontmostApp,
-            rawText: rawText,
-            cleanupLevel: level.rawValue,
-            cleanupProvider: cleanupConfig.provider.rawValue
-        )
-        await finalizeInsertion(finalText: finalText, record: record)
     }
 
     /// Persist the raw audio (last 5 kept) so a junk/failed transcription is recoverable via
@@ -1174,9 +1147,11 @@ public final class AppState: NSObject, ObservableObject {
 
     // MARK: - Settings
 
-    /// Switch STT provider and/or model. Persists the choice, rebuilds the transcriber
-    /// via the factory, and reloads with progress.
-    func setSTTConfig(_ config: STTConfig) {
+    /// Switch STT provider and/or model. Rebuilds the transcriber via the factory and reloads with
+    /// progress. `persist` controls whether the choice is written to UserDefaults: user-driven
+    /// switches persist (default); an automatic runtime fallback passes `persist: false` so a
+    /// transient failure can't permanently trap the user off the recommended provider.
+    func setSTTConfig(_ config: STTConfig, persist: Bool = true) {
         guard config != sttConfig else { return }
         // Never switch to a provider that isn't implemented yet — its transcriber's load()
         // throws, engineLoaded stays false, and dictation is blocked until the user switches
@@ -1186,9 +1161,11 @@ public final class AppState: NSObject, ObservableObject {
             return
         }
         sttConfig = config
-        let defaults = UserDefaults.standard
-        defaults.set(config.provider.rawValue, forKey: "sttProvider")
-        defaults.set(config.model, forKey: "sttModel")
+        if persist {
+            let defaults = UserDefaults.standard
+            defaults.set(config.provider.rawValue, forKey: "sttProvider")
+            defaults.set(config.model, forKey: "sttModel")
+        }
 
         engineLoaded = false
         // Capture THIS switch's transcriber instance locally — the Task below must load/read
@@ -1403,6 +1380,9 @@ extension AppState: RecordingEngineDelegate {
         }
         recordingPeakLevel = max(recordingPeakLevel, level)
         guard Date().timeIntervalSince(start) > 2 else { return }
+        // If the transcriber has produced any text, we're plainly hearing the user — the raw-RMS
+        // peak can still read "quiet" on a low-gain mic, so trust the transcript over the meter.
+        if heardTranscript { recordingHUD.setLowInput(false); return }
         recordingHUD.setLowInput(recordingPeakLevel < AudioLevels.audibleThreshold)
     }
 }
