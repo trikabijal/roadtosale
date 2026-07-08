@@ -249,10 +249,10 @@ public final class AppState: NSObject, ObservableObject {
         if let saved = defaults.string(forKey: "sttProvider"), let p = STTProvider(rawValue: saved) {
             provider = p
             model = defaults.string(forKey: "sttModel")
-                ?? (p == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue)
+                ?? (p == .appleSpeech ? "en-US" : ModelTier.defaultWhisper.rawValue)
         } else {                                          // first launch — auto by capability
             provider = caps.recommendedProvider
-            model = provider == .appleSpeech ? "en-US" : ModelTier.largeV3Turbo.rawValue
+            model = provider == .appleSpeech ? "en-US" : ModelTier.defaultWhisper.rawValue
         }
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config
@@ -356,7 +356,7 @@ public final class AppState: NSObject, ObservableObject {
                 // Apple; if the cause was a genuine Speech-Recognition denial it fails fast (already
                 // denied → no prompt) and falls back again — cheap and self-healing. The user can
                 // still pick a provider explicitly in Settings, which DOES persist.
-                setSTTConfig(STTConfig(provider: .whisperKit, model: ModelTier.largeV3Turbo.rawValue), persist: false)
+                setSTTConfig(STTConfig(provider: .whisperKit, model: ModelTier.defaultWhisper.rawValue), persist: false)
             } else {
                 statusMessage = "Model load failed: \(error.localizedDescription)"
             }

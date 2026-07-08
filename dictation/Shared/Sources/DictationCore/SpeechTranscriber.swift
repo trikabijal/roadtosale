@@ -96,7 +96,7 @@ public struct STTConfig: Sendable, Equatable {
 
     public static let `default` = STTConfig(
         provider: .whisperKit,
-        model: ModelTier.largeV3Turbo.rawValue
+        model: ModelTier.defaultWhisper.rawValue
     )
 
     /// Human-friendly model name for status messages.

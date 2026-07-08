@@ -93,7 +93,7 @@ struct SettingsView: View {
                         // Auto model per provider — no tier/locale picker.
                         let model: String
                         switch newProvider {
-                        case .whisperKit:  model = ModelTier.largeV3Turbo.rawValue   // multilingual default
+                        case .whisperKit:  model = ModelTier.defaultWhisper.rawValue  // multilingual backup (small)
                         case .appleSpeech: model = "en-US"                            // fast English
                         case .mock:        model = "default"
                         }

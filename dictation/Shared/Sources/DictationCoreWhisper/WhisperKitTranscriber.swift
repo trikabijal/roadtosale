@@ -22,6 +22,13 @@ public enum ModelTier: String, CaseIterable, Sendable {
     /// Multilingual, full large-v3 — best accuracy incl. Gujarati; slowest/largest (~3 GB download).
     case largeV3 = "openai_whisper-large-v3"
 
+    /// The default WhisperKit model — the multilingual BACKUP to Apple Speech. `small` (multilingual):
+    /// fast on-device, Indic-capable, far lighter than large-v3-turbo (954 MB / ~4.6 s batch latency).
+    /// NOTE: this enum is duplicated in DictationCoreBase/ModelTier.swift because Base cannot depend on
+    /// WhisperKit — keep the two `defaultWhisper` values in sync. TODO: collapse to one source (have the
+    /// Whisper module reuse Base's ModelTier) — deferred to avoid churn on a Trisha-unblocking merge.
+    public static var defaultWhisper: ModelTier { .small }
+
     public var displayName: String {
         switch self {
         case .tinyEn:       return "Tiny (English, fastest)"
