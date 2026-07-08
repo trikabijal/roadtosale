@@ -23,12 +23,18 @@ final class RecordSessionModel: ObservableObject {
     @Published var level: Float = 0
     @Published var transcript: String = ""
 
+    /// Hard safety stop: a missed/lost stop signal can't leave the mic on (draining the battery)
+    /// forever. Mirrors the keyboard's cap.
+    private static let maxRecordingSeconds: Double = 300
+
     private let engine = RecordingEngine()
     private let transcriber: any SpeechTranscriber
     private let cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
     private let audio = AudioBox()
     private var startDate: Date?
+    private var safetyStop: Task<Void, Never>?
+    private var stopRequested = false   // stop signal that arrived before recording began
 
     init() {
         let pack = CleanupPackLoader.load()
@@ -46,6 +52,10 @@ final class RecordSessionModel: ObservableObject {
 
     func begin() async {
         guard phase == .starting else { return }
+        // Observe the stop signal BEFORE the awaits below: Darwin notifications aren't queued, so if
+        // the user double-taps (start then stop) faster than startup completes, an observer registered
+        // only after start() would miss the stop and record forever.
+        registerStopObserver()
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
         }
@@ -54,14 +64,21 @@ final class RecordSessionModel: ObservableObject {
             audio.reset()
             startDate = Date()
             try engine.start()
-            phase = .recording
-            registerStopObserver()
-            // No auto-suspend: iOS drops a self-suspended app on the home screen, not the caller. Like
-            // Wispr, the user swipes back to their app; recording keeps running in the background
-            // (UIBackgroundModes: audio) until the keyboard signals stop.
         } catch {
             phase = .failed(error.localizedDescription)
+            return
         }
+        phase = .recording
+        safetyStop = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.maxRecordingSeconds))
+            guard !Task.isCancelled else { return }
+            self?.stop()
+        }
+        // A stop that landed during startup (before we were recording) is honored now.
+        if stopRequested { stop() }
+        // No auto-suspend: iOS drops a self-suspended app on the home screen, not the caller. Like
+        // Wispr, the user swipes back to their app; recording keeps running in the background
+        // (UIBackgroundModes: audio) until the keyboard signals stop.
     }
 
     /// Keyboard → app: stop signal (Darwin). Stops the background recording and transcribes.
@@ -74,8 +91,18 @@ final class RecordSessionModel: ObservableObject {
         }
     }
 
+    deinit {
+        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
+        safetyStop?.cancel()
+    }
+
     func stop() {
-        guard phase == .recording else { return }
+        switch phase {
+        case .starting:  stopRequested = true; return   // recording not started yet; honor once it is
+        case .recording: break
+        default:         return                          // already stopping/done/failed
+        }
+        safetyStop?.cancel()
         engine.stop()
         phase = .transcribing
         let buffers = audio.snapshot()
@@ -104,8 +131,9 @@ final class RecordSessionModel: ObservableObject {
 
 extension RecordSessionModel: RecordingEngineDelegate {
     nonisolated func recordingEngine(_ e: RecordingEngine, didReceiveBuffer b: AVAudioPCMBuffer) {
-        // captured on the audio thread
-        Task { @MainActor in self.audio.append(b) }
+        // Append synchronously on the audio thread (AudioBox is lock-guarded). Hopping to MainActor
+        // here would drop buffers still in flight when stop() snapshots — losing the tail of speech.
+        audio.append(b)
     }
     nonisolated func recordingEngineDidDetectSilence(_ e: RecordingEngine) {}
     nonisolated func recordingEngine(_ e: RecordingEngine, didUpdateLevel l: Float) {

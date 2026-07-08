@@ -1,14 +1,6 @@
 import UIKit
 import SwiftUI
 
-/// Type-safe handle for UIApplication's `open(_:options:completionHandler:)` — the compiler blocks
-/// calling it directly in an extension, but a responder cast to this @objc protocol (whose selector
-/// matches) invokes it cleanly, no unsafe bit-casting.
-@objc private protocol AppLauncher {
-    @objc(openURL:options:completionHandler:)
-    func openURL(_ url: URL, options: [AnyHashable: Any], completionHandler: ((Bool) -> Void)?)
-}
-
 /// The extension's principal class. Hosts `KeyboardView` in a `UIHostingController`
 /// and wires the text-insertion callback to `textDocumentProxy`.
 ///
@@ -23,8 +15,6 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
-        KBLog.log("=== keyboard viewDidLoad, hasFullAccess=\(hasFullAccess) ===")
-        KBLog.probe()
 
         viewModel = KeyboardViewModel()
         // Route final text into whatever text field the user has focused.
@@ -81,32 +71,25 @@ public final class KeyboardViewController: UIInputViewController {
         // On iOS 26 the deprecated openURL: still RESPONDS but no-ops; the modern
         // open(_:options:completionHandler:) is what actually launches. The compiler blocks calling
         // UIApplication.open directly from an extension, so invoke it through its IMP.
-        KBLog.log("openURLFromKeyboard START url=\(url.absoluteString)")
         let sel = NSSelectorFromString("openURL:options:completionHandler:")
         var responder: UIResponder? = self.next   // skip self
         while let r = responder {
-            // Target UIApplication by concrete class (`as? AppLauncher` needs formal conformance,
-            // which it lacks; and other responders like _UIScreenBasedWindowScene also answer the
-            // modern selector but aren't the app). UIApplication.open is unavailable to extensions at
-            // compile time, so invoke it through its IMP.
+            // Target UIApplication by concrete class: other responders (e.g. _UIScreenBasedWindowScene)
+            // also answer the modern selector but aren't the app. UIApplication.open is unavailable to
+            // extensions at compile time, so invoke it through its IMP.
             if let app = r as? UIApplication {
-                KBLog.log("found UIApplication — invoking modern open via IMP")
                 typealias OpenIMP = @convention(c)
                     (NSObject, Selector, NSURL, NSDictionary, (@convention(block) (Bool) -> Void)?) -> Void
                 let imp = app.method(for: sel)
                 let fn = unsafeBitCast(imp, to: OpenIMP.self)
-                fn(app, sel, url as NSURL, NSDictionary(), { [weak self] ok in
-                    KBLog.log("open completion ok=\(ok)")
-                    DispatchQueue.main.async { self?.viewModel.setDiagnostic("open: \(ok ? "TRUE" : "FALSE")") }
+                fn(app, sel, url as NSURL, NSDictionary(), { ok in
+                    if !ok { KBLog.error("openURL returned false for \(url.absoluteString)") }
                 })
-                KBLog.log("open call returned synchronously")
-                viewModel.setDiagnostic("called open…")
                 return
             }
             responder = r.next
         }
-        KBLog.log("UIApplication NOT found in chain")
-        viewModel.setDiagnostic("no UIApplication in chain")
+        KBLog.error("could not launch container app: no UIApplication in responder chain")
     }
 
     public override func viewWillTransition(

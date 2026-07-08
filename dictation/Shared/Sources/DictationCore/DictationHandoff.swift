@@ -55,4 +55,11 @@ public enum DictationHandoff {
             CFNotificationCenterGetDarwinNotifyCenter(), observer, callback,
             name as CFString, nil, .deliverImmediately)
     }
+
+    /// Stop observing (call from the observer's deinit). Leaving a dangling `passUnretained` pointer
+    /// registered means a later post can call into freed memory and crash the next session.
+    public static func removeObserver(_ observer: UnsafeRawPointer) {
+        CFNotificationCenterRemoveEveryObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(), observer)
+    }
 }
