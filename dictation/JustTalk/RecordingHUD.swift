@@ -175,10 +175,12 @@ final class RecordingHUD {
             defer: false
         )
         p.isFloatingPanel = true
-        // .screenSaver (1000) floats the HUD above full-screen apps too — `.statusBar` (25)
-        // sits *below* a full-screen window, so the HUD was hidden behind e.g. full-screen
-        // Terminal. `.canJoinAllSpaces` (below) makes it follow onto the full-screen Space.
-        p.level = .screenSaver
+        // Float above EVERYTHING, including another app's full-screen window. `.statusBar` (25) and
+        // even `.screenSaver` (1000) can sit *below* a full-screen Space on macOS 26, hiding the HUD
+        // behind e.g. full-screen Terminal / Claude. `CGShieldingWindowLevel()` is the level the OS
+        // uses to shield the screen — reliably above full-screen apps. `.canJoinAllSpaces` (below)
+        // makes it follow onto whichever Space (incl. a full-screen one) is active.
+        p.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         p.backgroundColor = .clear
         p.isOpaque = false
         p.hasShadow = true
