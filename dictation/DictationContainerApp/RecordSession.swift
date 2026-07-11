@@ -40,10 +40,11 @@ final class RecordSessionModel: ObservableObject {
     private var capturing = false
     private var captureStart: Date?
 
-    // Session lifetime: the keep-alive (silent, no mic) holds the app up this long after the last
-    // dictation, then we release it. Long is cheap now that the mic isn't held between dictations —
-    // this is what keeps the app warm so there's no repeat app-switch. Each dictation resets the clock.
-    private static let idleTimeoutSeconds: Double = 900   // 15 min
+    // Safety-valve only: how long the silent keep-alive may run with NO dictation before we release it
+    // (avoids pointless background audio for days if the user forgets). Long, because staying warm is
+    // the whole point — in practice iOS reclaims the app first. Each dictation resets the clock.
+    // TODO: expose as a setting (Wispr offers 5 min / 15 min / 1 hr / never).
+    private static let idleTimeoutSeconds: Double = 7200   // 2 hours
     private static let heartbeatSeconds: Double = 3
     private var idleTimer: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
@@ -61,14 +62,16 @@ final class RecordSessionModel: ObservableObject {
         engine.delegate = self
     }
 
+    private var didWarm = false
+
     // MARK: - Session lifecycle
 
-    /// Launch → start the session AND capture the first dictation. Registers the keyboard signal
-    /// observers up front so a fast start→stop during warm-up isn't missed.
-    func begin() async {
-        guard phase == .starting else { return }
-        DictationHandoff.resetTrace()
-        DictationHandoff.trace("app", "begin — cold launch, starting session")
+    /// Warm the session WITHOUT recording: load the model, take mic permission, start the silent
+    /// keep-alive so the app stays resident. Called during onboarding (and on app foreground) so the
+    /// FIRST real dictation is already hot — no cold launch, no app switch. Idempotent.
+    func warm() async {
+        guard !didWarm else { return }
+        didWarm = true
         registerObservers()
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
@@ -77,18 +80,26 @@ final class RecordSessionModel: ObservableObject {
             try await engine.requestPermission()
         } catch {
             DictationHandoff.trace("app", "mic permission FAILED: \(error.localizedDescription)")
-            phase = .failed(error.localizedDescription)
-            DictationHandoff.markSessionEnded()
+            didWarm = false
             return
         }
         // KeepAlive owns the audio session; the mic engine must not tear it down. Silent playback keeps
         // the app resident in the background WITHOUT the mic (no orange dot) between dictations.
         engine.managesAudioSession = false
         keepAlive.start()
-        DictationHandoff.trace("app", "keep-alive started, session alive")
+        DictationHandoff.trace("app", "warm — keep-alive started, session alive")
         startHeartbeat()
         startIdleTimer()
-        beginCapture()                          // the tap that launched us is the first dictation
+        if phase == .starting { phase = .idle }
+    }
+
+    /// Cold launch via `justtalk://record` (session wasn't warm): warm, then capture the first dictation.
+    func begin() async {
+        DictationHandoff.resetTrace()
+        DictationHandoff.trace("app", "begin — cold launch")
+        await warm()
+        guard didWarm else { phase = .failed("Microphone access needed"); return }
+        beginCapture()
     }
 
     /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
@@ -162,6 +173,7 @@ final class RecordSessionModel: ObservableObject {
         idleTimer?.cancel(); idleTimer = nil
         heartbeat?.cancel(); heartbeat = nil
         capturing = false
+        didWarm = false
         engine.stop()
         keepAlive.stop()
         DictationHandoff.setCapturing(false)
@@ -206,10 +218,14 @@ final class RecordSessionModel: ObservableObject {
         }
     }
 
+    /// The keep-alive runs indefinitely once warmed — we deliberately do NOT auto-end on idle, so the
+    /// app stays warm all day and dictation never re-hops. iOS is what eventually reclaims the app
+    /// (memory pressure / reboot); the next dictation then cold-launches once and re-warms. This keeps
+    /// a light idle watchdog only as a safety valve for a very long absence.
     private func startIdleTimer() {
         idleTimer = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(5))
+                try? await Task.sleep(for: .seconds(30))
                 guard let self, !Task.isCancelled else { return }
                 if !self.capturing, Date().timeIntervalSince(self.lastActivity) > Self.idleTimeoutSeconds {
                     self.endSession()
@@ -239,7 +255,7 @@ extension RecordSessionModel: RecordingEngineDelegate {
 // MARK: - View
 
 struct RecordSessionView: View {
-    @StateObject private var model = RecordSessionModel()
+    @ObservedObject var model: RecordSessionModel   // app-level session (owned by the App), not per-view
     let onClose: () -> Void
 
     var body: some View {
@@ -275,7 +291,8 @@ struct RecordSessionView: View {
             Button("End session", action: { model.endSession(); onClose() }).padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task { await model.begin() }
+        // `begin()` is kicked off by the App's onOpenURL (cold launch); the model is app-level and may
+        // already be warm, so we don't start it here.
         .onChange(of: model.phase) { _, p in
             if p == .ended { onClose() }
         }

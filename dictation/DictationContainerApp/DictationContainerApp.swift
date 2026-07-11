@@ -7,6 +7,9 @@ struct DictationContainerApp: App {
     @State private var showDiag = false
     @AppStorage("onboardingComplete") private var onboardingComplete = false
     @Environment(\.scenePhase) private var scenePhase
+    /// App-level so the silent keep-alive persists across screens + backgrounding — the whole point of
+    /// warming: the session is hot before the first dictation, so no cold launch / app switch.
+    @StateObject private var session = RecordSessionModel()
 
     var body: some Scene {
         WindowGroup {
@@ -14,11 +17,13 @@ struct DictationContainerApp: App {
                 if onboardingComplete {
                     ContentView()
                 } else {
-                    OnboardingFlow(onFinish: {})
+                    // Warm the session the moment onboarding finishes → the first real dictation is
+                    // already hot (Wispr parity: it never leaves the app you're typing in).
+                    OnboardingFlow(onFinish: { Task { await session.warm() } })
                 }
             }
                 .fullScreenCover(isPresented: $recording) {
-                    RecordSessionView(onClose: { recording = false })
+                    RecordSessionView(model: session, onClose: { recording = false })
                 }
                 .fullScreenCover(isPresented: $showDiag) {
                     DiagView(onClose: { showDiag = false })
@@ -26,13 +31,16 @@ struct DictationContainerApp: App {
                 .onOpenURL { url in
                     guard url.scheme == DictationHandoff.urlScheme else { return }
                     switch url.host {
-                    case "record": recording = true
+                    case "record": recording = true; Task { await session.begin() }
                     case "diag":   showDiag = true   // justtalk://diag — show the keyboard log
                     default: break
                     }
                 }
                 .onChange(of: scenePhase) { _, phase in
                     DictationHandoff.trace("app", "scenePhase → \(phase)")
+                    // Re-warm on every foreground once set up (covers app relaunch / iOS reclaiming the
+                    // keep-alive). Idempotent; needs mic already granted (post-onboarding).
+                    if phase == .active && onboardingComplete { Task { await session.warm() } }
                 }
         }
     }
