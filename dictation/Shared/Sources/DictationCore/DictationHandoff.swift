@@ -12,7 +12,45 @@ public enum DictationHandoff {
     public static var recordURL: URL { URL(string: "\(urlScheme)://record")! }
 
     private static let key = "pendingDictation"
+    private static let sessionKey = "flowSessionHeartbeat"
+    private static let levelKey = "flowSessionLevel"
     private static var store: UserDefaults? { UserDefaults(suiteName: appGroup) }
+
+    // MARK: - Flow Session liveness (the "no app-switch" mechanism)
+    //
+    // Once the container app is launched it holds a background audio session alive for a bounded
+    // window (UIBackgroundModes: audio). While alive, a keyboard mic tap only posts `start`/`stop`
+    // Darwin signals — NO openURL — so iOS never foregrounds the app and the user stays in the app
+    // they're typing in (Wispr's "Flow Session"). The app heartbeats here; the keyboard reads it to
+    // choose the seamless (signal) path vs the cold (launch) path.
+
+    /// Container app: mark the session alive (call on start + on a periodic heartbeat).
+    public static func markSessionAlive() {
+        store?.set(Date().timeIntervalSince1970, forKey: sessionKey)
+    }
+
+    /// Container app: session ended (idle timeout / torn down) — next keyboard tap must relaunch.
+    public static func markSessionEnded() {
+        store?.removeObject(forKey: sessionKey)
+    }
+
+    /// Keyboard: is a background session alive (heartbeat fresh)? If so, signal it instead of launching.
+    /// The window is short so a suspended/killed app can't look "alive" — a stale beat forces a relaunch.
+    public static func isSessionAlive(maxAgeSeconds: TimeInterval = 8) -> Bool {
+        guard let ts = store?.object(forKey: sessionKey) as? TimeInterval else { return false }
+        return Date().timeIntervalSince1970 - ts <= maxAgeSeconds
+    }
+
+    /// Container app → keyboard: publish the live mic level (0…1) so the keyboard can draw a waveform
+    /// while the app records invisibly in the background.
+    public static func writeLevel(_ level: Float) {
+        store?.set(level, forKey: levelKey)
+    }
+
+    /// Keyboard: read the latest mic level published by the recording app.
+    public static func readLevel() -> Float {
+        (store?.object(forKey: levelKey) as? Float) ?? 0
+    }
 
     /// Container app: store the finished transcript for the keyboard to pick up.
     public static func write(_ text: String) {
@@ -38,7 +76,9 @@ public enum DictationHandoff {
 
     /// App → keyboard: the transcript is ready in the App Group, come read it.
     public static let doneNotification = "com.trika.dictation.handoff.done"
-    /// Keyboard → app: stop recording now.
+    /// Keyboard → app (session ALIVE): begin a new dictation without relaunching the app.
+    public static let startNotification = "com.trika.dictation.handoff.start"
+    /// Keyboard → app: stop recording now (transcribe + hand back).
     public static let stopNotification = "com.trika.dictation.handoff.stop"
 
     /// Post a Darwin notification (delivered cross-process, keyboard ⇄ container app).

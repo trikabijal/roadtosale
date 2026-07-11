@@ -3,7 +3,7 @@ import DictationCoreBase
 import SwiftUI
 import os
 
-private let log = Logger(subsystem: "com.trika.dictation", category: "RecordSession")
+private let log = Logger(subsystem: "com.trika.dictation", category: "FlowSession")
 
 /// Thread-safe audio accumulator (mirrors the keyboard's).
 private final class AudioBox: @unchecked Sendable {
@@ -14,34 +14,43 @@ private final class AudioBox: @unchecked Sendable {
     func reset() { lock.lock(); buffers.removeAll(); lock.unlock() }
 }
 
-/// The "Flow Session": the container app records + transcribes (the keyboard can't touch the mic),
-/// writes the text to the App Group, and the keyboard reads it back. Auto-starts on appear.
+/// The "Flow Session" — the mechanism that makes dictation feel like Wispr (no app switch after the
+/// first launch). A keyboard extension can't touch the mic, so the container app records. But instead
+/// of relaunching the app on every dictation, the app is launched ONCE and then keeps its audio engine
+/// running in the background (UIBackgroundModes: audio) for a bounded idle window. While that session
+/// is alive it heartbeats to the App Group; a keyboard mic tap then only posts `start`/`stop` Darwin
+/// signals — no `openURL` — so iOS never foregrounds the app and the user stays in whatever app they're
+/// typing in. The engine runs the whole session; we only ACCUMULATE audio while `capturing`.
 @MainActor
 final class RecordSessionModel: ObservableObject {
-    enum Phase: Equatable { case starting, recording, transcribing, done, failed(String) }
+    /// `listening` = capturing this dictation. `idle` = session alive, engine running, waiting for the
+    /// next keyboard tap (this is the seamless state — app is backgrounded but alive).
+    enum Phase: Equatable { case starting, listening, transcribing, idle, ended, failed(String) }
     @Published var phase: Phase = .starting
     @Published var level: Float = 0
     @Published var transcript: String = ""
-
-    /// Hard safety stop: a missed/lost stop signal can't leave the mic on (draining the battery)
-    /// forever. Mirrors the keyboard's cap.
-    private static let maxRecordingSeconds: Double = 300
+    @Published var dictationCount = 0
 
     private let engine = RecordingEngine()
     private let transcriber: any SpeechTranscriber
     private let cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
     private let audio = AudioBox()
-    private var startDate: Date?
-    private var safetyStop: Task<Void, Never>?
-    private var stopRequested = false   // stop signal that arrived before recording began
+    private var capturing = false
+    private var captureStart: Date?
+
+    // Session lifetime: engine stays up this long after the last activity, then we tear down so the
+    // mic can't stay live forever. Each dictation resets the clock.
+    private static let idleTimeoutSeconds: Double = 90
+    private static let heartbeatSeconds: Double = 3
+    private var idleTimer: Task<Void, Never>?
+    private var heartbeat: Task<Void, Never>?
+    private var lastActivity = Date()
 
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
         cleanup = TextCleanupFactory.make(CleanupConfig(provider: .ruleBased, level: .light), pack: pack)
-        // Apple Speech: SpeechAnalyzer on 26 (fast), SFSpeechRecognizer otherwise. No factory in the
-        // base package, so pick directly.
         if #available(iOS 26.0, *) {
             transcriber = AppleAnalyzerTranscriber(localeIdentifier: "en-US")
         } else {
@@ -50,67 +59,52 @@ final class RecordSessionModel: ObservableObject {
         engine.delegate = self
     }
 
+    // MARK: - Session lifecycle
+
+    /// Launch → start the session AND capture the first dictation. Registers the keyboard signal
+    /// observers up front so a fast start→stop during warm-up isn't missed.
     func begin() async {
         guard phase == .starting else { return }
-        // Observe the stop signal BEFORE the awaits below: Darwin notifications aren't queued, so if
-        // the user double-taps (start then stop) faster than startup completes, an observer registered
-        // only after start() would miss the stop and record forever.
-        registerStopObserver()
+        registerObservers()
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
         }
         do {
             try await engine.requestPermission()
-            audio.reset()
-            startDate = Date()
-            try engine.start()
+            try engine.start()                 // runs for the WHOLE session; we toggle `capturing`
         } catch {
             phase = .failed(error.localizedDescription)
+            DictationHandoff.markSessionEnded()
             return
         }
-        phase = .recording
-        safetyStop = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(Self.maxRecordingSeconds))
-            guard !Task.isCancelled else { return }
-            self?.stop()
-        }
-        // A stop that landed during startup (before we were recording) is honored now.
-        if stopRequested { stop() }
-        // No auto-suspend: iOS drops a self-suspended app on the home screen, not the caller. Like
-        // Wispr, the user swipes back to their app; recording keeps running in the background
-        // (UIBackgroundModes: audio) until the keyboard signals stop.
+        startHeartbeat()
+        startIdleTimer()
+        beginCapture()                          // the tap that launched us is the first dictation
     }
 
-    /// Keyboard → app: stop signal (Darwin). Stops the background recording and transcribes.
-    private func registerStopObserver() {
-        DictationHandoff.observe(DictationHandoff.stopNotification,
-                                 observer: Unmanaged.passUnretained(self).toOpaque()) { _, observer, _, _, _ in
-            guard let observer else { return }
-            let m = Unmanaged<RecordSessionModel>.fromOpaque(observer).takeUnretainedValue()
-            Task { @MainActor in m.stop() }
-        }
+    /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
+    private func beginCapture() {
+        audio.reset()
+        capturing = true
+        captureStart = Date()
+        touch()
+        phase = .listening
     }
 
-    deinit {
-        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
-        safetyStop?.cancel()
-    }
-
-    func stop() {
-        switch phase {
-        case .starting:  stopRequested = true; return   // recording not started yet; honor once it is
-        case .recording: break
-        default:         return                          // already stopping/done/failed
-        }
-        safetyStop?.cancel()
-        engine.stop()
+    /// Keyboard signalled `stop` — stop capturing, transcribe, hand the text back. Session stays ALIVE
+    /// (engine keeps running) so the next tap is seamless.
+    private func endCaptureAndTranscribe() {
+        guard capturing else { return }
+        capturing = false
+        touch()
         phase = .transcribing
         let buffers = audio.snapshot()
-        let sd = startDate ?? Date()
+        let sd = captureStart ?? Date()
         Task { await finish(buffers, sd) }
     }
 
     private func finish(_ buffers: [AVAudioPCMBuffer], _ sd: Date) async {
+        defer { if phase == .transcribing { phase = .idle } }
         do {
             let r = try await transcriber.transcribe(buffers: buffers, audioStartDate: sd)
             var text = r.text
@@ -118,26 +112,91 @@ final class RecordSessionModel: ObservableObject {
                text.split(whereSeparator: \.isWhitespace).count >= cleanupPack.minWordsForCleanup {
                 text = (await cleanup.clean(CleanupRequest(rawText: text, level: .light))).cleanedText
             }
-            guard !text.isEmpty else { phase = .failed("Didn't catch that"); return }
+            guard !text.isEmpty else { return }
             transcript = text
+            dictationCount += 1
             DictationHandoff.write(text)                       // keyboard reads this
             DictationHandoff.post(DictationHandoff.doneNotification)   // ...on this signal
-            phase = .done
         } catch {
-            phase = .failed("Didn't catch that")
+            log.error("transcribe: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Tear the session down: stop the engine, clear the heartbeat so the next keyboard tap relaunches
+    /// (cold path). Called on idle timeout or when the view closes.
+    func endSession() {
+        idleTimer?.cancel(); idleTimer = nil
+        heartbeat?.cancel(); heartbeat = nil
+        capturing = false
+        engine.stop()
+        DictationHandoff.markSessionEnded()
+        DictationHandoff.writeLevel(0)
+        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
+        if case .failed = phase {} else { phase = .ended }
+    }
+
+    deinit {
+        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
+    }
+
+    // MARK: - Keyboard signals
+
+    private func registerObservers() {
+        let me = Unmanaged.passUnretained(self).toOpaque()
+        DictationHandoff.observe(DictationHandoff.startNotification, observer: me) { _, obs, _, _, _ in
+            guard let obs else { return }
+            let m = Unmanaged<RecordSessionModel>.fromOpaque(obs).takeUnretainedValue()
+            Task { @MainActor in m.beginCapture() }
+        }
+        DictationHandoff.observe(DictationHandoff.stopNotification, observer: me) { _, obs, _, _, _ in
+            guard let obs else { return }
+            let m = Unmanaged<RecordSessionModel>.fromOpaque(obs).takeUnretainedValue()
+            Task { @MainActor in m.endCaptureAndTranscribe() }
+        }
+    }
+
+    // MARK: - Heartbeat + idle
+
+    private func touch() { lastActivity = Date(); DictationHandoff.markSessionAlive() }
+
+    private func startHeartbeat() {
+        DictationHandoff.markSessionAlive()
+        heartbeat = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.heartbeatSeconds))
+                guard self != nil, !Task.isCancelled else { return }
+                DictationHandoff.markSessionAlive()   // keep the keyboard's "session alive" read fresh
+            }
+        }
+    }
+
+    private func startIdleTimer() {
+        idleTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(5))
+                guard let self, !Task.isCancelled else { return }
+                if !self.capturing, Date().timeIntervalSince(self.lastActivity) > Self.idleTimeoutSeconds {
+                    self.endSession()
+                    return
+                }
+            }
         }
     }
 }
 
 extension RecordSessionModel: RecordingEngineDelegate {
     nonisolated func recordingEngine(_ e: RecordingEngine, didReceiveBuffer b: AVAudioPCMBuffer) {
-        // Append synchronously on the audio thread (AudioBox is lock-guarded). Hopping to MainActor
-        // here would drop buffers still in flight when stop() snapshots — losing the tail of speech.
-        audio.append(b)
+        Task { @MainActor in
+            guard self.capturing else { return }   // engine runs all session; accumulate only while capturing
+            self.audio.append(b)
+        }
     }
     nonisolated func recordingEngineDidDetectSilence(_ e: RecordingEngine) {}
     nonisolated func recordingEngine(_ e: RecordingEngine, didUpdateLevel l: Float) {
-        Task { @MainActor in self.level = l }
+        Task { @MainActor in
+            self.level = l
+            DictationHandoff.writeLevel(self.capturing ? l : 0)   // keyboard waveform reads this
+        }
     }
 }
 
@@ -148,39 +207,41 @@ struct RecordSessionView: View {
     let onClose: () -> Void
 
     var body: some View {
-        VStack(spacing: 28) {
+        VStack(spacing: 24) {
             Spacer()
             switch model.phase {
             case .starting:
                 ProgressView().controlSize(.large)
                 Text("Getting ready…").foregroundStyle(.secondary)
-            case .recording:
+            case .listening:
                 MicPulse(level: model.level)
-                Text("Recording…").font(.title).bold()
+                Text("Listening…").font(.title).bold()
                 Text("Swipe back to your app and keep talking.\nTap the keyboard mic to finish.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
             case .transcribing:
                 ProgressView().controlSize(.large)
                 Text("Transcribing…").foregroundStyle(.secondary)
-            case .done:
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 56)).foregroundStyle(.green)
-                Text(model.transcript).font(.title3).multilineTextAlignment(.center).padding(.horizontal)
-                Text("Go back to your app — it's ready to paste.").font(.callout).foregroundStyle(.secondary)
+            case .idle:
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundStyle(.green)
+                Text("Ready — tap the keyboard mic to dictate again.")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
+                if !model.transcript.isEmpty {
+                    Text(model.transcript).font(.callout).multilineTextAlignment(.center)
+                        .foregroundStyle(.primary).padding(.horizontal)
+                }
+            case .ended:
+                Text("Session ended.").foregroundStyle(.secondary)
             case .failed(let msg):
                 Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 48)).foregroundStyle(.orange)
                 Text(msg).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
             }
             Spacer()
-            Button("Close", action: onClose).padding(.bottom)
+            Button("End session", action: { model.endSession(); onClose() }).padding(.bottom)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .task { await model.begin() }
         .onChange(of: model.phase) { _, p in
-            // Wispr-style "hops you back": once the transcript is in the App Group, background this
-            // app so iOS returns to the app you were in; the keyboard reads + inserts on reappear.
-            if p == .done {
-                Task { try? await Task.sleep(for: .milliseconds(300)); onClose() }
-            }
+            if p == .ended { onClose() }
         }
     }
 }

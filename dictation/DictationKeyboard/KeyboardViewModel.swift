@@ -59,7 +59,15 @@ final class KeyboardViewModel: ObservableObject {
         case .idle:
             state = .recording
             statusMessage = "Listening… tap to stop"
-            openApp?(DictationHandoff.recordURL)
+            // Seamless path (Wispr's "Flow Session"): if the container app is still alive in the
+            // background from a recent dictation, just signal it — no `openURL`, so iOS never
+            // foregrounds it and the user stays in the app they're typing in. Only when the session
+            // has gone cold do we launch the app (the one-time app switch).
+            if DictationHandoff.isSessionAlive() {
+                DictationHandoff.post(DictationHandoff.startNotification)
+            } else {
+                openApp?(DictationHandoff.recordURL)
+            }
         case .recording:
             state = .transcribing
             statusMessage = "Transcribing…"
