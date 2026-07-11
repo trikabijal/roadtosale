@@ -5,10 +5,17 @@ import SwiftUI
 struct DictationContainerApp: App {
     @State private var recording = false
     @State private var showDiag = false
+    @AppStorage("onboardingComplete") private var onboardingComplete = false
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            Group {
+                if onboardingComplete {
+                    ContentView()
+                } else {
+                    OnboardingFlow(onFinish: {})
+                }
+            }
                 .fullScreenCover(isPresented: $recording) {
                     RecordSessionView(onClose: { recording = false })
                 }
