@@ -3,18 +3,21 @@ import DictationCoreBase
 
 // MARK: - State
 
+/// Names match docs/ios-dictation-architecture.md. `dictating` = a dictation is live (mirrors the app's
+/// `capturing` phase); `awaiting` = stop posted, polling the App Group for the transcript.
 enum KeyboardDictationState: Equatable {
-    case idle, recording, transcribing
+    case idle, dictating, awaiting
 }
 
 // MARK: - KeyboardViewModel
 
-/// Drives the keyboard extension's idle → recording → transcribing state machine.
+/// Drives the keyboard extension's idle → dictating → awaiting state machine (see
+/// docs/ios-dictation-architecture.md).
 ///
-/// A keyboard extension cannot access the microphone, so it does not record or transcribe itself.
-/// Instead it hands off to the container app: tap-to-start launches the app (which records
-/// invisibly), tap-to-stop Darwin-signals the app to stop; the app transcribes, writes the result
-/// to the shared App Group, and posts `done`. We then read the App Group and insert the text.
+/// A keyboard extension cannot access the microphone, so it does not record itself. It hands off to the
+/// container app via two Darwin signals only — START and STOP. The app writes the three App-Group
+/// variables (heartbeat, capturing, pendingText); this keyboard READS them and never trusts local
+/// memory. The app never signals back: we POLL `pendingText` and insert.
 @MainActor
 final class KeyboardViewModel: ObservableObject {
 
@@ -33,9 +36,9 @@ final class KeyboardViewModel: ObservableObject {
 
     /// Resets the transient "Inserted ✓" status back to the idle prompt after a short delay.
     private var statusResetTask: Task<Void, Never>?
-    /// Guards against a lost handoff: if the app never posts `done`, resets out of `.transcribing`.
+    /// Guards against a lost handoff: if `pendingText` never arrives, resets out of `.awaiting`.
     private var handoffTimeoutTask: Task<Void, Never>?
-    /// How long to wait for the app's `done` before assuming the handoff was lost.
+    /// How long to poll for `pendingText` before assuming the transcript was lost.
     private static let handoffTimeout: Duration = .seconds(20)
 
     // MARK: - Init
@@ -62,16 +65,16 @@ final class KeyboardViewModel: ObservableObject {
         // Decide START vs STOP from the SHARED capturing flag, not local `state` — iOS recreates the
         // keyboard when the user leaves+returns to the host app, wiping local state. Reading the App
         // Group means the mic button reliably stops the dictation that's actually running.
-        if state == .transcribing { return }
+        if state == .awaiting { return }
 
         if DictationHandoff.isCapturing() {
-            state = .transcribing
+            state = .awaiting
             statusMessage = "Transcribing…"
             DictationHandoff.trace("kbd", "stop tap → posting stop")
             DictationHandoff.post(DictationHandoff.stopNotification)
             startHandoffTimeout()
         } else {
-            state = .recording
+            state = .dictating
             statusMessage = "Listening… tap to stop"
             // Seamless path (Wispr's "Flow Session"): if the container app is still alive in the
             // background from a recent dictation, just signal it — no `openURL`, so iOS never
@@ -91,12 +94,12 @@ final class KeyboardViewModel: ObservableObject {
     /// dictation is live (e.g. the user returned from the launch), show "tap to stop"; otherwise idle.
     func syncFromSession() {
         if DictationHandoff.isCapturing() {
-            if state != .recording {
-                state = .recording
+            if state != .dictating {
+                state = .dictating
                 statusMessage = "Listening… tap to stop"
                 DictationHandoff.trace("kbd", "reappear — synced to RECORDING (session live)")
             }
-        } else if state == .recording {
+        } else if state == .dictating {
             state = .idle
             statusMessage = "Tap mic to dictate"
         }
@@ -116,22 +119,21 @@ final class KeyboardViewModel: ObservableObject {
         scheduleStatusReset()
     }
 
-    /// Fall back to idle if the container app never reports `done` — a lost handoff must not leave the
-    /// keyboard permanently stuck in `.transcribing` with the mic button disabled.
+    /// Poll `pendingText` until the transcript lands (or time out) — the app never signals us, and iOS
+    /// may recreate this keyboard mid-transcribe, so polling is the only reliable pickup. Must never
+    /// leave the keyboard stuck in `.awaiting`.
     private func startHandoffTimeout() {
         handoffTimeoutTask?.cancel()
         handoffTimeoutTask = Task { [weak self] in
-            // POLL for the transcript rather than trusting the one-shot `done` Darwin signal — iOS can
-            // recreate the keyboard between stop and done (observer not yet registered), so the signal
-            // is missed. checkForHandoff() synchronizes + consumes; keep trying until it lands.
+            // checkForHandoff() synchronizes the App Group + consumes pendingText; keep trying until it lands.
             let deadline = Date().addingTimeInterval(20)
             while Date() < deadline {
                 try? await Task.sleep(for: .milliseconds(250))
-                guard let self, !Task.isCancelled, self.state == .transcribing else { return }
+                guard let self, !Task.isCancelled, self.state == .awaiting else { return }
                 self.checkForHandoff()
-                if self.state != .transcribing { return }   // inserted — done
+                if self.state != .awaiting { return }   // inserted — done
             }
-            guard let self, !Task.isCancelled, self.state == .transcribing else { return }
+            guard let self, !Task.isCancelled, self.state == .awaiting else { return }
             self.state = .idle
             self.statusMessage = "Didn't catch that — tap to retry"
             self.scheduleStatusReset()

@@ -25,14 +25,15 @@ private final class AudioBox: @unchecked Sendable {
 final class RecordSessionModel: ObservableObject {
     /// `listening` = capturing this dictation. `idle` = session alive, engine running, waiting for the
     /// next keyboard tap (this is the seamless state — app is backgrounded but alive).
-    enum Phase: Equatable { case starting, listening, transcribing, idle, ended, failed(String) }
-    @Published var phase: Phase = .starting
+    /// Names match docs/ios-dictation-architecture.md. `capturing` deliberately shares its name with
+    /// the `capturing` App-Group variable (same event); `ready` = warm & alive, waiting.
+    enum Phase: Equatable { case warming, capturing, transcribing, ready, ended, failed(String) }
+    @Published var phase: Phase = .warming
     @Published var level: Float = 0
     @Published var transcript: String = ""
     @Published var dictationCount = 0
 
-    private let engine = RecordingEngine()
-    private let keepAlive = KeepAliveAudio()
+    private let flowAudio = FlowSessionAudio()   // one engine: silent keep-alive + mic capture
     private let transcriber: any SpeechTranscriber
     private let cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
@@ -59,7 +60,18 @@ final class RecordSessionModel: ObservableObject {
         } else {
             transcriber = AppleSpeechTranscriber(language: "en-US")
         }
-        engine.delegate = self
+        // Audio-thread callbacks: accumulate only while capturing; publish the live level for the
+        // keyboard waveform. Hop to the main actor for the model's state.
+        flowAudio.onBuffer = { [weak self] buf in
+            Task { @MainActor in guard let self, self.capturing else { return }; self.audio.append(buf) }
+        }
+        flowAudio.onLevel = { [weak self] lvl in
+            Task { @MainActor in
+                guard let self else { return }
+                self.level = lvl
+                DictationHandoff.writeLevel(self.capturing ? lvl : 0)
+            }
+        }
     }
 
     private var didWarm = false
@@ -72,25 +84,27 @@ final class RecordSessionModel: ObservableObject {
     func warm() async {
         guard !didWarm else { return }
         didWarm = true
+        DictationHandoff.setCapturing(false)   // clear any stale flag left by a killed session
         registerObservers()
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
         }
-        do {
-            try await engine.requestPermission()
-        } catch {
-            DictationHandoff.trace("app", "mic permission FAILED: \(error.localizedDescription)")
+        guard await Self.requestMicPermission() else {
+            DictationHandoff.trace("app", "mic permission denied")
             didWarm = false
             return
         }
-        // KeepAlive owns the audio session; the mic engine must not tear it down. Silent playback keeps
-        // the app resident in the background WITHOUT the mic (no orange dot) between dictations.
-        engine.managesAudioSession = false
-        keepAlive.start()
+        do {
+            try flowAudio.start()   // one engine: silent keep-alive now; mic tap added per dictation
+        } catch {
+            DictationHandoff.trace("app", "flow audio start FAILED: \(error.localizedDescription)")
+            didWarm = false
+            return
+        }
         DictationHandoff.trace("app", "warm — keep-alive started, session alive")
         startHeartbeat()
         startIdleTimer()
-        if phase == .starting { phase = .idle }
+        if phase == .warming { phase = .ready }
     }
 
     /// Cold launch via `justtalk://record` (session wasn't warm): warm, then capture the first dictation.
@@ -104,23 +118,15 @@ final class RecordSessionModel: ObservableObject {
 
     /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
     private func beginCapture() {
-        guard !capturing else { return }
+        guard flowAudio.running, !capturing else { return }
         DictationHandoff.trace("app", "beginCapture (start signal received)")
         audio.reset()
-        keepAlive.beginRecordingMode()            // session → .playAndRecord for the mic
-        do {
-            try engine.start()                    // mic on, only for the duration of this dictation
-        } catch {
-            DictationHandoff.trace("app", "mic engine start FAILED: \(error.localizedDescription)")
-            keepAlive.endRecordingMode()
-            phase = .idle
-            return
-        }
+        flowAudio.beginCapture()                  // install the mic tap (no engine restart → no 'what')
         capturing = true
         DictationHandoff.setCapturing(true)       // keyboard reads this to know a dictation is live
         captureStart = Date()
         touch()
-        phase = .listening
+        phase = .capturing
     }
 
     /// Keyboard signalled `stop` — stop capturing, transcribe, hand the text back. Session stays ALIVE
@@ -132,8 +138,7 @@ final class RecordSessionModel: ObservableObject {
         }
         let count = audio.snapshot().count
         DictationHandoff.trace("app", "stop signal — transcribing \(count) buffers")
-        engine.stop()                             // mic off
-        keepAlive.endRecordingMode()              // session → .playback (drop mic reservation, dot off)
+        flowAudio.endCapture()                    // remove the mic tap; engine keeps running (keep-alive)
         capturing = false
         DictationHandoff.setCapturing(false)
         touch()
@@ -144,7 +149,7 @@ final class RecordSessionModel: ObservableObject {
     }
 
     private func finish(_ buffers: [AVAudioPCMBuffer], _ sd: Date) async {
-        defer { if phase == .transcribing { phase = .idle } }
+        defer { if phase == .transcribing { phase = .ready } }
         do {
             let r = try await transcriber.transcribe(buffers: buffers, audioStartDate: sd)
             var text = r.text
@@ -158,9 +163,11 @@ final class RecordSessionModel: ObservableObject {
             }
             transcript = text
             dictationCount += 1
-            DictationHandoff.write(text)                       // keyboard reads this
-            DictationHandoff.trace("app", "transcribe → \(text.count) chars, wrote + posting done")
-            DictationHandoff.post(DictationHandoff.doneNotification)   // ...on this signal
+            // Write pendingText only. The app NEVER signals the keyboard (per the architecture doc) —
+            // the keyboard polls this. A `done` Darwin signal used to live here; it caused a stale-
+            // instance race and is deliberately gone.
+            DictationHandoff.write(text)
+            DictationHandoff.trace("app", "transcribe → \(text.count) chars, wrote pendingText")
         } catch {
             DictationHandoff.trace("app", "transcribe ERROR: \(error.localizedDescription)")
             log.error("transcribe: \(error.localizedDescription, privacy: .public)")
@@ -174,8 +181,7 @@ final class RecordSessionModel: ObservableObject {
         heartbeat?.cancel(); heartbeat = nil
         capturing = false
         didWarm = false
-        engine.stop()
-        keepAlive.stop()
+        flowAudio.stop()
         DictationHandoff.setCapturing(false)
         DictationHandoff.markSessionEnded()
         DictationHandoff.writeLevel(0)
@@ -236,18 +242,13 @@ final class RecordSessionModel: ObservableObject {
     }
 }
 
-extension RecordSessionModel: RecordingEngineDelegate {
-    nonisolated func recordingEngine(_ e: RecordingEngine, didReceiveBuffer b: AVAudioPCMBuffer) {
-        Task { @MainActor in
-            guard self.capturing else { return }   // engine runs all session; accumulate only while capturing
-            self.audio.append(b)
-        }
-    }
-    nonisolated func recordingEngineDidDetectSilence(_ e: RecordingEngine) {}
-    nonisolated func recordingEngine(_ e: RecordingEngine, didUpdateLevel l: Float) {
-        Task { @MainActor in
-            self.level = l
-            DictationHandoff.writeLevel(self.capturing ? l : 0)   // keyboard waveform reads this
+extension RecordSessionModel {
+    /// Request microphone permission (the one-engine FlowSessionAudio needs it before it can tap the mic).
+    static func requestMicPermission() async -> Bool {
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted: return true
+        case .denied:  return false
+        default:       return await AVAudioApplication.requestRecordPermission()
         }
     }
 }
@@ -262,10 +263,10 @@ struct RecordSessionView: View {
         VStack(spacing: 24) {
             Spacer()
             switch model.phase {
-            case .starting:
+            case .warming:
                 ProgressView().controlSize(.large)
                 Text("Getting ready…").foregroundStyle(.secondary)
-            case .listening:
+            case .capturing:
                 MicPulse(level: model.level)
                 Text("Listening…").font(.title).bold()
                 Text("Swipe back to your app and keep talking.\nTap the keyboard mic to finish.")
@@ -273,7 +274,7 @@ struct RecordSessionView: View {
             case .transcribing:
                 ProgressView().controlSize(.large)
                 Text("Transcribing…").foregroundStyle(.secondary)
-            case .idle:
+            case .ready:
                 Image(systemName: "checkmark.circle.fill").font(.system(size: 48)).foregroundStyle(.green)
                 Text("Ready — tap the keyboard mic to dictate again.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)

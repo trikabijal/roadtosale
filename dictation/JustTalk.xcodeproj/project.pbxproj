@@ -29,13 +29,13 @@
 		A3381B7DF7E36EAB5AC4C2A2 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E92228F9B190F400D60A2E6 /* HistoryView.swift */; };
 		BCBBC5AB6714F38095D2AE71 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 05CFE98659B37878934EC36F /* DictationCore */; };
 		C248632971AAF2DE5521AB99 /* DictationKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 89A2F0485E5280F14166D929 /* DictationKeyboard.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		C9A077AA0BCC6C6994CD4E98 /* KeepAliveAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7E05F8C7B7CB4D70BFB1837 /* KeepAliveAudio.swift */; };
 		D2FD6CF6DF9B41B983A24D03 /* RequirementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA871F89ABBCFE95F000751 /* RequirementsView.swift */; };
 		D6CD02E72F0E271DD7C40B5B /* HotkeyConfigTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79FD6B18A4EFFCAF9102F2CC /* HotkeyConfigTests.swift */; };
 		DA2B53F8205E5E6FC3229B19 /* MenuBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76746E2E60A6DCC056DE40EA /* MenuBarView.swift */; };
 		DB839A2E05861856F5A2FFB5 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 03AD14382E804A900A1DD5FA /* Assets.xcassets */; };
 		DF5E1DCE86A187E986B2BC7E /* KeyboardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D602FBD95895B0EED269984 /* KeyboardViewModel.swift */; };
 		E039C21DEE4C6CDA55AA70C2 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */; };
+		E06202F858882F90282A2E49 /* FlowSessionAudio.swift in Sources */ = {isa = PBXBuildFile; fileRef = C3AAA40232332BBBEF9F03B7 /* FlowSessionAudio.swift */; };
 		E6FA20103A2D9AE3B1462047 /* KBLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A66110A659F554EB0F686F4 /* KBLog.swift */; };
 		E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A61E7598085DE6F8175CC5 /* RecordSession.swift */; };
 		F157BE4D0DE453FFF438AD46 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 260D32E67CFC9947167AF965 /* OnboardingView.swift */; };
@@ -108,10 +108,10 @@
 		BBA871F89ABBCFE95F000751 /* RequirementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RequirementsView.swift; sourceTree = "<group>"; };
 		BEC0F0210BB98D90297A4066 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		C2529F3629EBE1A1EB5E16E0 /* JustTalk.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = JustTalk.entitlements; sourceTree = "<group>"; };
+		C3AAA40232332BBBEF9F03B7 /* FlowSessionAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowSessionAudio.swift; sourceTree = "<group>"; };
 		C6A61E7598085DE6F8175CC5 /* RecordSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordSession.swift; sourceTree = "<group>"; };
 		DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConflict.swift; sourceTree = "<group>"; };
 		E3E032C8F75167281AA70243 /* HotkeyConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyConfig.swift; sourceTree = "<group>"; };
-		E7E05F8C7B7CB4D70BFB1837 /* KeepAliveAudio.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeepAliveAudio.swift; sourceTree = "<group>"; };
 		EC97E12498B580746A9D4FBB /* DictationKeyboard.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DictationKeyboard.entitlements; sourceTree = "<group>"; };
 		EED2292ED30E1663318BE820 /* DictationContainerApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DictationContainerApp.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -164,9 +164,9 @@
 				BEC0F0210BB98D90297A4066 /* ContentView.swift */,
 				EED2292ED30E1663318BE820 /* DictationContainerApp.entitlements */,
 				9400B0D4896004BF8C91126D /* DictationContainerApp.swift */,
+				C3AAA40232332BBBEF9F03B7 /* FlowSessionAudio.swift */,
 				24DCF20C439D665D3A9E4BB3 /* Info.plist */,
 				1D5AD69248D0B47905EDE579 /* InstallSignal.swift */,
-				E7E05F8C7B7CB4D70BFB1837 /* KeepAliveAudio.swift */,
 				39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */,
 				C6A61E7598085DE6F8175CC5 /* RecordSession.swift */,
 			);
@@ -394,8 +394,8 @@
 			files = (
 				8B9BB1826F9CD55FB355DD68 /* ContentView.swift in Sources */,
 				33433838F497E5B26ED117D0 /* DictationContainerApp.swift in Sources */,
+				E06202F858882F90282A2E49 /* FlowSessionAudio.swift in Sources */,
 				F91B8D676CA1B9B6688FC21A /* InstallSignal.swift in Sources */,
-				C9A077AA0BCC6C6994CD4E98 /* KeepAliveAudio.swift in Sources */,
 				201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */,
 				E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */,
 			);

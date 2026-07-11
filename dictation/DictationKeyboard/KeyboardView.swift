@@ -47,7 +47,7 @@ struct KeyboardView: View {
             }
         }
         .buttonStyle(.plain)
-        .disabled(viewModel.state == .transcribing)
+        .disabled(viewModel.state == .awaiting)
         .animation(.spring(response: 0.3, dampingFraction: 0.7), value: viewModel.state)
     }
 
@@ -58,11 +58,11 @@ struct KeyboardView: View {
             Image(systemName: "mic.fill")
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(.primary)
-        case .recording:
+        case .dictating:
             Image(systemName: "stop.fill")
                 .font(.system(size: 22, weight: .semibold))
                 .foregroundStyle(.white)
-        case .transcribing:
+        case .awaiting:
             ProgressView()
                 .scaleEffect(0.85)
                 .tint(.secondary)
@@ -94,16 +94,16 @@ struct KeyboardView: View {
     private var micButtonColor: Color {
         switch viewModel.state {
         case .idle:         return Color(.secondarySystemGroupedBackground)
-        case .recording:    return .red
-        case .transcribing: return Color(.secondarySystemGroupedBackground)
+        case .dictating:    return .red
+        case .awaiting: return Color(.secondarySystemGroupedBackground)
         }
     }
 
     private var statusTextColor: Color {
         switch viewModel.state {
         case .idle:         return .secondary
-        case .recording:    return .red
-        case .transcribing: return .orange
+        case .dictating:    return .red
+        case .awaiting: return .orange
         }
     }
 }

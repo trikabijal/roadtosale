@@ -122,9 +122,11 @@ public enum DictationHandoff {
     }
 
     // MARK: - Cross-process signals (Darwin notifications)
+    //
+    // ONLY two, and both go keyboard → app. The app never signals the keyboard — it writes `pendingText`
+    // and the keyboard polls it (a `done` app→keyboard signal used to exist; it caused a stale-instance
+    // race and was removed). See docs/ios-dictation-architecture.md.
 
-    /// App → keyboard: the transcript is ready in the App Group, come read it.
-    public static let doneNotification = "com.trika.dictation.handoff.done"
     /// Keyboard → app (session ALIVE): begin a new dictation without relaunching the app.
     public static let startNotification = "com.trika.dictation.handoff.start"
     /// Keyboard → app: stop recording now (transcribe + hand back).
