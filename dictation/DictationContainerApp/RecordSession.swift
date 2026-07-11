@@ -32,6 +32,7 @@ final class RecordSessionModel: ObservableObject {
     @Published var dictationCount = 0
 
     private let engine = RecordingEngine()
+    private let keepAlive = KeepAliveAudio()
     private let transcriber: any SpeechTranscriber
     private let cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
@@ -39,9 +40,10 @@ final class RecordSessionModel: ObservableObject {
     private var capturing = false
     private var captureStart: Date?
 
-    // Session lifetime: engine stays up this long after the last activity, then we tear down so the
-    // mic can't stay live forever. Each dictation resets the clock.
-    private static let idleTimeoutSeconds: Double = 90
+    // Session lifetime: the keep-alive (silent, no mic) holds the app up this long after the last
+    // dictation, then we release it. Long is cheap now that the mic isn't held between dictations —
+    // this is what keeps the app warm so there's no repeat app-switch. Each dictation resets the clock.
+    private static let idleTimeoutSeconds: Double = 900   // 15 min
     private static let heartbeatSeconds: Double = 3
     private var idleTimer: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
@@ -73,14 +75,17 @@ final class RecordSessionModel: ObservableObject {
         }
         do {
             try await engine.requestPermission()
-            try engine.start()                 // runs for the WHOLE session; we toggle `capturing`
         } catch {
-            DictationHandoff.trace("app", "engine start FAILED: \(error.localizedDescription)")
+            DictationHandoff.trace("app", "mic permission FAILED: \(error.localizedDescription)")
             phase = .failed(error.localizedDescription)
             DictationHandoff.markSessionEnded()
             return
         }
-        DictationHandoff.trace("app", "engine running, session alive")
+        // KeepAlive owns the audio session; the mic engine must not tear it down. Silent playback keeps
+        // the app resident in the background WITHOUT the mic (no orange dot) between dictations.
+        engine.managesAudioSession = false
+        keepAlive.start()
+        DictationHandoff.trace("app", "keep-alive started, session alive")
         startHeartbeat()
         startIdleTimer()
         beginCapture()                          // the tap that launched us is the first dictation
@@ -88,8 +93,18 @@ final class RecordSessionModel: ObservableObject {
 
     /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
     private func beginCapture() {
+        guard !capturing else { return }
         DictationHandoff.trace("app", "beginCapture (start signal received)")
         audio.reset()
+        keepAlive.beginRecordingMode()            // session → .playAndRecord for the mic
+        do {
+            try engine.start()                    // mic on, only for the duration of this dictation
+        } catch {
+            DictationHandoff.trace("app", "mic engine start FAILED: \(error.localizedDescription)")
+            keepAlive.endRecordingMode()
+            phase = .idle
+            return
+        }
         capturing = true
         DictationHandoff.setCapturing(true)       // keyboard reads this to know a dictation is live
         captureStart = Date()
@@ -106,6 +121,8 @@ final class RecordSessionModel: ObservableObject {
         }
         let count = audio.snapshot().count
         DictationHandoff.trace("app", "stop signal — transcribing \(count) buffers")
+        engine.stop()                             // mic off
+        keepAlive.endRecordingMode()              // session → .playback (drop mic reservation, dot off)
         capturing = false
         DictationHandoff.setCapturing(false)
         touch()
@@ -146,6 +163,7 @@ final class RecordSessionModel: ObservableObject {
         heartbeat?.cancel(); heartbeat = nil
         capturing = false
         engine.stop()
+        keepAlive.stop()
         DictationHandoff.setCapturing(false)
         DictationHandoff.markSessionEnded()
         DictationHandoff.writeLevel(0)

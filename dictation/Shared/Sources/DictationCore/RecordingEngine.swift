@@ -65,6 +65,12 @@ public final class RecordingEngine: NSObject {
 
     public weak var delegate: RecordingEngineDelegate?
 
+    /// When true (default) the engine configures + activates the iOS `AVAudioSession` on start and
+    /// deactivates it on stop. Set FALSE when an owner (the Flow Session) manages the session itself —
+    /// e.g. it keeps a silent keep-alive playing between dictations, and this engine must NOT
+    /// deactivate the shared session out from under it.
+    public var managesAudioSession = true
+
     // VAD state
     private var hasSpeechStarted = false
     private var silenceStartDate: Date?
@@ -113,13 +119,14 @@ public final class RecordingEngine: NSObject {
         guard !isRunning else { return }
 
         #if os(iOS)
-        let session = AVAudioSession.sharedInstance()
-        // In a keyboard extension the host app owns the audio session; `.measurement` + `.duckOthers`
-        // fights it and AVAudioEngine.start() fails with 'what' (2003329396). `.playAndRecord` +
-        // `.mixWithOthers` lets the extension record alongside the foreground app.
-        try session.setCategory(.playAndRecord, mode: .default,
-                                options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker])
-        try session.setActive(true, options: .notifyOthersOnDeactivation)
+        if managesAudioSession {
+            let session = AVAudioSession.sharedInstance()
+            // `.playAndRecord` + `.mixWithOthers` lets us record alongside a foreground app without
+            // `.measurement`/`.duckOthers` fighting it (which fails AVAudioEngine.start with 'what').
+            try session.setCategory(.playAndRecord, mode: .default,
+                                    options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        }
         #endif
 
         try armTapAndStart()
@@ -209,7 +216,9 @@ public final class RecordingEngine: NSObject {
         isRunning = false
 
         #if os(iOS)
-        try? AVAudioSession.sharedInstance().setActive(false)
+        if managesAudioSession {
+            try? AVAudioSession.sharedInstance().setActive(false)
+        }
         #endif
     }
 
