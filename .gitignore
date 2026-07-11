@@ -92,3 +92,4 @@ build-ios-device/
 .vscode/
 .idea/
 .aider*
+dictation/build-sim/

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		05E7CE5A84496D5CE08D8148 /* ClipboardPaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */; };
 		0FEC4AB499C22F3552219FCC /* HotkeyPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8348A65F7FBC56F78D243F23 /* HotkeyPermissionTests.swift */; };
+		201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */; };
 		27ED2AFF7B461210B306C66B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A732C99F4CC32FEAC6D6762 /* AppState.swift */; };
 		2A08240AFDBAC11C579986B4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE9AA6B82BF95DEE8368937 /* Theme.swift */; };
 		31FD2E192660FDA86DFB389C /* HotkeyConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */; };
@@ -37,6 +38,7 @@
 		E6FA20103A2D9AE3B1462047 /* KBLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A66110A659F554EB0F686F4 /* KBLog.swift */; };
 		E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A61E7598085DE6F8175CC5 /* RecordSession.swift */; };
 		F157BE4D0DE453FFF438AD46 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 260D32E67CFC9947167AF965 /* OnboardingView.swift */; };
+		F91B8D676CA1B9B6688FC21A /* InstallSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5AD69248D0B47905EDE579 /* InstallSignal.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +77,7 @@
 		07EF7AD570C93F676315ECF9 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		081E925FBC74EB1B9A3F02B5 /* HotkeyManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotkeyManager.swift; sourceTree = "<group>"; };
 		1A66110A659F554EB0F686F4 /* KBLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KBLog.swift; sourceTree = "<group>"; };
+		1D5AD69248D0B47905EDE579 /* InstallSignal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InstallSignal.swift; sourceTree = "<group>"; };
 		205822849208ED17A4502FDA /* JustTalk.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = JustTalk.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		24DCF20C439D665D3A9E4BB3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		260D32E67CFC9947167AF965 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
@@ -83,6 +86,7 @@
 		2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardPaster.swift; sourceTree = "<group>"; };
 		351C23993E3EF252AA709668 /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
 		367B8C381718F98E3BE732D0 /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Shared; path = Shared; sourceTree = SOURCE_ROOT; };
+		39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
 		4CAF2D28601C4A9EE7AA105B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		604B255F85D233ADFFBCDDC2 /* KeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
 		67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -159,6 +163,8 @@
 				EED2292ED30E1663318BE820 /* DictationContainerApp.entitlements */,
 				9400B0D4896004BF8C91126D /* DictationContainerApp.swift */,
 				24DCF20C439D665D3A9E4BB3 /* Info.plist */,
+				1D5AD69248D0B47905EDE579 /* InstallSignal.swift */,
+				39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */,
 				C6A61E7598085DE6F8175CC5 /* RecordSession.swift */,
 			);
 			path = DictationContainerApp;
@@ -385,6 +391,8 @@
 			files = (
 				8B9BB1826F9CD55FB355DD68 /* ContentView.swift in Sources */,
 				33433838F497E5B26ED117D0 /* DictationContainerApp.swift in Sources */,
+				F91B8D676CA1B9B6688FC21A /* InstallSignal.swift in Sources */,
+				201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */,
 				E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

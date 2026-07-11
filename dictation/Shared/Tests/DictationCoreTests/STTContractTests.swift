@@ -56,7 +56,9 @@ final class STTContractTests: XCTestCase {
 
     func testConfigDefault() {
         XCTAssertEqual(STTConfig.default.provider, .whisperKit)
-        XCTAssertEqual(STTConfig.default.model, DictationCoreBase.ModelTier.largeV3Turbo.rawValue)
+        // Ship default for the WhisperKit backup is small-multilingual (fast + Indic-capable), sourced
+        // from the single `defaultWhisper` constant — not the heavy large-v3-turbo.
+        XCTAssertEqual(STTConfig.default.model, DictationCoreBase.ModelTier.defaultWhisper.rawValue)
     }
 
     func testModelDisplayName() {
