@@ -31,6 +31,9 @@ final class RecordingHUDModel: ObservableObject {
 final class RecordingHUD {
     private let model = RecordingHUDModel()
     private var panel: NSPanel?
+    /// Re-floats the pill whenever the active Space changes — entering/returning to another app's
+    /// full-screen Space can otherwise leave the (cached) panel behind that Space, hiding the pill.
+    private var spaceObserver: (any NSObjectProtocol)?
     /// Tracks on-screen state so the open/close cues fire on true visibility transitions only —
     /// not on phase changes (e.g. recording→processing) while the pill stays up.
     private var isVisible = false
@@ -93,6 +96,7 @@ final class RecordingHUD {
     private func present() {
         let panel = ensurePanel()
         position(panel)
+        applyTopmost(panel)          // re-assert — macOS may have demoted the cached panel's level
         panel.orderFrontRegardless()
         if !isVisible {
             isVisible = true
@@ -175,19 +179,16 @@ final class RecordingHUD {
             defer: false
         )
         p.isFloatingPanel = true
-        // Float above EVERYTHING, including another app's full-screen window. `.statusBar` (25) and
-        // even `.screenSaver` (1000) can sit *below* a full-screen Space on macOS 26, hiding the HUD
-        // behind e.g. full-screen Terminal / Claude. `CGShieldingWindowLevel()` is the level the OS
-        // uses to shield the screen — reliably above full-screen apps. `.canJoinAllSpaces` (below)
-        // makes it follow onto whichever Space (incl. a full-screen one) is active.
-        p.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
         p.backgroundColor = .clear
         p.isOpaque = false
-        p.hasShadow = true
+        // No WINDOW shadow: over a light backdrop macOS renders the borderless panel's shadow as a
+        // grey capsule halo around the pill (reads as an ugly "second pill" with a gap). The pill
+        // carries its own depth via the gold border glow + the capsule's own shadow instead.
+        p.hasShadow = false
         p.ignoresMouseEvents = false          // let the user grab it…
         p.isMovableByWindowBackground = true  // …and drag anywhere on the pill to reposition
         p.hidesOnDeactivate = false
-        p.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        applyTopmost(p)
         p.contentView = NSHostingView(rootView: HUDContentView(model: model))
         // Remember wherever the user drags it, so it stays put across future recordings.
         NotificationCenter.default.addObserver(
@@ -196,8 +197,29 @@ final class RecordingHUD {
             guard let window = note.object as? NSWindow else { return }
             self?.saveOrigin(window.frame.origin)
         }
+        // Re-float on Space changes: switching into (or back to) another app's full-screen Space can
+        // leave the cached panel stranded behind it. Re-assert level + re-order front while visible.
+        spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.isVisible, let panel = self.panel else { return }
+                self.applyTopmost(panel)
+                panel.orderFrontRegardless()
+            }
+        }
         panel = p
         return p
+    }
+
+    /// Assert the pill floats above everything — including another app's full-screen window.
+    /// `.statusBar` (25) and even `.screenSaver` (1000) can sit *below* a full-screen Space on
+    /// macOS 26, hiding the HUD. `CGShieldingWindowLevel()` is the OS's screen-shield level — reliably
+    /// above full-screen apps. `.canJoinAllSpaces` follows onto whichever Space is active. Re-applied
+    /// on every show + on Space changes because macOS can demote a cached window's level/behavior.
+    private func applyTopmost(_ panel: NSPanel) {
+        panel.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
     }
 
     private func position(_ panel: NSPanel) {
@@ -291,15 +313,16 @@ private struct HUDContentView: View {
         // and a strong hairline border — all from the design tokens. The capsule HUGS its content
         // (no fixed width) per the design, then centers within the panel.
         .background {
-            // Frosted GLASS, not a solid fill: the material blurs whatever's behind the floating
-            // pill, and a light ~32% neutral-dark tint gives just enough backing for the text/wave to
-            // stay legible over any desktop — see-through everywhere, never reads black.
+            // Frosted GLASS over a DARK backing: the material blurs what's behind the pill, but the
+            // dark tint must dominate so the pill reads dark and the white text/wave stay legible over
+            // ANY desktop — incl. a light app (Claude in light mode washed .ultraThinMaterial to a grey
+            // blob with unreadable text at low tint). ~83% keeps a hint of translucency, never a flat black.
             Capsule()
                 .fill(.ultraThinMaterial)
                 .overlay(
                     Capsule().fill(
                         LinearGradient(
-                            colors: [Self.glassTint.opacity(0.36), Self.glassTint.opacity(0.30)],
+                            colors: [Self.glassTint.opacity(0.86), Self.glassTint.opacity(0.80)],
                             startPoint: .top, endPoint: .bottom)))
                 // Subtle top highlight — the glass edge catching light.
                 .overlay(
