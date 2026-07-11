@@ -41,7 +41,11 @@ final class KeyboardViewModel: ObservableObject {
     // MARK: - Init
 
     init() {
-        startListeningForDone()
+        // NOTE: deliberately NO `done` Darwin observer. iOS keeps stale keyboard instances alive; a
+        // dead instance's observer would fire, consume the transcript, and insert it into its
+        // disconnected text proxy — so the text vanishes and the visible keyboard stays stuck. Instead
+        // the VISIBLE instance (the one that posted stop) polls for the transcript and inserts via its
+        // live proxy; viewWillAppear also checks on reappear. See toggleRecording / startHandoffTimeout.
     }
 
     deinit {
@@ -100,24 +104,10 @@ final class KeyboardViewModel: ObservableObject {
 
     // MARK: - Handoff
 
-    /// Register for the app's `done` signal so we insert the moment the transcript is ready — the app
-    /// finishes asynchronously in the background after the keyboard has already reappeared.
-    private func startListeningForDone() {
-        DictationHandoff.observe(DictationHandoff.doneNotification,
-                                 observer: Unmanaged.passUnretained(self).toOpaque()) { _, observer, _, _, _ in
-            guard let observer else { return }
-            let vm = Unmanaged<KeyboardViewModel>.fromOpaque(observer).takeUnretainedValue()
-            Task { @MainActor in vm.checkForHandoff() }
-        }
-    }
-
-    /// Insert any transcript the container app left in the App Group (called on the `done` signal and
-    /// when the keyboard reappears). No-op when there's nothing pending.
+    /// Insert any transcript the container app left in the App Group (called by the visible instance's
+    /// poll after a stop, and on reappear). No-op when there's nothing pending.
     func checkForHandoff() {
-        guard let text = DictationHandoff.consume() else {
-            DictationHandoff.trace("kbd", "checkForHandoff — nothing pending")
-            return
-        }
+        guard let text = DictationHandoff.consume() else { return }
         DictationHandoff.trace("kbd", "checkForHandoff — inserting \(text.count) chars")
         handoffTimeoutTask?.cancel()
         insertText?(text)
@@ -131,12 +121,21 @@ final class KeyboardViewModel: ObservableObject {
     private func startHandoffTimeout() {
         handoffTimeoutTask?.cancel()
         handoffTimeoutTask = Task { [weak self] in
-            try? await Task.sleep(for: Self.handoffTimeout)
+            // POLL for the transcript rather than trusting the one-shot `done` Darwin signal — iOS can
+            // recreate the keyboard between stop and done (observer not yet registered), so the signal
+            // is missed. checkForHandoff() synchronizes + consumes; keep trying until it lands.
+            let deadline = Date().addingTimeInterval(20)
+            while Date() < deadline {
+                try? await Task.sleep(for: .milliseconds(250))
+                guard let self, !Task.isCancelled, self.state == .transcribing else { return }
+                self.checkForHandoff()
+                if self.state != .transcribing { return }   // inserted — done
+            }
             guard let self, !Task.isCancelled, self.state == .transcribing else { return }
             self.state = .idle
             self.statusMessage = "Didn't catch that — tap to retry"
             self.scheduleStatusReset()
-            KBLog.error("handoff timed out — no `done` from container app")
+            KBLog.error("handoff timed out — no transcript after 20s")
         }
     }
 

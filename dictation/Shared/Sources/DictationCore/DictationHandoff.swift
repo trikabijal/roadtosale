@@ -26,10 +26,15 @@ public enum DictationHandoff {
     // keyboard reads it on appear to show the right state + make the button a reliable toggle.
 
     /// Container app: set while actively capturing a dictation.
-    public static func setCapturing(_ on: Bool) { store?.set(on, forKey: capturingKey) }
+    public static func setCapturing(_ on: Bool) {
+        guard let store else { return }
+        store.set(on, forKey: capturingKey); store.synchronize()
+    }
 
     /// Keyboard: is a dictation currently being captured by the app?
-    public static func isCapturing() -> Bool { store?.bool(forKey: capturingKey) ?? false }
+    public static func isCapturing() -> Bool {
+        store?.synchronize(); return store?.bool(forKey: capturingKey) ?? false
+    }
 
     // MARK: - Flow Session liveness (the "no app-switch" mechanism)
     //
@@ -91,14 +96,19 @@ public enum DictationHandoff {
     /// Read the accumulated trace (diagnostics view / device pull).
     public static func readTrace() -> [String] { store?.stringArray(forKey: traceKey) ?? [] }
 
-    /// Container app: store the finished transcript for the keyboard to pick up.
+    /// Container app: store the finished transcript for the keyboard to pick up. `synchronize()` forces
+    /// the write to the shared store immediately — without it the keyboard's cross-process read can see
+    /// a stale snapshot and miss the transcript (the "stuck at Transcribing, never pasted" bug).
     public static func write(_ text: String) {
-        store?.set(["text": text, "ts": Date().timeIntervalSince1970], forKey: key)
+        guard let store else { return }
+        store.set(["text": text, "ts": Date().timeIntervalSince1970], forKey: key)
+        store.synchronize()
     }
 
     /// Keyboard: read + clear the pending transcript (nil if none). Ignores stale entries older than
     /// the window, so a long-abandoned session can't inject text into an unrelated field later.
     public static func consume(maxAgeSeconds: TimeInterval = 120) -> String? {
+        store?.synchronize()   // pull the app's latest write before reading (cross-process freshness)
         guard let dict = store?.dictionary(forKey: key),
               let text = dict["text"] as? String, !text.isEmpty,
               let ts = dict["ts"] as? TimeInterval,

@@ -378,6 +378,29 @@ public final class AppState: NSObject, ObservableObject {
             telemetryStore = nil
             log.error("Telemetry store failed to open — History will stay empty: \(error.localizedDescription, privacy: .public)")
         }
+
+        // 7. Warm the cold paths so the FIRST dictation is instant, not a ~3s stall (the pill appeared
+        //    late + didn't record until then). macOS cold-inits the audio HAL on the first
+        //    AVAudioEngine.start(); the LLM cleanup warms lazily too. Pay both now, at launch, in the
+        //    background — the cost moves off the user's first key-press.
+        await warmUpForFirstDictation()
+    }
+
+    /// Pre-pay the first-dictation cold costs at launch. Safe/no-op if the mic isn't granted yet (the
+    /// permission-polling loop re-runs it once granted).
+    private func warmUpForFirstDictation() async {
+        guard permissions.micStatus == .granted, engineLoaded, dictationState == .idle, !micTestActive else { return }
+        cleanup.prewarm()
+        do {
+            // The audio HAL cold-start cost is paid inside this first start(); stop immediately — the
+            // mic is live only momentarily. Subsequent (real) starts are then instant.
+            try recordingEngine.start()
+            recordingEngine.stop()
+            audio.reset()   // discard the microscopic warm-up capture
+            log.notice("first-dictation warm-up complete")
+        } catch {
+            log.notice("engine warm-up skipped: \(error.localizedDescription, privacy: .public)")
+        }
     }
 
     // MARK: - Permissions & onboarding
