@@ -60,8 +60,10 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Returning from a Flow Session: pull any transcript the container app left and insert it.
+        // Returning from a Flow Session: insert any finished transcript, then sync the mic button to
+        // the live session (iOS recreated us, wiping local state — the shared flag is the truth).
         viewModel.checkForHandoff()
+        viewModel.syncFromSession()
     }
 
     /// Open a URL from inside a keyboard extension by walking the responder chain (starting PAST self)

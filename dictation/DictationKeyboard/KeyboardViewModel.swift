@@ -55,8 +55,18 @@ final class KeyboardViewModel: ObservableObject {
     // MARK: - Public control
 
     func toggleRecording() {
-        switch state {
-        case .idle:
+        // Decide START vs STOP from the SHARED capturing flag, not local `state` — iOS recreates the
+        // keyboard when the user leaves+returns to the host app, wiping local state. Reading the App
+        // Group means the mic button reliably stops the dictation that's actually running.
+        if state == .transcribing { return }
+
+        if DictationHandoff.isCapturing() {
+            state = .transcribing
+            statusMessage = "Transcribing…"
+            DictationHandoff.trace("kbd", "stop tap → posting stop")
+            DictationHandoff.post(DictationHandoff.stopNotification)
+            startHandoffTimeout()
+        } else {
             state = .recording
             statusMessage = "Listening… tap to stop"
             // Seamless path (Wispr's "Flow Session"): if the container app is still alive in the
@@ -64,17 +74,27 @@ final class KeyboardViewModel: ObservableObject {
             // foregrounds it and the user stays in the app they're typing in. Only when the session
             // has gone cold do we launch the app (the one-time app switch).
             if DictationHandoff.isSessionAlive() {
+                DictationHandoff.trace("kbd", "start tap → session ALIVE, posting start (seamless)")
                 DictationHandoff.post(DictationHandoff.startNotification)
             } else {
+                DictationHandoff.trace("kbd", "start tap → session COLD, openURL (launch app)")
                 openApp?(DictationHandoff.recordURL)
             }
-        case .recording:
-            state = .transcribing
-            statusMessage = "Transcribing…"
-            DictationHandoff.post(DictationHandoff.stopNotification)
-            startHandoffTimeout()
-        case .transcribing:
-            break
+        }
+    }
+
+    /// Called when the keyboard (re)appears: sync the button state to the actual session. If a
+    /// dictation is live (e.g. the user returned from the launch), show "tap to stop"; otherwise idle.
+    func syncFromSession() {
+        if DictationHandoff.isCapturing() {
+            if state != .recording {
+                state = .recording
+                statusMessage = "Listening… tap to stop"
+                DictationHandoff.trace("kbd", "reappear — synced to RECORDING (session live)")
+            }
+        } else if state == .recording {
+            state = .idle
+            statusMessage = "Tap mic to dictate"
         }
     }
 
@@ -94,7 +114,11 @@ final class KeyboardViewModel: ObservableObject {
     /// Insert any transcript the container app left in the App Group (called on the `done` signal and
     /// when the keyboard reappears). No-op when there's nothing pending.
     func checkForHandoff() {
-        guard let text = DictationHandoff.consume() else { return }
+        guard let text = DictationHandoff.consume() else {
+            DictationHandoff.trace("kbd", "checkForHandoff — nothing pending")
+            return
+        }
+        DictationHandoff.trace("kbd", "checkForHandoff — inserting \(text.count) chars")
         handoffTimeoutTask?.cancel()
         insertText?(text)
         state = .idle

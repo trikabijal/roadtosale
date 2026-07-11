@@ -14,7 +14,22 @@ public enum DictationHandoff {
     private static let key = "pendingDictation"
     private static let sessionKey = "flowSessionHeartbeat"
     private static let levelKey = "flowSessionLevel"
+    private static let capturingKey = "flowSessionCapturing"
     private static var store: UserDefaults? { UserDefaults(suiteName: appGroup) }
+
+    // MARK: - Shared recording state (survives keyboard-extension recreation)
+    //
+    // iOS tears down + recreates the keyboard extension when the user leaves and returns to the host
+    // app, wiping its in-memory state. So "is a dictation in progress?" must live in the App Group,
+    // not the keyboard — otherwise a mic tap after returning STARTS a second recording instead of
+    // STOPPING the running one (the "it never stopped / no text" bug). The app owns this flag; the
+    // keyboard reads it on appear to show the right state + make the button a reliable toggle.
+
+    /// Container app: set while actively capturing a dictation.
+    public static func setCapturing(_ on: Bool) { store?.set(on, forKey: capturingKey) }
+
+    /// Keyboard: is a dictation currently being captured by the app?
+    public static func isCapturing() -> Bool { store?.bool(forKey: capturingKey) ?? false }
 
     // MARK: - Flow Session liveness (the "no app-switch" mechanism)
     //
@@ -51,6 +66,30 @@ public enum DictationHandoff {
     public static func readLevel() -> Float {
         (store?.object(forKey: levelKey) as? Float) ?? 0
     }
+
+    // MARK: - Cross-process trace (diagnostics)
+    //
+    // Both processes append timestamped events to one file in the App Group container so the full
+    // handoff (keyboard tap → app record → transcribe → done → insert) can be reconstructed after a
+    // device test — os_log doesn't reliably surface across the keyboard/app boundary.
+
+    private static let traceKey = "handoffTrace"
+
+    /// Append `who: event` with a timestamp to the shared UserDefaults suite (reliable cross-process —
+    /// the App Group *file* container is flaky in a keyboard extension, but the defaults suite works).
+    public static func trace(_ who: String, _ event: String) {
+        guard let store else { return }
+        var lines = store.stringArray(forKey: traceKey) ?? []
+        lines.append(String(format: "%.3f %@: %@", Date().timeIntervalSince1970, who, event))
+        if lines.count > 200 { lines.removeFirst(lines.count - 200) }
+        store.set(lines, forKey: traceKey)
+    }
+
+    /// Wipe the trace (call at the start of a fresh session so a test reads clean).
+    public static func resetTrace() { store?.removeObject(forKey: traceKey) }
+
+    /// Read the accumulated trace (diagnostics view / device pull).
+    public static func readTrace() -> [String] { store?.stringArray(forKey: traceKey) ?? [] }
 
     /// Container app: store the finished transcript for the keyboard to pick up.
     public static func write(_ text: String) {

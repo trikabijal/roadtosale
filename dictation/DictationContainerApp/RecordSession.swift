@@ -65,6 +65,8 @@ final class RecordSessionModel: ObservableObject {
     /// observers up front so a fast start→stop during warm-up isn't missed.
     func begin() async {
         guard phase == .starting else { return }
+        DictationHandoff.resetTrace()
+        DictationHandoff.trace("app", "begin — cold launch, starting session")
         registerObservers()
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
@@ -73,10 +75,12 @@ final class RecordSessionModel: ObservableObject {
             try await engine.requestPermission()
             try engine.start()                 // runs for the WHOLE session; we toggle `capturing`
         } catch {
+            DictationHandoff.trace("app", "engine start FAILED: \(error.localizedDescription)")
             phase = .failed(error.localizedDescription)
             DictationHandoff.markSessionEnded()
             return
         }
+        DictationHandoff.trace("app", "engine running, session alive")
         startHeartbeat()
         startIdleTimer()
         beginCapture()                          // the tap that launched us is the first dictation
@@ -84,8 +88,10 @@ final class RecordSessionModel: ObservableObject {
 
     /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
     private func beginCapture() {
+        DictationHandoff.trace("app", "beginCapture (start signal received)")
         audio.reset()
         capturing = true
+        DictationHandoff.setCapturing(true)       // keyboard reads this to know a dictation is live
         captureStart = Date()
         touch()
         phase = .listening
@@ -94,8 +100,14 @@ final class RecordSessionModel: ObservableObject {
     /// Keyboard signalled `stop` — stop capturing, transcribe, hand the text back. Session stays ALIVE
     /// (engine keeps running) so the next tap is seamless.
     private func endCaptureAndTranscribe() {
-        guard capturing else { return }
+        guard capturing else {
+            DictationHandoff.trace("app", "stop signal but NOT capturing (ignored)")
+            return
+        }
+        let count = audio.snapshot().count
+        DictationHandoff.trace("app", "stop signal — transcribing \(count) buffers")
         capturing = false
+        DictationHandoff.setCapturing(false)
         touch()
         phase = .transcribing
         let buffers = audio.snapshot()
@@ -112,12 +124,17 @@ final class RecordSessionModel: ObservableObject {
                text.split(whereSeparator: \.isWhitespace).count >= cleanupPack.minWordsForCleanup {
                 text = (await cleanup.clean(CleanupRequest(rawText: text, level: .light))).cleanedText
             }
-            guard !text.isEmpty else { return }
+            guard !text.isEmpty else {
+                DictationHandoff.trace("app", "transcribe → EMPTY (nothing heard)")
+                return
+            }
             transcript = text
             dictationCount += 1
             DictationHandoff.write(text)                       // keyboard reads this
+            DictationHandoff.trace("app", "transcribe → \(text.count) chars, wrote + posting done")
             DictationHandoff.post(DictationHandoff.doneNotification)   // ...on this signal
         } catch {
+            DictationHandoff.trace("app", "transcribe ERROR: \(error.localizedDescription)")
             log.error("transcribe: \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -129,6 +146,7 @@ final class RecordSessionModel: ObservableObject {
         heartbeat?.cancel(); heartbeat = nil
         capturing = false
         engine.stop()
+        DictationHandoff.setCapturing(false)
         DictationHandoff.markSessionEnded()
         DictationHandoff.writeLevel(0)
         DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())

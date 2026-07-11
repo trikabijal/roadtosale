@@ -6,6 +6,7 @@ struct DictationContainerApp: App {
     @State private var recording = false
     @State private var showDiag = false
     @AppStorage("onboardingComplete") private var onboardingComplete = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -29,6 +30,9 @@ struct DictationContainerApp: App {
                     case "diag":   showDiag = true   // justtalk://diag — show the keyboard log
                     default: break
                     }
+                }
+                .onChange(of: scenePhase) { _, phase in
+                    DictationHandoff.trace("app", "scenePhase → \(phase)")
                 }
         }
     }
