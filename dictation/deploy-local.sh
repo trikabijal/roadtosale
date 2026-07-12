@@ -43,7 +43,7 @@ if [[ -z "${APP:-}" ]]; then
 fi
 
 DEST="$DEST_DIR/$(basename "$APP")"
-echo "▶ Installing $(basename "$APP") to $DEST…"
+echo "▶ Installing $(basename "$APP") to ${DEST}…"
 
 # /Applications usually needs admin rights; ~/Applications does not.
 if [[ -w "$DEST_DIR" ]]; then
