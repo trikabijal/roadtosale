@@ -41,6 +41,18 @@ first, change that one constant in `Shared/Sources/DictationCore/Entitlement.swi
    - Back in the app: menu → **Account → Check again** (or just dictate) → it unlocks. Remove the
      role → it locks again (after the grace window / next check).
 
+## User data — `app_users` table
+
+Every Google sign-in already creates a Keycloak user row (email/name/roles) in Postgres. To get an
+**app-owned, queryable** copy for other uses, deploy the sync job — see
+`deployment/user-sync/README.md`. Add it as a second Railway service in this project (root dir
+`dictation/deployment/user-sync`), wire the 5 env vars, and it upserts every user into `app_users`
+on a 10-min cron. Query with:
+
+```sql
+SELECT email, name, paid, keycloak_created_at FROM app_users ORDER BY first_seen_at DESC;
+```
+
 ## Later — payment automation
 
 When payment lands (Stripe/RevenueCat), a webhook calls Keycloak's Admin REST API to grant `paid`
