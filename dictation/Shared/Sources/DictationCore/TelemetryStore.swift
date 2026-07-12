@@ -99,6 +99,10 @@ public struct UsageTotals: Sendable {
 
 public actor TelemetryStore {
 
+    /// Privacy retention window for dictated text — enforced on BOTH platforms (dictation can hold
+    /// PII/secrets, so it isn't hoarded). One source so macOS and iOS purge the same age.
+    public static let retentionDays = 30
+
     private let dbQueue: DatabaseQueue
 
     public init(databaseURL: URL) throws {

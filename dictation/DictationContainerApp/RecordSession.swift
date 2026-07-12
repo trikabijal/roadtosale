@@ -79,7 +79,7 @@ final class RecordSessionModel: ObservableObject {
     // Float32 the buffer grows ~64 KB/s, so 10 min ≈ 38 MB — comfortably within the app's headroom, but
     // we auto-finish there so a forgotten mic can't accumulate for hours. (RAM is not the real limit;
     // this is a safety valve, and it also means a very long take still transcribes rather than being lost.)
-    private static let maxCaptureSeconds: Double = 600   // 10 minutes
+    private static let maxCaptureSeconds = DictationLimits.maxSingleTakeSeconds   // shared with macOS
     private var maxCaptureTimer: Task<Void, Never>?
 
     /// Observes `AVAudioSession` interruptions (system dictation, an incoming call, another app grabbing
@@ -103,9 +103,9 @@ final class RecordSessionModel: ObservableObject {
         // container app has the memory headroom for it (unlike the 70 MB keyboard extension).
         cleanup = TextCleanupFactory.make(CleanupConfig(provider: .foundationModels, level: .light), pack: pack)
         if #available(iOS 26.0, *) {
-            transcriber = AppleAnalyzerTranscriber(localeIdentifier: "en-US")
+            transcriber = AppleAnalyzerTranscriber(localeIdentifier: SpeechDefaults.locale)
         } else {
-            transcriber = AppleSpeechTranscriber(language: "en-US")
+            transcriber = AppleSpeechTranscriber(language: SpeechDefaults.locale)
         }
         // Audio-thread callbacks. FlowSessionAudio only fires these WHILE capturing (it gates on its own
         // `capturing` flag before calling out), so there's no second gate here — one source of truth.
@@ -283,6 +283,11 @@ final class RecordSessionModel: ObservableObject {
         registerInterruptionObserver()
         startHeartbeat()
         startIdleTimer()
+        // Privacy retention parity with macOS: purge transcripts older than the shared window (iOS was
+        // never purging — history grew unbounded). Runs once per warm, off the hot path.
+        if let store = telemetryStore() {
+            Task { try? await store.purge(olderThanDays: TelemetryStore.retentionDays) }
+        }
         transition(on: .warmed)
     }
 

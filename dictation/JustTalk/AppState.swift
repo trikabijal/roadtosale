@@ -202,10 +202,11 @@ public final class AppState: NSObject, ObservableObject {
     // (RMS of normal speech can sit under `audibleThreshold` on quiet mics while STT works fine.)
     private var heardTranscript: Bool = false
     /// Transcript text retention window (privacy) — records older than this are purged on launch.
-    private static let transcriptRetentionDays = 30
-    /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory
-    /// audio unbounded — recording auto-stops at this length.
-    private static let maxRecordingSeconds: Double = 600
+    /// Sourced from the shared `TelemetryStore.retentionDays` so both platforms purge the same age.
+    private static let transcriptRetentionDays = TelemetryStore.retentionDays
+    /// Hard safety stop: a missed hotkey release / long toggle session can't grow the in-memory audio
+    /// unbounded — recording auto-stops at this length. Shared with iOS via `DictationLimits`.
+    private static let maxRecordingSeconds = DictationLimits.maxSingleTakeSeconds
     // `.holdLatch` gesture tuning. A press shorter than `tapThreshold` counts as a "quick tap";
     // two quick taps whose DOWN edges fall within `doubleTapWindow` latch recording hands-free.
     // A longer press is an ordinary hold (push-to-talk).
@@ -252,10 +253,10 @@ public final class AppState: NSObject, ObservableObject {
         if let saved = defaults.string(forKey: "sttProvider"), let p = STTProvider(rawValue: saved) {
             provider = p
             model = defaults.string(forKey: "sttModel")
-                ?? (p == .appleSpeech ? "en-US" : ModelTier.defaultWhisper.rawValue)
+                ?? (p == .appleSpeech ? SpeechDefaults.locale : ModelTier.defaultWhisper.rawValue)
         } else {                                          // first launch — auto by capability
             provider = caps.recommendedProvider
-            model = provider == .appleSpeech ? "en-US" : ModelTier.defaultWhisper.rawValue
+            model = provider == .appleSpeech ? SpeechDefaults.locale : ModelTier.defaultWhisper.rawValue
         }
         let config = STTConfig(provider: provider, model: model)
         self.sttConfig = config

@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import DictationCore
 
 // MARK: - OnboardingWindow
 
@@ -37,7 +38,8 @@ final class OnboardingWindow {
 
 private enum Brand {
     static let red = Color(red: 0.91, green: 0.28, blue: 0.25)     // #E8483F — the HUD wave
-    static let gold = Color(red: 0.90, green: 0.70, blue: 0.31)    // #E6B450 — the pill border
+    // Shared brand accent (BrandPalette) so onboarding matches the pill + iOS surfaces.
+    static let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
     static let blue = Color(red: 0.20, green: 0.44, blue: 0.82)    // softer, less electric
     static let indigo = Color(red: 0.35, green: 0.34, blue: 0.84)
     static let green = Color(red: 0.13, green: 0.64, blue: 0.33)

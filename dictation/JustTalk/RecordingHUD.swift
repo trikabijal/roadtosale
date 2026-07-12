@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import DictationCore
 
 enum RecordingHUDPhase {
     case recording, processing, failed, done
@@ -512,9 +513,11 @@ private struct WaveMeter: View {
 private struct GoldShimmerBorder: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    // Warm golds only — the shine is gold-on-gold, no near-white highlight.
-    private let deepGold   = Color(red: 0.50, green: 0.34, blue: 0.08)
-    private let gold       = Color(red: 0.83, green: 0.63, blue: 0.22)
+    // Warm golds only — the shine is gold-on-gold, no near-white highlight. The mid `gold` is the
+    // SHARED brand accent (BrandPalette) so the Mac pill matches the iOS surfaces; deep/bright are the
+    // shimmer's shadow/highlight ends derived around it.
+    private let deepGold   = Color(red: BrandPalette.goldDeepRGB.red, green: BrandPalette.goldDeepRGB.green, blue: BrandPalette.goldDeepRGB.blue)
+    private let gold       = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
     private let brightGold = Color(red: 1.00, green: 0.82, blue: 0.38)
     private let lineWidth: CGFloat = 1.8
 

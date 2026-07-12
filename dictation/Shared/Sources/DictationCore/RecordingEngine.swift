@@ -6,6 +6,17 @@ import AVFoundation
 /// BOTH the wizard mic test (pass when the peak reaches this) and the recording low-input warning
 /// (warn when even the peak stays below this), so the two can never disagree. Sits above room noise
 /// and below normal speech.
+/// Cross-platform dictation limits — one source so macOS and iOS agree.
+public enum DictationLimits {
+    /// Hard cap on a SINGLE dictation take (both platforms) so a forgotten mic can't grow unbounded.
+    public static let maxSingleTakeSeconds: Double = 600
+}
+
+/// Default speech locale — one source for the ~handful of "en-US" hardcodes across both platforms.
+public enum SpeechDefaults {
+    public static let locale = "en-US"
+}
+
 public enum AudioLevels {
     /// "Is the user audible?" — wizard mic-test pass + recording low-input warning use this peak RMS.
     public static let audibleThreshold: Float = 0.035

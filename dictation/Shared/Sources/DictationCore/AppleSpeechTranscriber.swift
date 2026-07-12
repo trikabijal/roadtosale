@@ -20,7 +20,7 @@ public final class AppleSpeechTranscriber: SpeechTranscriber {
     private let language: String
     private var customVocabulary: [String] = []
 
-    public init(language: String = "en-US") {
+    public init(language: String = SpeechDefaults.locale) {
         self.language = language
     }
 

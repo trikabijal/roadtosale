@@ -54,7 +54,7 @@ public final class AppleAnalyzerTranscriber: DictationCoreBase.SpeechTranscriber
     /// `model` from STTConfig is a BCP-47 locale id (e.g. "en-US"); default to the user's locale.
     public init(localeIdentifier: String = "") {
         if localeIdentifier.isEmpty {
-            self.locale = Locale(identifier: "en-US")
+            self.locale = Locale(identifier: SpeechDefaults.locale)
         } else {
             self.locale = Locale(identifier: localeIdentifier)
         }
