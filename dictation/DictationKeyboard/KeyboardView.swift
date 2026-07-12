@@ -3,35 +3,42 @@ import SwiftUI
 /// The keyboard extension's full UI. The area is entirely ours (we don't reimplement typing — users
 /// switch to Apple's keyboard via the globe for that, keeping swipe-to-type). So it's a big, calm
 /// dictation surface: tap anywhere to start/stop, a living waveform driven by the real mic level while
-/// listening. Chrome uses system dynamic colors so it inherits the app's light/dark appearance.
+/// listening.
+///
+/// EVERY element here reads from ONE value — `viewModel.presentation`. There is no per-element state:
+/// the wave, the accent colour, the button, and the label are all facets of the same
+/// `KeyboardPresentation` snapshot, which is derived wholesale from the shared `capturing` variable on
+/// every poll. Two modes only: speaking or not. See KeyboardViewModel / ios-dictation-architecture.md.
 struct KeyboardView: View {
     @ObservedObject var viewModel: KeyboardViewModel
     let onNextKeyboard: () -> Void
 
-    /// Subtle Just Talk brand accent on the wave/mic only — reads on both light and dark grounds.
+    /// Subtle Just Talk brand accent — reads on both light and dark grounds.
     private let accent = Color(red: 0.86, green: 0.62, blue: 0.20)
+
+    private var p: KeyboardPresentation { viewModel.presentation }
 
     var body: some View {
         ZStack {
             Color(.systemGroupedBackground).ignoresSafeArea()
             VStack(spacing: 0) {
-                // The whole surface is the tap target (easy to hit) — start when idle, finish when dictating.
+                // The whole surface is the tap target (easy to hit) — start when idle, finish when speaking.
                 stage
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
-                    .onTapGesture { if viewModel.state != .awaiting { viewModel.toggleRecording() } }
+                    .onTapGesture { viewModel.toggleRecording() }
                 bottomBar
             }
         }
         .frame(maxWidth: .infinity)
     }
 
-    // MARK: - Stage (changes with state)
+    // MARK: - Stage — the ONLY two states: speaking / not speaking
 
     @ViewBuilder private var stage: some View {
         VStack(spacing: 16) {
-            switch viewModel.state {
-            case .idle:
+            switch p.mode {
+            case .notSpeaking:
                 ZStack {
                     Circle().fill(Color(.secondarySystemGroupedBackground))
                         .frame(width: 74, height: 74)
@@ -39,14 +46,15 @@ struct KeyboardView: View {
                     Image(systemName: "mic.fill").font(.system(size: 28, weight: .semibold))
                         .foregroundStyle(accent)
                 }
-                Text("Tap anywhere to dictate")
-                    .font(.callout).foregroundStyle(.secondary)
+                Text(p.label).font(.callout).foregroundStyle(.secondary)
 
-            case .dictating:
-                Waveform(level: viewModel.micLevel, active: true, accent: accent)
+            case .speaking:
+                // The wave shows ONLY while speaking and is ALWAYS the accent colour — there is no
+                // separate "gray/transcribing" wave that could disagree with the button. Its amplitude
+                // is p.level, straight from the same snapshot.
+                Waveform(level: p.level, accent: accent)
                     .frame(height: 62)
                     .padding(.horizontal, 22)
-                // Explicit, obviously-tappable Stop pill (the whole surface also stops, this makes it clear).
                 HStack(spacing: 8) {
                     Image(systemName: "stop.fill").font(.system(size: 13, weight: .bold))
                     Text("Tap to finish").font(.callout.weight(.semibold))
@@ -55,15 +63,9 @@ struct KeyboardView: View {
                 .padding(.horizontal, 20).padding(.vertical, 11)
                 .background(accent, in: Capsule())
                 .shadow(color: accent.opacity(0.35), radius: 5, y: 2)
-
-            case .awaiting:
-                Waveform(level: 0, active: false, accent: .secondary)
-                    .frame(height: 68).padding(.horizontal, 22)
-                    .opacity(0.6)
-                Text("Transcribing…").font(.callout).foregroundStyle(.secondary)
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: viewModel.state)
+        .animation(.easeInOut(duration: 0.22), value: p.mode)
     }
 
     // MARK: - Bottom bar (globe is required by iOS)
@@ -84,11 +86,10 @@ struct KeyboardView: View {
 
 // MARK: - Waveform
 
-/// A row of bars that breathe with the live mic level. `active` = responding to voice; otherwise a
-/// gentle idle shimmer (used while transcribing).
+/// A row of bars that breathe with the live mic level. Only ever drawn while speaking, so it needs no
+/// "active" flag — its presence *is* the speaking state, and its amplitude is the shared `level`.
 private struct Waveform: View {
     let level: Float
-    let active: Bool
     let accent: Color
     private let bars = 27
 
@@ -116,7 +117,7 @@ private struct Waveform: View {
         let p = Double(i) / Double(bars - 1)
         let envelope = 0.35 + 0.65 * sin(p * .pi)               // taller in the middle
         let wobble = 0.55 + 0.45 * sin(t * 7 + Double(i) * 0.55) // lively motion
-        let loud = active ? Double(min(1, level * 6)) : 0.16     // scale by voice (or idle shimmer)
+        let loud = Double(min(1, level * 6))                    // scale by voice
         let frac = envelope * wobble * (0.12 + 0.88 * loud)
         return max(4, CGFloat(frac) * maxH)
     }

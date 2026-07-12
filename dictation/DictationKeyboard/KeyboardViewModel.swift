@@ -1,191 +1,208 @@
 import Foundation
 import DictationCoreBase
 
-// MARK: - State
+// MARK: - KeyboardPresentation
 
-/// Names match docs/ios-dictation-architecture.md. `dictating` = a dictation is live (mirrors the app's
-/// `capturing` phase); `awaiting` = stop posted, polling the App Group for the transcript.
-enum KeyboardDictationState: Equatable {
-    case idle, dictating, awaiting
+/// The COMPLETE visible state of the keyboard, as one value. Every element the user sees — the wave, the
+/// button, the accent colour, the label — reads from a single `KeyboardPresentation`, and it is
+/// recomputed as ONE unit from the shared App-Group variables on every poll (see `render`).
+///
+/// Bundling these fields in one struct is the whole point, not a convenience: it makes it *impossible*
+/// for a future change to update one element's state without the others. They are a single snapshot of
+/// "speaking or not speaking", never four independently-mutated variables — which is exactly what caused
+/// the golden-wave-vs-gray-wave / stuck-button desync. If you touch one field here, you touch them all,
+/// together, derived from the same read of `capturing`.
+struct KeyboardPresentation: Equatable {
+    /// The only two states a keyboard can be in. Derived from the shared `capturing` flag — nothing else.
+    enum Mode: Equatable { case notSpeaking, speaking }
+
+    var mode: Mode
+    /// Wave amplitude 0…~1. Zero (and the wave hidden) unless speaking.
+    var level: Float
+    /// The status line under the stage.
+    var label: String
+
+    var isSpeaking: Bool { mode == .speaking }
+
+    static let idle = KeyboardPresentation(mode: .notSpeaking, level: 0, label: "Tap anywhere to dictate")
 }
 
 // MARK: - KeyboardViewModel
 
-/// Drives the keyboard extension's idle → dictating → awaiting state machine (see
-/// docs/ios-dictation-architecture.md).
+/// The keyboard has exactly TWO states — **speaking** or **not speaking** — and its entire appearance is
+/// a pure function of the shared `capturing` App-Group variable, never of local memory. See
+/// docs/ios-dictation-architecture.md.
 ///
-/// A keyboard extension cannot access the microphone, so it does not record itself. It hands off to the
-/// container app via two Darwin signals only — START and STOP. The app writes the three App-Group
-/// variables (heartbeat, capturing, pendingText); this keyboard READS them and never trusts local
-/// memory. The app never signals back: we POLL `pendingText` and insert.
+/// WHY there is no local state machine here:
+/// A keyboard extension cannot access the microphone, so a separate container-app process records, and
+/// the two processes coordinate ONLY through three App-Group variables (heartbeat, capturing,
+/// pendingText). iOS also destroys + recreates this keyboard on every host-app switch, wiping any
+/// in-memory state. So the single reliable truth is the shared variable — a local `state` enum that we
+/// "keep in sync" will always eventually drift (that was the desync bug).
+///
+/// Therefore this view model keeps **no authoritative state of its own**. One continuous poll reads the
+/// shared variables and renders a single `KeyboardPresentation`; the view draws only that. The
+/// keyboard's only outputs are the two Darwin signals START / STOP — it never decides its own
+/// appearance, it only reflects the variables.
 @MainActor
 final class KeyboardViewModel: ObservableObject {
 
-    // MARK: Published
+    // MARK: Published — a SINGLE snapshot. All UI reads from this one value.
 
-    @Published private(set) var state: KeyboardDictationState = .idle
-    @Published private(set) var statusMessage: String = "Tap mic to dictate"
-    /// Live mic loudness (0…~1) published by the recording app, polled while dictating — drives the
-    /// keyboard waveform so the user can see it's hearing them.
-    @Published private(set) var micLevel: Float = 0
-    private var levelTask: Task<Void, Never>?
+    @Published private(set) var presentation = KeyboardPresentation.idle
 
     /// Wired by `KeyboardViewController` — inserts the final text into the host text field.
     var insertText: ((String) -> Void)?
-    /// Wired by `KeyboardViewController` — opens the container app to record, since a keyboard
-    /// extension can't access the microphone.
+    /// Wired by `KeyboardViewController` — opens the container app to record (a keyboard can't use the mic).
     var openApp: ((URL) -> Void)?
 
     // MARK: Private
 
-    /// Resets the transient "Inserted ✓" status back to the idle prompt after a short delay.
-    private var statusResetTask: Task<Void, Never>?
-    /// Guards against a lost handoff: if `pendingText` never arrives, resets out of `.awaiting`.
-    private var handoffTimeoutTask: Task<Void, Never>?
-    /// After a seamless START, verifies the app actually woke (else it was a stale-heartbeat corpse).
-    private var ackWatchdogTask: Task<Void, Never>?
-    /// How long to poll for `pendingText` before assuming the transcript was lost.
-    private static let handoffTimeout: Duration = .seconds(20)
+    /// The single continuous reader of the shared variables. Runs while the keyboard is on screen.
+    private var pollTask: Task<Void, Never>?
+    /// Post-STOP bookkeeping — NOT a visual state. We posted STOP and are waiting for the transcript;
+    /// lets the render show "Transcribing…" and lets the watchdog know a stop is outstanding.
+    private var awaitingTranscript = false
+    /// Give-up time for a transcript that never lands (app alive but lost it).
+    private var transcriptDeadline: Date?
+    /// A short-lived label ("Inserted ✓", "Lost that one…") that overrides the state label until it expires.
+    private var hint: String?
+    private var hintDeadline: Date?
+    /// Verifies a seamless START actually woke the app (else it was a stale-heartbeat corpse → launch).
+    private var startAckTask: Task<Void, Never>?
+    /// Verifies a STOP was processed (else the app died mid-record, leaving `capturing` stuck true).
+    private var stopAckTask: Task<Void, Never>?
 
-    // MARK: - Init
+    private static let pollInterval: Duration = .milliseconds(80)
+    private static let transcriptTimeout: TimeInterval = 20
+    private static let hintDuration: TimeInterval = 3
 
-    init() {
-        // NOTE: deliberately NO `done` Darwin observer. iOS keeps stale keyboard instances alive; a
-        // dead instance's observer would fire, consume the transcript, and insert it into its
-        // disconnected text proxy — so the text vanishes and the visible keyboard stays stuck. Instead
-        // the VISIBLE instance (the one that posted stop) polls for the transcript and inserts via its
-        // live proxy; viewWillAppear also checks on reappear. See toggleRecording / startHandoffTimeout.
-    }
+    // MARK: - Poll lifecycle (driven by viewWillAppear / viewWillDisappear)
 
-    deinit {
-        // The Darwin observer was registered with an unretained pointer to self; remove it before we
-        // deallocate so a later notification can't invoke a callback on a dangling pointer.
-        CFNotificationCenterRemoveEveryObserver(
-            CFNotificationCenterGetDarwinNotifyCenter(),
-            Unmanaged.passUnretained(self).toOpaque())
-    }
-
-    // MARK: - Public control
-
-    func toggleRecording() {
-        // Decide START vs STOP from the SHARED capturing flag, not local `state` — iOS recreates the
-        // keyboard when the user leaves+returns to the host app, wiping local state. Reading the App
-        // Group means the mic button reliably stops the dictation that's actually running.
-        if state == .awaiting { return }
-
-        if DictationHandoff.isCapturing() {
-            state = .awaiting
-            statusMessage = "Transcribing…"
-            DictationHandoff.trace("kbd", "stop tap → posting stop")
-            DictationHandoff.post(DictationHandoff.stopNotification)
-            startHandoffTimeout()
-        } else {
-            state = .dictating
-            statusMessage = "Listening… tap to stop"
-            startLevelPolling()
-            // Seamless path (Wispr's "Flow Session"): if the container app is still alive in the
-            // background from a recent dictation, just signal it — no `openURL`, so iOS never
-            // foregrounds it and the user stays in the app they're typing in. Only when the session
-            // has gone cold do we launch the app (the one-time app switch).
-            if DictationHandoff.isSessionAlive() {
-                DictationHandoff.trace("kbd", "start tap → session ALIVE, posting start (seamless)")
-                DictationHandoff.post(DictationHandoff.startNotification)
-                startAckWatchdog()   // a killed app leaves a stale heartbeat — verify it actually woke
-            } else {
-                DictationHandoff.trace("kbd", "start tap → session COLD, openURL (launch app)")
-                openApp?(DictationHandoff.recordURL)
+    /// Begin continuously reflecting the shared variables into the UI. Idempotent. This is the ONLY
+    /// writer of `presentation`, so the UI can never drift from `capturing`.
+    func startReflecting() {
+        guard pollTask == nil else { return }
+        pollTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                self?.render()
+                try? await Task.sleep(for: Self.pollInterval)
             }
         }
     }
 
-    /// After a seamless `START`, confirm the app actually picked it up (`capturing` went true). A
-    /// just-killed app leaves a stale-but-recent heartbeat, so `isSessionAlive()` can wrongly pick the
-    /// seamless path and signal a corpse — nothing launches, nothing records. If unacknowledged, the
-    /// app is dead → fall back to a cold `openURL` launch.
-    private func startAckWatchdog() {
-        ackWatchdogTask?.cancel()
-        ackWatchdogTask = Task { [weak self] in
+    /// Stop polling when the keyboard leaves the screen. iOS may recreate this keyboard on the next
+    /// appear; it re-reads the shared variables from scratch, so nothing is lost by stopping here.
+    func stopReflecting() {
+        pollTask?.cancel(); pollTask = nil
+        presentation = .idle
+    }
+
+    /// Read the shared variables ONCE and rebuild the entire `KeyboardPresentation` as a single unit —
+    /// wave, colour, and label are all derived from the same read of `capturing`, so they cannot disagree.
+    private func render() {
+        let capturing = DictationHandoff.isCapturing()
+
+        // Pick up a finished transcript the app wrote. The app never signals us — we poll and insert
+        // from the VISIBLE instance's live text proxy (a stale recreated instance would insert nowhere).
+        if let text = DictationHandoff.consume() {
+            awaitingTranscript = false; transcriptDeadline = nil
+            insertText?(text)
+            setHint("Inserted ✓")
+            DictationHandoff.trace("kbd", "poll — inserted \(text.count) chars")
+        }
+
+        // App alive but the transcript never landed → give up.
+        if awaitingTranscript, let d = transcriptDeadline, Date() > d {
+            awaitingTranscript = false; transcriptDeadline = nil
+            setHint("Didn't catch that — tap to retry")
+            KBLog.error("handoff timed out — no transcript after \(Self.transcriptTimeout)s")
+        }
+
+        // Build the ONE snapshot. Every field comes from this same tick's reads — they update together.
+        let label: String
+        if let hint, let hd = hintDeadline, Date() < hd {
+            label = hint
+        } else {
+            self.hint = nil; self.hintDeadline = nil
+            label = capturing ? "Listening… tap to finish"
+                  : awaitingTranscript ? "Transcribing…"
+                  : "Tap anywhere to dictate"
+        }
+        presentation = KeyboardPresentation(
+            mode: capturing ? .speaking : .notSpeaking,
+            level: capturing ? DictationHandoff.readLevel() : 0,
+            label: label)
+    }
+
+    // MARK: - The only output: START / STOP
+
+    /// A tap on the keyboard surface. Decides START vs STOP purely from the shared `capturing` flag,
+    /// then posts a Darwin signal. Deliberately does NOT set any visual state — the poll reflects
+    /// `capturing` once the app flips it, so the button/wave can never lie about what's really happening.
+    func toggleRecording() {
+        if DictationHandoff.isCapturing() {
+            DictationHandoff.trace("kbd", "tap → capturing → post STOP")
+            DictationHandoff.post(DictationHandoff.stopNotification)
+            awaitingTranscript = true
+            transcriptDeadline = Date().addingTimeInterval(Self.transcriptTimeout)
+            armStopAck()
+        } else if DictationHandoff.isSessionAlive() {
+            // Seamless path (Wispr's "Flow Session"): the app is still warm in the background, so just
+            // signal it — no openURL, so iOS never foregrounds it and the user stays where they're typing.
+            DictationHandoff.trace("kbd", "tap → session ALIVE → post START (seamless)")
+            DictationHandoff.post(DictationHandoff.startNotification)
+            armStartAck()
+        } else {
+            DictationHandoff.trace("kbd", "tap → session COLD → openURL (launch app)")
+            openApp?(DictationHandoff.recordURL)
+        }
+    }
+
+    // MARK: - Watchdogs (operate on the shared variable; the poll reflects the result)
+
+    /// After a seamless START, if `capturing` hasn't gone true the app was a stale-heartbeat corpse
+    /// (killed but its <8s heartbeat still read "alive") → cold-launch it via openURL.
+    private func armStartAck() {
+        startAckTask?.cancel()
+        startAckTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(800))
-            guard let self, !Task.isCancelled, self.state == .dictating,
-                  !DictationHandoff.isCapturing() else { return }
-            DictationHandoff.trace("kbd", "START not acked in 800ms → app was dead → openURL fallback")
+            guard let self, !Task.isCancelled, !DictationHandoff.isCapturing() else { return }
+            DictationHandoff.trace("kbd", "START not acked in 800ms → app dead → openURL fallback")
             self.openApp?(DictationHandoff.recordURL)
         }
     }
 
-    /// Called when the keyboard (re)appears: sync the button state to the actual session. If a
-    /// dictation is live (e.g. the user returned from the launch), show "tap to stop"; otherwise idle.
-    func syncFromSession() {
-        if DictationHandoff.isCapturing() {
-            if state != .dictating {
-                state = .dictating
-                statusMessage = "Listening… tap to stop"
-                startLevelPolling()
-                DictationHandoff.trace("kbd", "reappear — synced to RECORDING (session live)")
-            }
-        } else if state == .dictating {
-            state = .idle
-            statusMessage = "Tap mic to dictate"
-            stopLevelPolling()
+    /// After a STOP, if `capturing` is still true after 2s the app died mid-record (suspended) with the
+    /// flag stuck — the keyboard would otherwise jam forever (every tap re-posts stop to a corpse).
+    /// Recovery: clear the stuck flag ourselves. The one-writer rule (app is sole writer) is suspended
+    /// ONLY for this death case, because the writer is gone. The poll then flips to not-speaking and the
+    /// next tap is a clean START that relaunches the app.
+    private func armStopAck() {
+        stopAckTask?.cancel()
+        stopAckTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard let self, !Task.isCancelled, DictationHandoff.isCapturing() else { return }  // acked → fine
+            DictationHandoff.trace("kbd", "STOP not acked in 2s → app died mid-record → clear stuck flag")
+            DictationHandoff.setCapturing(false)
+            self.awaitingTranscript = false; self.transcriptDeadline = nil
+            self.setHint("Lost that one — tap to retry")
         }
     }
 
-    /// Poll the app's published mic level (App Group) ~16×/s while dictating → drives the waveform.
-    private func startLevelPolling() {
-        levelTask?.cancel()
-        levelTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .milliseconds(60))
-                guard let self, !Task.isCancelled, self.state == .dictating else { self?.micLevel = 0; return }
-                self.micLevel = DictationHandoff.readLevel()
-            }
-        }
-    }
-    private func stopLevelPolling() { levelTask?.cancel(); levelTask = nil; micLevel = 0 }
+    // MARK: - Transient hint
 
-    // MARK: - Handoff
-
-    /// Insert any transcript the container app left in the App Group (called by the visible instance's
-    /// poll after a stop, and on reappear). No-op when there's nothing pending.
-    func checkForHandoff() {
-        guard let text = DictationHandoff.consume() else { return }
-        DictationHandoff.trace("kbd", "checkForHandoff — inserting \(text.count) chars")
-        handoffTimeoutTask?.cancel()
-        insertText?(text)
-        state = .idle
-        statusMessage = "Inserted ✓"
-        scheduleStatusReset()
+    /// Arm a short-lived label the render will show (over the state label) until it expires.
+    private func setHint(_ message: String) {
+        hint = message
+        hintDeadline = Date().addingTimeInterval(Self.hintDuration)
     }
 
-    /// Poll `pendingText` until the transcript lands (or time out) — the app never signals us, and iOS
-    /// may recreate this keyboard mid-transcribe, so polling is the only reliable pickup. Must never
-    /// leave the keyboard stuck in `.awaiting`.
-    private func startHandoffTimeout() {
-        handoffTimeoutTask?.cancel()
-        handoffTimeoutTask = Task { [weak self] in
-            // checkForHandoff() synchronizes the App Group + consumes pendingText; keep trying until it lands.
-            let deadline = Date().addingTimeInterval(20)
-            while Date() < deadline {
-                try? await Task.sleep(for: .milliseconds(250))
-                guard let self, !Task.isCancelled, self.state == .awaiting else { return }
-                self.checkForHandoff()
-                if self.state != .awaiting { return }   // inserted — done
-            }
-            guard let self, !Task.isCancelled, self.state == .awaiting else { return }
-            self.state = .idle
-            self.statusMessage = "Didn't catch that — tap to retry"
-            self.scheduleStatusReset()
-            KBLog.error("handoff timed out — no transcript after 20s")
-        }
-    }
-
-    /// Restore the idle prompt a few seconds after a terminal status message.
-    private func scheduleStatusReset() {
-        statusResetTask?.cancel()
-        statusResetTask = Task { [weak self] in
-            do { try await Task.sleep(for: .seconds(3)) } catch { return }
-            guard let self, self.state == .idle else { return }
-            self.statusMessage = "Tap mic to dictate"
-        }
+    deinit {
+        // No Darwin observer is registered (the app never signals us — we poll), but remove defensively
+        // so a stray registration can never call back into freed memory.
+        CFNotificationCenterRemoveEveryObserver(
+            CFNotificationCenterGetDarwinNotifyCenter(),
+            Unmanaged.passUnretained(self).toOpaque())
     }
 }

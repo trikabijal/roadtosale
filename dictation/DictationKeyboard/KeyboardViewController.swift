@@ -60,10 +60,17 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Returning from a Flow Session: insert any finished transcript, then sync the mic button to
-        // the live session (iOS recreated us, wiping local state — the shared flag is the truth).
-        viewModel.checkForHandoff()
-        viewModel.syncFromSession()
+        // Start continuously reflecting the shared App-Group variables into the UI. iOS recreated us and
+        // wiped local memory, but that's fine — the poll re-reads the truth (`capturing`, `pendingText`)
+        // from scratch, so the wave/button/label reappear in exactly the right state and any finished
+        // transcript is picked up. There is nothing to "sync": the UI is a pure function of the variables.
+        viewModel.startReflecting()
+    }
+
+    public override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        // Leaving the screen — stop polling. The next appear re-reads the shared variables from scratch.
+        viewModel.stopReflecting()
     }
 
     /// Open a URL from inside a keyboard extension by walking the responder chain (starting PAST self)

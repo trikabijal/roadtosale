@@ -69,14 +69,21 @@ No variable is ever written by both sides. `openURL` is **not** a third signal �
 | | `ready` | Warm & alive, engine silent, waiting. |
 | | `capturing` | Mic tap on (same name as the `capturing` variable, on purpose). |
 | | `transcribing` | Audio → text. |
-| **Keyboard** (`KeyboardDictationState`) | `idle` | Not dictating. "Tap mic". |
-| | `dictating` | A dictation is live. "tap to stop". |
-| | `awaiting` | Stop pressed; polling for the text. |
+| **Keyboard** | `not speaking` | `capturing == false`. Mic shown, "Tap anywhere to dictate". |
+| | `speaking` | `capturing == true`. Golden wave, "Tap to finish". |
 
-> **Note:** `ready` and `transcribing` write identical variable values (`fresh / false / empty`), so the
-> keyboard can't distinguish them from the App Group alone — `awaiting` is therefore a **local** keyboard
-> state (it knows *it* just posted `STOP`). Edge effect: if iOS recreates the keyboard mid-transcribe it
-> shows `idle` not `awaiting` — harmless (it still inserts when `pendingText` lands).
+> **The keyboard holds NO state machine of its own.** It has exactly **two** appearances and both are a
+> pure function of the single shared `capturing` variable — because iOS destroys + recreates the keyboard
+> on every host-app switch, any local state we "kept in sync" would eventually drift (that was the
+> golden-wave-vs-gray-wave desync). Instead a single 80 ms poll reads the variables and renders **one**
+> value — `KeyboardPresentation { mode, level, label }` — and the view draws only that. Wave, colour,
+> button, and label are therefore facets of the same snapshot; they cannot disagree. The struct is the
+> enforcement: you can't update one element's state without the others.
+>
+> "Transcribing" is **not** a keyboard state — after a `STOP` the keyboard is simply `not speaking`; the
+> transcript arrives via the poll and is inserted, with `label` showing a transient "Transcribing…" /
+> "Inserted ✓" hint that never drives the wave or colour. `pendingText`/watchdogs are bookkeeping the
+> **render reads**, never independent visual states.
 
 ## Heartbeat is liveness — orthogonal to phase
 
@@ -97,19 +104,21 @@ sequenceDiagram
     participant K as Keyboard
     participant V as 3 Variables (App Group)
     participant A as App
-    Note over K: idle — mic shown
+    Note over K: not speaking — mic shown
     K->>A: START  (👆 tap · if heartbeat stale → openURL first)
     Note over A: ready → capturing (mic on)
     A->>V: writes capturing = true
-    V-->>K: reads capturing = true
-    Note over K: dictating
+    V-->>K: 80ms poll reads capturing = true
+    Note over K: speaking (wave)
     K->>A: STOP  (👆 tap)
     Note over A: capturing → transcribing
     A->>V: writes capturing = false
+    V-->>K: poll reads capturing = false
+    Note over K: not speaking ("Transcribing…" hint)
     Note over A: transcribing → ready
     A->>V: writes pendingText = present
     V-->>K: poll finds pendingText
-    Note over K: insert → idle
+    Note over K: insert ("Inserted ✓")
 ```
 
 ## Keep-alive (why there's no repeat app-switch)
@@ -129,3 +138,6 @@ one session and threw `'what'` 2003329396 after a cold relaunch — hence the si
 | stuck "Transcribing", no paste | cross-process `UserDefaults` cache staleness | `synchronize()` on every transcript write + read |
 | text vanished, keyboard stuck | a stale keyboard instance's `done` observer inserted into a dead proxy | removed the `done` observer; **only the visible instance polls + inserts** |
 | mic dead after cold relaunch (`'what'`) | two `AVAudioEngine`s fighting one session | one engine, starts once, capture = add/remove a tap |
+| wave/button/colour desynced (golden vs gray, stuck button) after app died mid-record | keyboard held per-element local state that drifted from `capturing` | keyboard holds **no** local state — one 80 ms poll renders a single `KeyboardPresentation` from `capturing`; a stop-ack watchdog clears a stuck flag if the app died |
+| app suspended mid-long-dictation (lost a 66s take) | iOS suspends an app "playing" pure silence | keep-alive plays a ~-78 dB tone, not zeros |
+| long recording could grow audio unbounded | no cap on a single dictation's accumulated buffers | app auto-finishes at 10 min (`maxCaptureSeconds`) — ~38 MB ceiling |

@@ -63,9 +63,19 @@ final class FlowSessionAudio {
         try engine.start()
 
         let frames = AVAudioFrameCount(outFmt.sampleRate * 0.5)
-        if let silence = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: frames) {
-            silence.frameLength = frames
-            player.scheduleBuffer(silence, at: nil, options: .loops, completionHandler: nil)
+        if let buf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: frames) {
+            buf.frameLength = frames
+            // A whisper-quiet tone, NOT pure zeros: iOS can suspend an app "playing" pure silence during
+            // a long session (which killed a 66s dictation). ~-78 dB is inaudible but keeps the output
+            // treated as real background audio.
+            let amp: Float = 0.00012
+            let sr = Float(outFmt.sampleRate)
+            if let data = buf.floatChannelData {
+                for c in 0..<Int(outFmt.channelCount) {
+                    for i in 0..<Int(frames) { data[c][i] = amp * sin(2 * .pi * 440 * Float(i) / sr) }
+                }
+            }
+            player.scheduleBuffer(buf, at: nil, options: .loops, completionHandler: nil)
             player.play()
         }
         running = true

@@ -51,6 +51,13 @@ final class RecordSessionModel: ObservableObject {
     private var heartbeat: Task<Void, Never>?
     private var lastActivity = Date()
 
+    // Bound a SINGLE dictation's length so accumulated audio can't grow without limit. At 16 kHz mono
+    // Float32 the buffer grows ~64 KB/s, so 10 min ≈ 38 MB — comfortably within the app's headroom, but
+    // we auto-finish there so a forgotten mic can't accumulate for hours. (RAM is not the real limit;
+    // this is a safety valve, and it also means a very long take still transcribes rather than being lost.)
+    private static let maxCaptureSeconds: Double = 600   // 10 minutes
+    private var maxCaptureTimer: Task<Void, Never>?
+
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
@@ -134,6 +141,19 @@ final class RecordSessionModel: ObservableObject {
         captureStart = Date()
         touch()
         phase = .capturing
+        startMaxCaptureTimer()
+    }
+
+    /// Auto-finish a dictation that runs past `maxCaptureSeconds` so accumulated audio can't grow
+    /// unbounded (and the take still gets transcribed rather than lost).
+    private func startMaxCaptureTimer() {
+        maxCaptureTimer?.cancel()
+        maxCaptureTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.maxCaptureSeconds))
+            guard let self, !Task.isCancelled, self.capturing else { return }
+            DictationHandoff.trace("app", "max capture reached (\(Int(Self.maxCaptureSeconds))s) → auto-finish")
+            self.endCaptureAndTranscribe()
+        }
     }
 
     /// Keyboard signalled `stop` — stop capturing, transcribe, hand the text back. Session stays ALIVE
@@ -145,6 +165,7 @@ final class RecordSessionModel: ObservableObject {
         }
         let count = audio.snapshot().count
         DictationHandoff.trace("app", "stop signal — transcribing \(count) buffers")
+        maxCaptureTimer?.cancel(); maxCaptureTimer = nil
         flowAudio.endCapture()                    // remove the mic tap; engine keeps running (keep-alive)
         capturing = false
         DictationHandoff.setCapturing(false)
@@ -186,6 +207,7 @@ final class RecordSessionModel: ObservableObject {
     func endSession() {
         idleTimer?.cancel(); idleTimer = nil
         heartbeat?.cancel(); heartbeat = nil
+        maxCaptureTimer?.cancel(); maxCaptureTimer = nil
         capturing = false
         didWarm = false
         flowAudio.stop()
