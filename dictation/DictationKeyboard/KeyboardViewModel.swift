@@ -107,8 +107,7 @@ final class KeyboardViewModel: ObservableObject {
         // from the VISIBLE instance's live text proxy (a stale recreated instance would insert nowhere).
         if let text = DictationHandoff.consume() {
             awaitingTranscript = false; transcriptDeadline = nil
-            insertText?(text)
-            setHint("Inserted ✓")
+            insertText?(text)   // the text appearing in the field IS the feedback — no "Inserted" hint
             DictationHandoff.trace("kbd", "poll — inserted \(text.count) chars")
         }
 
