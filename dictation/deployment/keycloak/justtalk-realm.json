@@ -42,7 +42,9 @@
       "serviceAccountsEnabled": false,
       "fullScopeAllowed": true,
       "redirectUris": [
+        "com.trika.justtalk.mac://oauth2redirect",
         "com.trika.justtalk.mac://oauth2redirect/*",
+        "com.trika.justtalk.ios://oauth2redirect",
         "com.trika.justtalk.ios://oauth2redirect/*",
         "http://127.0.0.1/*",
         "http://localhost/*"
@@ -50,7 +52,7 @@
       "webOrigins": ["+"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "com.trika.justtalk.mac://oauth2redirect/*##com.trika.justtalk.ios://oauth2redirect/*"
+        "post.logout.redirect.uris": "com.trika.justtalk.mac://oauth2redirect##com.trika.justtalk.mac://oauth2redirect/*##com.trika.justtalk.ios://oauth2redirect##com.trika.justtalk.ios://oauth2redirect/*"
       }
     }
   ]
