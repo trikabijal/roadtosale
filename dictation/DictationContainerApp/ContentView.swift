@@ -20,6 +20,7 @@ struct ContentView: View {
 struct HomeTab: View {
     @State private var week: WeeklyStats = .empty
     @State private var totals: UsageTotals = .empty
+    @State private var streak = 0
     @State private var recent: [TranscriptRecord] = []
     @State private var isLoading = true
     @State private var errorMessage: String?
@@ -36,12 +37,13 @@ struct HomeTab: View {
                     } else if totals.totalCount == 0 {
                         EmptyHome()
                     } else {
-                        HeroCard(totals: totals)
+                        StatCarousel(totals: totals, streak: streak)
                         WeekSection(week: week)
                         HistorySection(records: recent)
                     }
                 }
                 .padding(.horizontal, 16)
+                .padding(.top, 8)
                 .padding(.bottom, 32)
             }
             .background(Color(.systemGroupedBackground))
@@ -62,8 +64,9 @@ struct HomeTab: View {
             let store = try TelemetryStore(databaseURL: try TelemetryStore.iOSDatabaseURL())
             async let w = store.fetchWeeklyStats()
             async let t = store.fetchUsageTotals()
-            async let r = store.fetchRecent(limit: 50)
-            (week, totals, recent) = try await (w, t, r)
+            async let s = store.currentStreakDays()
+            async let r = store.fetchRecent(limit: 100)
+            (week, totals, streak, recent) = try await (w, t, s, r)
         } catch {
             errorMessage = "Couldn't load your stats: \(error.localizedDescription)"
         }
@@ -71,57 +74,91 @@ struct HomeTab: View {
     }
 }
 
-// MARK: - Hero
+// MARK: - Hero carousel (swipeable stat cards, à la Wispr Flow)
 
-private struct HeroCard: View {
+private struct StatCarousel: View {
     let totals: UsageTotals
+    let streak: Int
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 8) {
-                Image(systemName: "waveform")
-                Text("You've dictated").font(.subheadline.weight(.semibold))
-            }
-            .foregroundStyle(.white.opacity(0.9))
-
-            Text(totals.totalWords.formatted())
-                .font(.system(size: 52, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .contentTransition(.numericText())
-            Text(totals.totalWords == 1 ? "word" : "words")
-                .font(.headline).foregroundStyle(.white.opacity(0.85))
-                .offset(y: -12)
-
-            HStack(spacing: 20) {
-                HeroStat(value: savedText, caption: "saved vs typing")
-                HeroStat(value: totals.totalCount.formatted(), caption: totals.totalCount == 1 ? "session" : "sessions")
-                HeroStat(value: talkText, caption: "talking")
-            }
-            .padding(.top, 2)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .background(
-            LinearGradient(colors: [JTBrand.gold, JTBrand.goldDeep],
-                           startPoint: .topLeading, endPoint: .bottomTrailing),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
-        .shadow(color: JTBrand.gold.opacity(0.25), radius: 12, y: 6)
+    private var wpm: Int {
+        totals.totalMinutes > 0.1 ? Int((Double(totals.totalWords) / totals.totalMinutes).rounded()) : 0
+    }
+    private var wpmCaption: String {
+        wpm > 0 ? "your speaking speed — about \(max(1, wpm / 40))× faster than typing"
+                : "your speaking speed"
     }
 
-    private var savedText: String { durationText(minutes: totals.typingMinutesSaved) }
-    private var talkText: String { durationText(minutes: totals.totalMinutes) }
+    var body: some View {
+        TabView {
+            StreakCard(streak: streak)
+            BigStatCard(number: totals.totalWords.formatted(), unit: "words",
+                        caption: "dictated with your voice", color: JTBrand.gold)
+            BigStatCard(number: "\(wpm)", unit: "wpm", caption: wpmCaption, color: Color(red: 0.16, green: 0.55, blue: 0.36))
+            BigStatCard(number: durationText(minutes: totals.typingMinutesSaved), unit: "",
+                        caption: "saved versus typing it out", color: Color(red: 0.42, green: 0.35, blue: 0.80))
+        }
+        .tabViewStyle(.page(indexDisplayMode: .always))
+        .indexViewStyle(.page(backgroundDisplayMode: .interactive))
+        .frame(height: 236)
+    }
 }
 
-private struct HeroStat: View {
-    let value: String
+/// Big editorial serif number on a card — the enthusing hero unit.
+private struct BigStatCard: View {
+    let number: String
+    let unit: String
     let caption: String
+    let color: Color
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value).font(.title3.weight(.bold)).foregroundStyle(.white)
-                .monospacedDigit()
-            Text(caption).font(.caption2).foregroundStyle(.white.opacity(0.8))
+        VStack(spacing: 8) {
+            Spacer(minLength: 0)
+            (Text(number).font(.system(size: 62, weight: .bold, design: .serif))
+             + Text(unit.isEmpty ? "" : " \(unit)").font(.system(size: 34, weight: .semibold, design: .serif))
+                .foregroundColor(color.opacity(0.85)))
+                .foregroundColor(color)
+                .lineLimit(1).minimumScaleFactor(0.4)
+            Text(caption)
+                .font(.callout).foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24).padding(.vertical, 20)
+        .padding(.bottom, 18)   // clear the page dots
+        .background(Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+    }
+}
+
+private struct StreakCard: View {
+    let streak: Int
+
+    var body: some View {
+        VStack(spacing: 14) {
+            Spacer(minLength: 0)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("\(streak)").font(.system(size: 52, weight: .bold, design: .serif))
+                    .foregroundStyle(JTBrand.gold)
+                Text(streak == 1 ? "day streak" : "day streak").font(.title3.weight(.semibold))
+                Text("🔥").font(.title2)
+            }
+            Text(streak == 0 ? "Dictate today to start your streak"
+                             : "Come back tomorrow to keep it alive")
+                .font(.callout).foregroundStyle(.secondary)
+            HStack(spacing: 12) {
+                ForEach(0..<5, id: \.self) { i in
+                    Circle()
+                        .fill(i < min(streak, 5) ? JTBrand.gold : Color(.tertiarySystemFill))
+                        .frame(width: 13, height: 13)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 24).padding(.vertical, 20).padding(.bottom, 18)
+        .background(Color(.secondarySystemGroupedBackground),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous))
     }
 }
 
@@ -168,21 +205,24 @@ private struct MetricCard: View {
     }
 }
 
-// MARK: - History
+// MARK: - History (grouped by day)
 
 private struct HistorySection: View {
     let records: [TranscriptRecord]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 16) {
             SectionHeader("History")
             if records.isEmpty {
                 Text("Your recent transcriptions will show up here.")
                     .font(.callout).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 8)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                VStack(spacing: 10) {
-                    ForEach(records) { HistoryCell(record: $0) }
+                ForEach(groupByDay(records), id: \.title) { group in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(group.title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        ForEach(group.records) { HistoryCell(record: $0) }
+                    }
                 }
             }
         }
@@ -195,25 +235,21 @@ private struct HistoryCell: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(record.transcriptText)
-                .font(.callout)
-                .foregroundStyle(.primary)
-                .lineLimit(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 8) {
-                Label(record.recordedAt.formatted(.relative(presentation: .named)), systemImage: "clock")
-                Text("·")
-                Text("\(record.wordCount) words")
+                .font(.callout).foregroundStyle(.primary)
+                .lineLimit(4).frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 6) {
+                Text(record.recordedAt.formatted(date: .omitted, time: .shortened))
+                Text("·"); Text("\(record.wordCount) words")
                 if record.wasCorrected {
                     Text("·"); Label("corrected", systemImage: "pencil").foregroundStyle(.orange)
                 }
                 Spacer()
-                Button {
-                    UIPasteboard.general.string = record.transcriptText
-                } label: { Image(systemName: "doc.on.doc") }
-                    .buttonStyle(.plain).foregroundStyle(JTBrand.gold)
+                Button { UIPasteboard.general.string = record.transcriptText } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.plain).foregroundStyle(JTBrand.gold)
             }
-            .font(.caption)
-            .foregroundStyle(.secondary)
+            .font(.caption).foregroundStyle(.secondary)
         }
         .padding(14)
         .background(Color(.secondarySystemGroupedBackground),
@@ -233,7 +269,7 @@ private struct EmptyHome: View {
             }
             .padding(.top, 60)
             Text("No dictations yet").font(.title2.bold())
-            Text("Switch to the Just Talk keyboard in any app and tap the mic. Your words, time saved, and history will appear here.")
+            Text("Switch to the Just Talk keyboard in any app and tap the mic. Your words, speed, streak, and history will appear here.")
                 .font(.callout).foregroundStyle(.secondary)
                 .multilineTextAlignment(.center).padding(.horizontal, 24)
         }
@@ -259,6 +295,20 @@ private func durationText(minutes: Double) -> String {
     let m = (totalSeconds % 3600) / 60
     if h > 0 { return m > 0 ? "\(h)h \(m)m" : "\(h)h" }
     return "\(m)m"
+}
+
+/// Group records into day buckets with friendly titles (Today / Yesterday / date), newest first.
+private func groupByDay(_ records: [TranscriptRecord]) -> [(title: String, records: [TranscriptRecord])] {
+    let cal = Calendar.current
+    let grouped = Dictionary(grouping: records) { cal.startOfDay(for: $0.recordedAt) }
+    return grouped.keys.sorted(by: >).map { day in
+        let title: String
+        if cal.isDateInToday(day) { title = "Today" }
+        else if cal.isDateInYesterday(day) { title = "Yesterday" }
+        else { title = day.formatted(.dateTime.weekday(.wide).month().day()) }
+        let recs = (grouped[day] ?? []).sorted { $0.recordedAt > $1.recordedAt }
+        return (title, recs)
+    }
 }
 
 // MARK: - Setup tab

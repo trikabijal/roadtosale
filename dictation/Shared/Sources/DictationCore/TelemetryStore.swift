@@ -208,6 +208,32 @@ public actor TelemetryStore {
         }
     }
 
+    /// Consecutive-day dictation streak. Counts back from the most recent day that has a record; the
+    /// streak is only "alive" if that day is today or yesterday (so it survives until the day is missed).
+    public func currentStreakDays() throws -> Int {
+        let days: [String] = try dbQueue.read { db in
+            try String.fetchAll(db, sql: """
+                SELECT DISTINCT date(recorded_at, 'localtime') AS d
+                FROM transcript_records ORDER BY d DESC
+                """)
+        }
+        guard !days.isEmpty else { return 0 }
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd"; fmt.timeZone = .current; fmt.locale = Locale(identifier: "en_US_POSIX")
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        guard let mostRecent = fmt.date(from: days[0]) else { return 0 }
+        if (cal.dateComponents([.day], from: mostRecent, to: today).day ?? 99) > 1 { return 0 }
+        var streak = 1
+        var prev = mostRecent
+        for d in days.dropFirst() {
+            guard let date = fmt.date(from: d),
+                  cal.dateComponents([.day], from: date, to: prev).day == 1 else { break }
+            streak += 1; prev = date
+        }
+        return streak
+    }
+
     // MARK: - Migration
 
     private static func migrate(_ dbQueue: DatabaseQueue) throws {
