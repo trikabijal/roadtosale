@@ -94,7 +94,7 @@ struct SettingsView: View {
                         let model: String
                         switch newProvider {
                         case .whisperKit:  model = ModelTier.defaultWhisper.rawValue  // multilingual backup (small)
-                        case .appleSpeech: model = "en-US"                            // fast English
+                        case .appleSpeech: model = SpeechDefaults.locale               // fast English
                         case .mock:        model = "default"
                         }
                         appState.setSTTConfig(STTConfig(provider: newProvider, model: model))

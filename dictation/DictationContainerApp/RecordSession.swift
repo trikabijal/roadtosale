@@ -396,7 +396,7 @@ final class RecordSessionModel: ObservableObject {
             modelTier: "\(r.provider.rawValue)/\(r.model)",
             frontmostApp: nil,                              // a keyboard can't know the host app
             rawText: rawText,
-            cleanupLevel: didClean ? CleanupLevel.light.rawValue : CleanupLevel.off.rawValue,
+            cleanupLevel: didClean ? CleanupConfig.default.level.rawValue : CleanupLevel.off.rawValue,
             cleanupProvider: didClean ? "foundationModels" : nil
         )
         do { try await store.save(record) }
