@@ -549,12 +549,14 @@ struct RecordSessionView: View {
 
 private struct MicPulse: View {
     let level: Float
+    /// Brand gold (shared BrandPalette) — matches the keyboard + Mac pill instead of a lone red.
+    private let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
     var body: some View {
         ZStack {
-            Circle().fill(Color.red.opacity(0.15))
+            Circle().fill(gold.opacity(0.15))
                 .frame(width: 140 + CGFloat(min(1, level * 6)) * 60, height: 140 + CGFloat(min(1, level * 6)) * 60)
                 .animation(.easeOut(duration: 0.1), value: level)
-            Image(systemName: "mic.fill").font(.system(size: 44)).foregroundStyle(.red)
+            Image(systemName: "mic.fill").font(.system(size: 44)).foregroundStyle(gold)
         }.frame(height: 220)
     }
 }
