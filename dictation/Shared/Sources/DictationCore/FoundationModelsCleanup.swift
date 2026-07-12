@@ -24,6 +24,9 @@ public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
     let fallback: RuleBasedCleanup
     /// Held only to keep a prewarm in flight alive; never used for an actual cleanup turn.
     private var prewarmSession: LanguageModelSession?
+    /// The session for the in-flight `clean` call, so `reset()` drops our strong reference on a timeout
+    /// (the abandoned respond task keeps its own ref until it finishes; this just doesn't pin it here too).
+    private var inFlightSession: LanguageModelSession?
 
     public init(pack: CleanupPack, fallback: RuleBasedCleanup) {
         self.pack = pack
@@ -41,9 +44,10 @@ public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
         prewarmSession = session
     }
 
-    /// Drop the held prewarm session (e.g. after a timeout) so nothing lingers.
+    /// Drop the held sessions (e.g. after a timeout) so nothing lingers on our side.
     public func reset() {
         prewarmSession = nil
+        inFlightSession = nil
     }
 
     public func clean(_ req: CleanupRequest) async -> CleanupResult {
@@ -68,6 +72,8 @@ public final class FoundationModelsCleanup: TextCleanup, @unchecked Sendable {
             // never sees. Spelling is still guaranteed by STT vocab-bias + the deterministic
             // post-pass below, so dropping the injection loses no correctness.
             let session = LanguageModelSession(instructions: levelPrompt)
+            inFlightSession = session
+            defer { inFlightSession = nil }
             // Wrap the transcript as DATA, not a conversational turn. Passing raw text to
             // `respond(to:)` makes the small on-device model treat it as a prompt and answer
             // it; the delimiter + explicit task framing keeps it in "edit this text" mode.
