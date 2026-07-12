@@ -116,6 +116,9 @@ public final class AppleAnalyzerTranscriber: DictationCoreBase.SpeechTranscriber
             for try await result in module.results where result.isFinal { acc += result.text }
             return String(acc.characters)
         }
+        // If `analyzer.start`/`finalize` throws, the error propagates out — make sure the collector Task
+        // (and the input stream) don't leak an abandoned Task + analyzer per failed transcription.
+        defer { collector.cancel(); cont.finish() }
 
         try await analyzer.start(inputSequence: stream)
         for buffer in buffers {

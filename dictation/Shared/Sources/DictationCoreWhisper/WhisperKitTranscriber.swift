@@ -2,44 +2,9 @@ import AVFoundation
 import WhisperKit
 import DictationCoreBase
 
-// MARK: - WhisperKit model tiers
-
-public enum ModelTier: String, CaseIterable, Sendable {
-    // English-only (.en) tiers — fast, but mangle non-English. Good for English-only use (coding).
-    /// ~40 MB — fits in iOS keyboard extension memory limit.
-    case tinyEn = "openai_whisper-tiny.en"
-    /// ~75 MB.
-    case baseEn = "openai_whisper-base.en"
-    /// ~150 MB — fast + accurate for English-only contexts.
-    case smallEn = "openai_whisper-small.en"
-
-    // Multilingual tiers — handle Hindi/Gujarati (Hinglish). Smaller = faster but weaker on
-    // low-resource languages (esp. Gujarati), which need a large model.
-    /// Multilingual small — much faster than the large tiers; decent Hindi, weak Gujarati.
-    case small = "openai_whisper-small"
-    /// Multilingual, speed-optimized large (pruned decoder). Default — Hinglish at reasonable speed.
-    case largeV3Turbo = "openai_whisper-large-v3_turbo_954MB"
-    /// Multilingual, full large-v3 — best accuracy incl. Gujarati; slowest/largest (~3 GB download).
-    case largeV3 = "openai_whisper-large-v3"
-
-    /// The default WhisperKit model — the multilingual BACKUP to Apple Speech. `small` (multilingual):
-    /// fast on-device, Indic-capable, far lighter than large-v3-turbo (954 MB / ~4.6 s batch latency).
-    /// NOTE: this enum is duplicated in DictationCoreBase/ModelTier.swift because Base cannot depend on
-    /// WhisperKit — keep the two `defaultWhisper` values in sync. TODO: collapse to one source (have the
-    /// Whisper module reuse Base's ModelTier) — deferred to avoid churn on a Trisha-unblocking merge.
-    public static var defaultWhisper: ModelTier { .small }
-
-    public var displayName: String {
-        switch self {
-        case .tinyEn:       return "Tiny (English, fastest)"
-        case .baseEn:       return "Base (English)"
-        case .smallEn:      return "Small (English, fast)"
-        case .small:        return "Small (multilingual)"
-        case .largeV3Turbo: return "Large Turbo (multilingual, balanced)"
-        case .largeV3:      return "Large v3 (multilingual, best)"
-        }
-    }
-}
+// `ModelTier` — the WhisperKit model ids, `defaultWhisper`, and display names — is the SINGLE source of
+// truth in DictationCoreBase/ModelTier.swift (imported above). It used to be duplicated here (Base can't
+// depend on WhisperKit), which risked the two `defaultWhisper` drifting; the duplicate is now gone.
 
 // MARK: - WhisperKit implementation of SpeechTranscriber
 
@@ -240,12 +205,9 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
     nonisolated static let silenceFloor: Float = 0.02
 
-    /// Known WhisperKit silence/no-speech hallucinations, normalized. NOTE: candidate for
-    /// the portable cleanup data-pack (PRD 0004 FR-B0) — keep it data-shaped.
-    nonisolated static let junkPhrases: Set<String> = [
-        "thank you", "thanks", "thank you for watching", "thanks for watching",
-        "please subscribe", "you", "bye", "okay", "uh", "um", ".",
-    ]
+    /// Known WhisperKit silence/no-speech hallucinations, normalized. Sourced from the shared
+    /// `defaultJunkPhrases` (DictationCoreBase) so the cleanup pack and this filter can't diverge.
+    nonisolated static let junkPhrases = Set(defaultJunkPhrases)
 
     /// Pure, testable: true when the transcript looks like a phantom phrase rather than
     /// real dictation. Only fires on short clips so genuine short answers survive.

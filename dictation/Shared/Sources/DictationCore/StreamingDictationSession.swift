@@ -116,7 +116,7 @@ public final class StreamingDictationSession {
         }
         // Skip cleanup for very short clips (parity with the batch path) or when level is off.
         let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
-        guard level != .off, wordCount >= minWordsForCleanup else {
+        guard level.shouldClean(wordCount: wordCount, minWords: minWordsForCleanup) else {
             return StreamingResult(cleanedText: rawText, rawText: rawText, incomplete: hadSegmentFailure,
                                    latencyMs: totalLatencyMs, confidence: confidence)
         }

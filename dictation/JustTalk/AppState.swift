@@ -368,7 +368,10 @@ public final class AppState: NSObject, ObservableObject {
             } else {
                 statusMessage = "Model load failed: \(error.localizedDescription)"
             }
-            return
+            // Deliberately DO NOT return: telemetry (History) and the warm-up are independent of the STT
+            // load. Returning here left History permanently unavailable + every dictation cold for the
+            // whole session whenever Apple Speech failed on first launch. Fall through — warmUp no-ops
+            // safely if the engine isn't loaded yet, and re-runs once the fallback finishes loading.
         }
 
         // 6. Open telemetry store. App still dictates+pastes without it, but History is fully
@@ -675,6 +678,7 @@ public final class AppState: NSObject, ObservableObject {
     /// but the transcript is still sparse, the loss is in STT, not capture. Appended to a CSV in
     /// Application Support (os_log doesn't surface reliably on this build); paired with the raw
     /// audio the recording store already keeps, so a drop can be diagnosed after the fact.
+    #if DEBUG
     private func logCaptureMetric(buffers: [AVAudioPCMBuffer], startDate: Date) {
         let frames = buffers.reduce(0) { $0 + Int($1.frameLength) }
         let capturedSec = Double(frames) / RecordingEngine.targetSampleRate
@@ -694,6 +698,7 @@ public final class AppState: NSObject, ObservableObject {
             try? data.write(to: url)
         }
     }
+    #endif
 
     // MARK: - Streaming dictation (PRD 0007, beta)
 
@@ -710,7 +715,10 @@ public final class AppState: NSObject, ObservableObject {
             profile: "dictation",
             minWordsForCleanup: cleanupPack.minWordsForCleanup
         )
-        session.prewarm()
+        // NOTE: no session.prewarm() here — the session shares `cleanup`, already prewarmed in
+        // startRecording (line ~648). In production this session is used ONLY for the live-preview pill
+        // (ingest → confirmedText); the real cleanup runs once in performTranscription at stop. The
+        // session's finish()/cleanup path is exercised by tests + bench, not the app.
         streamSession = session
         streamFlushedCount = 0
         streamPump = nil
@@ -789,7 +797,9 @@ public final class AppState: NSObject, ObservableObject {
         recordingHUD.setPhase(.processing, label: "Transcribing…")
         let all = audio.snapshot()
         let startDate = recordingStartDate ?? Date()
-        logCaptureMetric(buffers: all, startDate: startDate)
+        #if DEBUG
+        logCaptureMetric(buffers: all, startDate: startDate)   // diagnostic CSV — debug builds only
+        #endif
         persistRecording(buffers: all, recordedAt: startDate)
         // Tear down BOTH preview paths; the batch path owns the output. The streaming pill must be
         // fully stopped before the batch pass so two transcribes don't hit the one model at once.
@@ -931,9 +941,22 @@ public final class AppState: NSObject, ObservableObject {
         let t = transcriber
         statusMessage = "Reloading the model…"
         Task {
-            try? await t.load()
-            engineLoaded = t.isLoaded
-            if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
+            // Retry with backoff. A single swallowed failure would otherwise leave engineLoaded=false
+            // forever, statusMessage stuck on "Reloading…", and startRecording silently ignoring every
+            // hotkey — a dead app with no recovery. Bounded retries self-heal a transient failure.
+            for attempt in 1...3 {
+                do {
+                    try await t.load()
+                    engineLoaded = t.isLoaded
+                    if dictationState == .idle, engineLoaded { statusMessage = readyMessage }
+                    return
+                } catch {
+                    log.error("model reload attempt \(attempt, privacy: .public) failed: \(error.localizedDescription, privacy: .public)")
+                    try? await Task.sleep(for: .seconds(Double(attempt)))
+                }
+            }
+            engineLoaded = false
+            statusMessage = "Model reload failed — reopen Just Talk to retry"
         }
     }
 
@@ -969,7 +992,7 @@ public final class AppState: NSObject, ObservableObject {
 
         // Cleanup pass (the Wispr brain). Never throws — falls back internally.
         let wordCount = rawText.split(whereSeparator: { $0.isWhitespace }).count
-        let shouldClean = level != .off && wordCount >= cleanupPack.minWordsForCleanup
+        let shouldClean = level.shouldClean(wordCount: wordCount, minWords: cleanupPack.minWordsForCleanup)
         let cleanupResult: CleanupResult?
         if shouldClean {
             statusMessage = "Cleaning…"
@@ -992,7 +1015,9 @@ public final class AppState: NSObject, ObservableObject {
         // TIMING INSTRUMENTATION (temporary — measuring where the end-to-end latency goes).
         // stt = WhisperKit transcribe; cleanup = Apple Foundation Models (or fallback) rewrite.
         // Read with: log show --predicate 'subsystem == "com.trika.dictation"' --info | grep TIMING
+        #if DEBUG
         log.notice("TIMING stt=\(result.latencyMs, privacy: .public)ms cleanup=\(cleanupResult?.latencyMs ?? 0, privacy: .public)ms words=\(wordCount, privacy: .public) audioMs=\(result.audioDurationMs, privacy: .public) level=\(level.rawValue, privacy: .public) fallback=\(cleanupResult?.usedFallback ?? false, privacy: .public)")
+        #endif
 
         // Build record — transcriptText is what was pasted; rawText keeps the pre-cleanup
         // STT output for the cross-platform learnings dataset.
