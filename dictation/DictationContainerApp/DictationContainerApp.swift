@@ -10,16 +10,22 @@ struct DictationContainerApp: App {
     /// App-level so the silent keep-alive persists across screens + backgrounding — the whole point of
     /// warming: the session is hot before the first dictation, so no cold launch / app switch.
     @StateObject private var session = RecordSessionModel()
+    /// Licensing gate — the app is usable only when `licensing.state.isUnlocked`.
+    @StateObject private var licensing = LicensingService()
 
     var body: some Scene {
         WindowGroup {
             Group {
-                if onboardingComplete {
-                    ContentView()
-                } else {
+                if !onboardingComplete {
                     // Warm the session the moment onboarding finishes → the first real dictation is
                     // already hot (Wispr parity: it never leaves the app you're typing in).
                     OnboardingFlow(onFinish: { Task { await session.warm() } })
+                } else if licensing.state.isUnlocked {
+                    ContentView()
+                } else {
+                    // Onboarded but not licensed → sign in / plan status, gating the whole app.
+                    LicenseGateView(licensing: licensing)
+                        .task { await licensing.refresh() }
                 }
             }
                 .fullScreenCover(isPresented: $recording) {
@@ -31,7 +37,10 @@ struct DictationContainerApp: App {
                 .onOpenURL { url in
                     guard url.scheme == DictationHandoff.urlScheme else { return }
                     switch url.host {
-                    case "record": recording = true; Task { await session.begin() }
+                    // Don't start a dictation the user isn't licensed for — the gate screen is already
+                    // showing, so just ignore the keyboard's record request.
+                    case "record" where licensing.state.isUnlocked:
+                        recording = true; Task { await session.begin() }
                     case "diag":   showDiag = true   // justtalk://diag — show the keyboard log
                     default: break
                     }
@@ -40,7 +49,10 @@ struct DictationContainerApp: App {
                     DictationHandoff.trace("app", "scenePhase → \(phase)")
                     // Re-warm on every foreground once set up (covers app relaunch / iOS reclaiming the
                     // keep-alive). Idempotent; needs mic already granted (post-onboarding).
-                    if phase == .active && onboardingComplete { Task { await session.warm() } }
+                    if phase == .active && onboardingComplete {
+                        Task { await session.warm() }
+                        Task { await licensing.refresh() }   // re-verify entitlement on foreground
+                    }
                     // Swiped back to the host app → dismiss the record cover but KEEP the session alive
                     // (it records in the background). The cover is only for the cold-launch moment.
                     if phase == .background && recording { recording = false }
