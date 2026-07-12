@@ -18,6 +18,20 @@ enum JTBrand {
     static let hairline = Color(red: 0.88, green: 0.87, blue: 0.84)
 }
 
+private extension Color {
+    /// Build a Color from a shared-token RGB tuple.
+    init(_ rgb: (red: Double, green: Double, blue: Double)) { self.init(red: rgb.red, green: rgb.green, blue: rgb.blue) }
+}
+
+/// Per-step onboarding accents — the SHARED multi-colour wizard palette (matches macOS onboarding).
+private enum StepAccent {
+    static let gold = JTBrand.gold
+    static let red = Color(DesignTokens.Onboarding.red)
+    static let blue = Color(DesignTokens.Onboarding.blue)
+    static let indigo = Color(DesignTokens.Onboarding.indigo)
+    static let green = Color(DesignTokens.Onboarding.green)
+}
+
 // MARK: - Flow
 
 /// The onboarding steps, in order. Kept as an enum so a DEBUG launch arg (`-JTOnboardingPage n`) can
@@ -137,7 +151,8 @@ private struct EnableKeyboardPage: View {
         VStack(alignment: .leading, spacing: 0) {
             OnboardingHeader(eyebrow: "Step 1",
                              title: "Turn on the\nJust Talk keyboard",
-                             subtitle: "One tap opens Settings right where you need it. Flip both switches on.")
+                             subtitle: "One tap opens Settings right where you need it. Flip both switches on.",
+                             accent: StepAccent.blue)
             Spacer().frame(height: 28)
             // Preview of the exact toggles the user will see in Settings (Wispr's reassurance beat).
             VStack(spacing: 0) {
@@ -150,7 +165,8 @@ private struct EnableKeyboardPage: View {
             Spacer().frame(height: 20)
             WhyCard(icon: "lock.fill",
                     title: "Why Full Access?",
-                    message: "Your words never leave your iPhone. Full Access only lets the keyboard reach the microphone bridge — nothing is sent anywhere.")
+                    message: "Your words never leave your iPhone. Full Access only lets the keyboard reach the microphone bridge — nothing is sent anywhere.",
+                    accent: StepAccent.blue)
             Spacer()
             PrimaryButton("Go to Settings", action: openAppSettings)
                 .padding(.bottom, 10)
@@ -189,17 +205,18 @@ private struct ToggleRow: View {
 
 private struct WhyCard: View {
     let icon: String; let title: String; let message: String
+    var accent: Color = JTBrand.gold
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon).font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(JTBrand.gold).frame(width: 24)
+                .foregroundStyle(accent).frame(width: 24)
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(JTBrand.ink)
                 Text(message).font(.footnote).foregroundStyle(JTBrand.muted).fixedSize(horizontal: false, vertical: true)
             }
         }
         .padding(16)
-        .background(JTBrand.gold.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .background(accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -211,9 +228,9 @@ private struct AllowMicPage: View {
         VStack(spacing: 0) {
             Spacer()
             ZStack {
-                Circle().fill(JTBrand.gold.opacity(0.12)).frame(width: 180, height: 180)
-                Circle().fill(JTBrand.gold.opacity(0.18)).frame(width: 120, height: 120)
-                Image(systemName: "mic.fill").font(.system(size: 54)).foregroundStyle(JTBrand.goldDeep)
+                Circle().fill(StepAccent.red.opacity(0.12)).frame(width: 180, height: 180)
+                Circle().fill(StepAccent.red.opacity(0.18)).frame(width: 120, height: 120)
+                Image(systemName: "mic.fill").font(.system(size: 54)).foregroundStyle(StepAccent.red)
             }
             Spacer().frame(height: 40)
             Text("Let Just Talk\nhear you")
@@ -244,7 +261,7 @@ private struct SignInPage: View {
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(JTBrand.gold)
+            Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(StepAccent.indigo)
             Spacer().frame(height: 24)
             Text("Stay in the loop")
                 .font(.system(size: 32, weight: .bold, design: .serif)).foregroundStyle(JTBrand.ink)
@@ -284,8 +301,8 @@ private struct DonePage: View {
         VStack(spacing: 0) {
             Spacer()
             ZStack {
-                Circle().fill(Color.green.opacity(0.12)).frame(width: 140, height: 140)
-                Image(systemName: "checkmark.circle.fill").font(.system(size: 72)).foregroundStyle(.green)
+                Circle().fill(StepAccent.green.opacity(0.12)).frame(width: 140, height: 140)
+                Image(systemName: "checkmark.circle.fill").font(.system(size: 72)).foregroundStyle(StepAccent.green)
                     .scaleEffect(appeared ? 1 : 0.5).opacity(appeared ? 1 : 0)
             }
             Spacer().frame(height: 32)
@@ -307,10 +324,11 @@ private struct DonePage: View {
 
 private struct OnboardingHeader: View {
     let eyebrow: String; let title: String; let subtitle: String
+    var accent: Color = JTBrand.gold
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(eyebrow).font(.system(size: 13, weight: .semibold)).tracking(1.5).textCase(.uppercase)
-                .foregroundStyle(JTBrand.gold)
+                .foregroundStyle(accent)
             Text(title).font(.system(size: 32, weight: .bold, design: .serif))
                 .foregroundStyle(JTBrand.ink).fixedSize(horizontal: false, vertical: true)
             Text(subtitle).font(.body).foregroundStyle(JTBrand.muted)

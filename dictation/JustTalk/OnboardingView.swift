@@ -36,13 +36,14 @@ final class OnboardingWindow {
 
 // MARK: - Brand palette
 
+// Per-step onboarding accents — from the SHARED DesignTokens.Onboarding palette so macOS + iOS tint
+// each step identically. gold = the shared brand accent.
 private enum Brand {
-    static let red = Color(red: 0.91, green: 0.28, blue: 0.25)     // #E8483F — the HUD wave
-    // Shared brand accent (BrandPalette) so onboarding matches the pill + iOS surfaces.
     static let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
-    static let blue = Color(red: 0.20, green: 0.44, blue: 0.82)    // softer, less electric
-    static let indigo = Color(red: 0.35, green: 0.34, blue: 0.84)
-    static let green = Color(red: 0.13, green: 0.64, blue: 0.33)
+    static let red = Color(red: DesignTokens.Onboarding.red.red, green: DesignTokens.Onboarding.red.green, blue: DesignTokens.Onboarding.red.blue)
+    static let blue = Color(red: DesignTokens.Onboarding.blue.red, green: DesignTokens.Onboarding.blue.green, blue: DesignTokens.Onboarding.blue.blue)
+    static let indigo = Color(red: DesignTokens.Onboarding.indigo.red, green: DesignTokens.Onboarding.indigo.green, blue: DesignTokens.Onboarding.indigo.blue)
+    static let green = Color(red: DesignTokens.Onboarding.green.red, green: DesignTokens.Onboarding.green.green, blue: DesignTokens.Onboarding.green.blue)
 }
 
 // MARK: - OnboardingView (paged wizard)
@@ -270,7 +271,7 @@ private struct StepTitle: View {
     let subtitle: String
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 25, weight: .bold))
+            Text(title).font(.system(size: 25, weight: .bold, design: .serif))   // serif display — matches iOS
             Text(subtitle).font(.title3).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }

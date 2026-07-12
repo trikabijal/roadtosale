@@ -27,6 +27,15 @@ public enum DesignTokens {
         public static let muted = (red: 0.42, green: 0.42, blue: 0.46)
     }
 
+    /// Per-step onboarding accents — the multi-colour wizard palette, used by BOTH platforms so the
+    /// macOS and iOS onboarding tint each step the same. Step 0 uses the brand gold (`Color.accent`).
+    public enum Onboarding {
+        public static let red = (red: 0.91, green: 0.28, blue: 0.25)
+        public static let blue = (red: 0.20, green: 0.44, blue: 0.82)
+        public static let indigo = (red: 0.35, green: 0.34, blue: 0.84)
+        public static let green = (red: 0.13, green: 0.64, blue: 0.33)
+    }
+
     // MARK: Metrics
 
     /// Corner radii. One card radius across both platforms (was macOS 12 vs iOS 16/22).
