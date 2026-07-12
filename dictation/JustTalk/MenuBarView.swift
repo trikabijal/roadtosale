@@ -80,6 +80,14 @@ struct MenuBarView: View {
                     .buttonStyle(.plain)
                     .foregroundStyle(Theme.Palette.accent)
 
+                // Account / licensing. "Account" when unlocked, "Sign in" otherwise. The popover is
+                // transient (rebuilt on open), so reading the state here reflects the latest verdict.
+                Button(appState.licensing.state.isUnlocked ? "Account" : "Sign in") {
+                    LicenseWindowController.shared.present(licensing: appState.licensing)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.Palette.accent)
+
                 Spacer()
 
                 Button("Quit") { NSApp.terminate(nil) }

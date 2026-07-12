@@ -11,6 +11,10 @@ packages:
   DictationCore:
     path: Shared
   # Note: GRDB and WhisperKit are resolved transitively through DictationCore
+  # AppAuth: procured OIDC + PKCE client (macOS loopback / iOS custom-scheme) for Keycloak sign-in.
+  AppAuth:
+    url: https://github.com/openid/AppAuth-iOS.git
+    from: "1.7.5"
 
 targets:
 
@@ -24,6 +28,8 @@ targets:
       - path: JustTalk/Assets.xcassets
     dependencies:
       - package: DictationCore
+      - package: AppAuth
+        product: AppAuth
     entitlements:
       path: JustTalk/JustTalk.entitlements
       properties:
@@ -155,6 +161,8 @@ targets:
     dependencies:
       - package: DictationCore
         product: DictationCoreBase
+      - package: AppAuth
+        product: AppAuth
       - target: DictationKeyboard
         embed: true
         link: false
@@ -185,6 +193,11 @@ targets:
           - CFBundleURLName: com.trika.justtalk.ios
             CFBundleURLSchemes:
               - justtalk
+          # OAuth redirect scheme for AppAuth (Keycloak sign-in). Must equal the bundle id, and be
+          # registered as a redirect URI on the justtalk-app client in Keycloak.
+          - CFBundleURLName: com.trika.justtalk.ios.oauth
+            CFBundleURLSchemes:
+              - com.trika.justtalk.ios
         # Keep recording alive after the app suspends itself back to the previous app (Wispr-style
         # invisible capture — the mic keeps running in the background until the transcript is done).
         UIBackgroundModes:

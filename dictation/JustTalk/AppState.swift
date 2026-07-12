@@ -75,6 +75,11 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var launchAtLogin: Bool = false
     @Published public private(set) var appProfiles: [AppCleanupProfile] = []
 
+    /// Licensing gate. The app records only when `licensing.state.isUnlocked`; `startRecording()`
+    /// is the single chokepoint that enforces it. Reads the cached verdict at init (instant), then
+    /// re-verifies against the server on launch.
+    let licensing = LicensingService()
+
     // Onboarding / permissions (drives the setup wizard's live ticks)
     @Published private(set) var hotkeyConfig: HotkeyConfig = .fn
     @Published public var micGranted: Bool = false
@@ -400,6 +405,10 @@ public final class AppState: NSObject, ObservableObject {
         //    AVAudioEngine.start(); the LLM cleanup warms lazily too. Pay both now, at launch, in the
         //    background — the cost moves off the user's first key-press.
         await warmUpForFirstDictation()
+
+        // Re-verify entitlement against the server (refreshes tokens if needed). Off the launch
+        // path — the cached verdict already set the initial state at init.
+        Task { await self.licensing.refresh() }
     }
 
     /// Pre-pay the first-dictation cold costs at launch. Safe/no-op if the mic isn't granted yet (the
@@ -629,6 +638,13 @@ public final class AppState: NSObject, ObservableObject {
     func startRecording() {
         guard dictationState == .idle, engineLoaded else {
             log.notice("startRecording ignored: state=\(String(describing: self.dictationState), privacy: .public) engineLoaded=\(self.engineLoaded, privacy: .public) correctionWindow=\(self.correctionWindowOpen, privacy: .public)")
+            return
+        }
+        // Licensing gate — no valid entitlement ⇒ never touch the mic; open sign-in / plan status
+        // instead. This is the single chokepoint every activation path funnels through.
+        guard licensing.state.isUnlocked else {
+            log.notice("startRecording blocked: locked (\(String(describing: self.licensing.state), privacy: .public))")
+            LicenseWindowController.shared.present(licensing: licensing)
             return
         }
         // Never start the audio engine without mic permission — doing so re-triggers the

@@ -28,6 +28,14 @@
 				<string>justtalk</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.trika.justtalk.ios.oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.trika.justtalk.ios</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleVersion</key>
 	<string>1</string>

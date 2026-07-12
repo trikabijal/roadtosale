@@ -9,6 +9,8 @@
 /* Begin PBXBuildFile section */
 		05E7CE5A84496D5CE08D8148 /* ClipboardPaster.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */; };
 		0FEC4AB499C22F3552219FCC /* HotkeyPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8348A65F7FBC56F78D243F23 /* HotkeyPermissionTests.swift */; };
+		1078AD860AB798FD805F4B6D /* Licensing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5700AFA64040C39C5E2D9BBB /* Licensing.swift */; };
+		1BC0F165061C7985A77DB962 /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 6FE5169154E514D81AAC3B28 /* AppAuth */; };
 		201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */; };
 		27ED2AFF7B461210B306C66B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A732C99F4CC32FEAC6D6762 /* AppState.swift */; };
 		28A9587DC1C9CCADDA3D4183 /* VocabularyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748DAF55C7EA53BA51F0E587 /* VocabularyView.swift */; };
@@ -28,6 +30,7 @@
 		95AF0B53FCEA9B4DDFDABC88 /* LoginItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74FA4087D41C617C22B09290 /* LoginItem.swift */; };
 		A1B2AEF4E14138FE4601A9E2 /* RecordingHUD.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E4169A37D9C2D1977D6B169 /* RecordingHUD.swift */; };
 		A3381B7DF7E36EAB5AC4C2A2 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E92228F9B190F400D60A2E6 /* HistoryView.swift */; };
+		B084DFB292E31053F5ACAC25 /* LicenseGateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33BC4829DF4FE45128CB9B2C /* LicenseGateView.swift */; };
 		BCBBC5AB6714F38095D2AE71 /* DictationCore in Frameworks */ = {isa = PBXBuildFile; productRef = 05CFE98659B37878934EC36F /* DictationCore */; };
 		C248632971AAF2DE5521AB99 /* DictationKeyboard.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 89A2F0485E5280F14166D929 /* DictationKeyboard.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		D2FD6CF6DF9B41B983A24D03 /* RequirementsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBA871F89ABBCFE95F000751 /* RequirementsView.swift */; };
@@ -40,6 +43,7 @@
 		E6FA20103A2D9AE3B1462047 /* KBLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A66110A659F554EB0F686F4 /* KBLog.swift */; };
 		E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6A61E7598085DE6F8175CC5 /* RecordSession.swift */; };
 		F157BE4D0DE453FFF438AD46 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 260D32E67CFC9947167AF965 /* OnboardingView.swift */; };
+		F163B89182F1C1116B205D53 /* AppAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 4119C1E3602F8348552DC3CE /* AppAuth */; };
 		F91B8D676CA1B9B6688FC21A /* InstallSignal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D5AD69248D0B47905EDE579 /* InstallSignal.swift */; };
 /* End PBXBuildFile section */
 
@@ -86,10 +90,12 @@
 		2A732C99F4CC32FEAC6D6762 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		2B4491D9625EC22BBB53DD30 /* JustTalkTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JustTalkTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FC31B8DB416CAA220C729B2 /* ClipboardPaster.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardPaster.swift; sourceTree = "<group>"; };
+		33BC4829DF4FE45128CB9B2C /* LicenseGateView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseGateView.swift; sourceTree = "<group>"; };
 		351C23993E3EF252AA709668 /* KeyboardViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewController.swift; sourceTree = "<group>"; };
 		367B8C381718F98E3BE732D0 /* Shared */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Shared; path = Shared; sourceTree = SOURCE_ROOT; };
 		39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFlow.swift; sourceTree = "<group>"; };
 		4CAF2D28601C4A9EE7AA105B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5700AFA64040C39C5E2D9BBB /* Licensing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Licensing.swift; sourceTree = "<group>"; };
 		604B255F85D233ADFFBCDDC2 /* KeyboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardView.swift; sourceTree = "<group>"; };
 		67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -132,6 +138,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BCBBC5AB6714F38095D2AE71 /* DictationCore in Frameworks */,
+				F163B89182F1C1116B205D53 /* AppAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -140,6 +147,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				8CE78CB1A2CCCB015E4301BA /* DictationCoreBase in Frameworks */,
+				1BC0F165061C7985A77DB962 /* AppAuth in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,6 +237,8 @@
 				07EF7AD570C93F676315ECF9 /* Info.plist */,
 				C2529F3629EBE1A1EB5E16E0 /* JustTalk.entitlements */,
 				77D574EFB507C810CC668CF2 /* JustTalkApp.swift */,
+				33BC4829DF4FE45128CB9B2C /* LicenseGateView.swift */,
+				5700AFA64040C39C5E2D9BBB /* Licensing.swift */,
 				74FA4087D41C617C22B09290 /* LoginItem.swift */,
 				76746E2E60A6DCC056DE40EA /* MenuBarView.swift */,
 				260D32E67CFC9947167AF965 /* OnboardingView.swift */,
@@ -296,6 +306,7 @@
 			name = JustTalk;
 			packageProductDependencies = (
 				05CFE98659B37878934EC36F /* DictationCore */,
+				4119C1E3602F8348552DC3CE /* AppAuth */,
 			);
 			productName = JustTalk;
 			productReference = 205822849208ED17A4502FDA /* JustTalk.app */;
@@ -318,6 +329,7 @@
 			name = DictationContainerApp;
 			packageProductDependencies = (
 				5F069C262FA3F2BBDFF37D28 /* DictationCoreBase */,
+				6FE5169154E514D81AAC3B28 /* AppAuth */,
 			);
 			productName = DictationContainerApp;
 			productReference = 67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */;
@@ -356,6 +368,7 @@
 			mainGroup = C48255A77DF83E3676F5B170;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				3BB29590F1F670346AFAC3DB /* XCRemoteSwiftPackageReference "AppAuth-iOS" */,
 				1FB58FD19DA10D9838F3FB8A /* XCLocalSwiftPackageReference "Shared" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -427,6 +440,8 @@
 				31FD2E192660FDA86DFB389C /* HotkeyConflict.swift in Sources */,
 				362649B8F95B44E35066B5D1 /* HotkeyManager.swift in Sources */,
 				365AE9B2724640D1A65AEA99 /* JustTalkApp.swift in Sources */,
+				B084DFB292E31053F5ACAC25 /* LicenseGateView.swift in Sources */,
+				1078AD860AB798FD805F4B6D /* Licensing.swift in Sources */,
 				95AF0B53FCEA9B4DDFDABC88 /* LoginItem.swift in Sources */,
 				DA2B53F8205E5E6FC3229B19 /* MenuBarView.swift in Sources */,
 				F157BE4D0DE453FFF438AD46 /* OnboardingView.swift in Sources */,
@@ -810,14 +825,35 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		3BB29590F1F670346AFAC3DB /* XCRemoteSwiftPackageReference "AppAuth-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/openid/AppAuth-iOS.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.7.5;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		05CFE98659B37878934EC36F /* DictationCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DictationCore;
 		};
+		4119C1E3602F8348552DC3CE /* AppAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3BB29590F1F670346AFAC3DB /* XCRemoteSwiftPackageReference "AppAuth-iOS" */;
+			productName = AppAuth;
+		};
 		5F069C262FA3F2BBDFF37D28 /* DictationCoreBase */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DictationCoreBase;
+		};
+		6FE5169154E514D81AAC3B28 /* AppAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 3BB29590F1F670346AFAC3DB /* XCRemoteSwiftPackageReference "AppAuth-iOS" */;
+			productName = AppAuth;
 		};
 		766F3C1BCE1AA3999EB1C395 /* DictationCoreBase */ = {
 			isa = XCSwiftPackageProductDependency;
