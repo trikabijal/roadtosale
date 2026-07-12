@@ -67,9 +67,11 @@ public enum DictationHandoff {
         store?.set(level, forKey: levelKey)
     }
 
-    /// Keyboard: read the latest mic level published by the recording app.
+    /// Keyboard: read the latest mic level published by the recording app (for the live waveform).
+    /// Synchronizes so the cross-process value is fresh each poll.
     public static func readLevel() -> Float {
-        (store?.object(forKey: levelKey) as? Float) ?? 0
+        store?.synchronize()
+        return (store?.object(forKey: levelKey) as? Float) ?? 0
     }
 
     // MARK: - Cross-process trace (diagnostics)

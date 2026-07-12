@@ -25,6 +25,10 @@ final class KeyboardViewModel: ObservableObject {
 
     @Published private(set) var state: KeyboardDictationState = .idle
     @Published private(set) var statusMessage: String = "Tap mic to dictate"
+    /// Live mic loudness (0…~1) published by the recording app, polled while dictating — drives the
+    /// keyboard waveform so the user can see it's hearing them.
+    @Published private(set) var micLevel: Float = 0
+    private var levelTask: Task<Void, Never>?
 
     /// Wired by `KeyboardViewController` — inserts the final text into the host text field.
     var insertText: ((String) -> Void)?
@@ -78,6 +82,7 @@ final class KeyboardViewModel: ObservableObject {
         } else {
             state = .dictating
             statusMessage = "Listening… tap to stop"
+            startLevelPolling()
             // Seamless path (Wispr's "Flow Session"): if the container app is still alive in the
             // background from a recent dictation, just signal it — no `openURL`, so iOS never
             // foregrounds it and the user stays in the app they're typing in. Only when the session
@@ -115,13 +120,28 @@ final class KeyboardViewModel: ObservableObject {
             if state != .dictating {
                 state = .dictating
                 statusMessage = "Listening… tap to stop"
+                startLevelPolling()
                 DictationHandoff.trace("kbd", "reappear — synced to RECORDING (session live)")
             }
         } else if state == .dictating {
             state = .idle
             statusMessage = "Tap mic to dictate"
+            stopLevelPolling()
         }
     }
+
+    /// Poll the app's published mic level (App Group) ~16×/s while dictating → drives the waveform.
+    private func startLevelPolling() {
+        levelTask?.cancel()
+        levelTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(60))
+                guard let self, !Task.isCancelled, self.state == .dictating else { self?.micLevel = 0; return }
+                self.micLevel = DictationHandoff.readLevel()
+            }
+        }
+    }
+    private func stopLevelPolling() { levelTask?.cancel(); levelTask = nil; micLevel = 0 }
 
     // MARK: - Handoff
 
