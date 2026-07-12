@@ -465,9 +465,12 @@ private struct WaveMeter: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    /// Live amplitude from mic RMS → 0…1. Low floor so it goes nearly FLAT when you're quiet and
-    /// swells with loudness — the wave visibly tracks your voice. Reaches full around RMS 0.2.
-    private var amplitude: CGFloat { 0.08 + 0.92 * min(1, CGFloat(level) / 0.2) }
+    /// Live amplitude from mic RMS → 0…1. Floor + full-scale RMS come from the shared DesignTokens.Wave
+    /// spec, so a given loudness reads the same on the macOS pill and the iOS keyboard wave.
+    private var amplitude: CGFloat {
+        let floor = CGFloat(DesignTokens.Wave.floor)
+        return floor + (1 - floor) * min(1, CGFloat(level) / CGFloat(DesignTokens.Wave.fullScaleRMS))
+    }
 
     var body: some View {
         if active && !reduceMotion {

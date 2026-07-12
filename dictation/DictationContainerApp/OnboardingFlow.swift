@@ -8,12 +8,13 @@ import DictationCoreBase
 /// Just Talk's onboarding palette — carries the macOS pill's warm gold accent onto iOS for one
 /// identity across platforms. Ink on warm paper, a single gold accent, quiet neutrals.
 enum JTBrand {
-    static let ink = Color(red: 0.09, green: 0.09, blue: 0.11)
+    // ink + muted come from the shared DesignTokens so the neutrals match macOS; paper is iOS-only warm.
+    static let ink = Color(red: DesignTokens.Color.ink.red, green: DesignTokens.Color.ink.green, blue: DesignTokens.Color.ink.blue)
     static let paper = Color(red: 0.99, green: 0.985, blue: 0.97)
     // Gold + deep-gold come from the shared `BrandPalette` so the app and the keyboard never diverge.
     static let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
     static let goldDeep = Color(red: BrandPalette.goldDeepRGB.red, green: BrandPalette.goldDeepRGB.green, blue: BrandPalette.goldDeepRGB.blue)
-    static let muted = Color(red: 0.42, green: 0.42, blue: 0.46)
+    static let muted = Color(red: DesignTokens.Color.muted.red, green: DesignTokens.Color.muted.green, blue: DesignTokens.Color.muted.blue)
     static let hairline = Color(red: 0.88, green: 0.87, blue: 0.84)
 }
 
