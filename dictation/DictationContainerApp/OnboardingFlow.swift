@@ -48,7 +48,6 @@ struct OnboardingFlow: View {
     // PERSISTED step — going to Settings (for the keyboard) can relaunch this light container app, which
     // used to reset onboarding to page 1. Storing the step means the user returns to where they were.
     @AppStorage("onboardingStepRaw") private var stepRaw = 0
-    @Environment(\.scenePhase) private var scenePhase
     let onFinish: () -> Void
 
     private var step: OnboardingStep { OnboardingStep(rawValue: stepRaw) ?? .hero }
@@ -62,16 +61,12 @@ struct OnboardingFlow: View {
                 .id(step)
         }
         .preferredColorScheme(.light)
-        // Auto-advance past "enable keyboard" the moment we can prove it's on (the keyboard loaded with
-        // Full Access → wrote the App-Group flag) — no manual "I've turned it on". Checked on every
-        // foreground (returning from Settings) and polled while the user is on that step.
-        .onChange(of: scenePhase) { _, phase in if phase == .active { detectKeyboard() } }
-        .task(id: step) { await pollKeyboardWhileEnabling() }
     }
 
     @ViewBuilder private var content: some View {
         switch step {
         case .hero:           HeroPage(onNext: { advance(to: .enableKeyboard) })
+        // The enable step detects the keyboard itself and shows a ✓ before advancing (see the page).
         case .enableKeyboard: EnableKeyboardPage(onContinue: { advance(to: .allowMic) })
         case .allowMic:       AllowMicPage(onNext: { advance(to: .signIn) })
         case .signIn:         SignInPage(onNext: { advance(to: .done) }, onSkip: { advance(to: .done) })
@@ -81,21 +76,6 @@ struct OnboardingFlow: View {
 
     private func advance(to next: OnboardingStep) {
         withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { stepRaw = next.rawValue }
-    }
-
-    /// If we're waiting on the keyboard and it's now proven enabled, move on automatically.
-    private func detectKeyboard() {
-        if step == .enableKeyboard, DictationHandoff.keyboardLoaded() { advance(to: .allowMic) }
-    }
-
-    /// While on the enable step, poll for the keyboard flag (it's set the instant the user switches to
-    /// the Just Talk keyboard once) so we advance without a tap.
-    private func pollKeyboardWhileEnabling() async {
-        guard step == .enableKeyboard else { return }
-        while !Task.isCancelled, step == .enableKeyboard {
-            if DictationHandoff.keyboardLoaded() { advance(to: .allowMic); return }
-            try? await Task.sleep(for: .seconds(1))
-        }
     }
 }
 
@@ -158,9 +138,9 @@ private struct HeroPage: View {
 // MARK: - 2. Enable keyboard (deep-link into Settings)
 
 private struct EnableKeyboardPage: View {
-    /// Fallback only — the flow normally auto-advances the instant the keyboard loads (see OnboardingFlow).
     let onContinue: () -> Void
     @State private var probe = ""
+    @State private var detected = false   // keyboard proven enabled + Full Access
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -177,17 +157,14 @@ private struct EnableKeyboardPage: View {
             .background(.white, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(JTBrand.hairline))
             Spacer().frame(height: 16)
-            WhyCard(icon: "lock.fill",
-                    title: "Why Full Access?",
-                    message: "Your words never leave your iPhone. Full Access only lets the keyboard reach the microphone bridge — nothing is sent anywhere.",
-                    accent: StepAccent.blue)
-            Spacer().frame(height: 16)
-            // The auto-detect: tap here, switch to the Just Talk keyboard (🌐) once — it loads, and the
-            // flow continues on its own. No "I've turned it on" tap.
+            // Live detection status — the visual "settings look good" feedback.
+            statusRow
+            Spacer().frame(height: 12)
+            // Tap here, switch to the Just Talk keyboard (🌐) once — it loads and we detect it.
             TextField("Then tap here + switch to Just Talk 🌐", text: $probe)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(StepAccent.blue.opacity(0.4)))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke((detected ? StepAccent.green : StepAccent.blue).opacity(0.4)))
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings).padding(.bottom, 10)
             Button("Continue", action: onContinue)
@@ -195,6 +172,37 @@ private struct EnableKeyboardPage: View {
                 .frame(maxWidth: .infinity).padding(.bottom, 8)
         }
         .padding()
+        .task { await watchForKeyboard() }
+    }
+
+    @ViewBuilder private var statusRow: some View {
+        HStack(spacing: 10) {
+            Image(systemName: detected ? "checkmark.circle.fill" : "circle.dashed")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(detected ? StepAccent.green : JTBrand.muted)
+            Text(detected ? "Just Talk keyboard is on — you're set!" : "Waiting for the keyboard… we'll continue automatically.")
+                .font(.callout.weight(detected ? .semibold : .regular))
+                .foregroundStyle(detected ? JTBrand.ink : JTBrand.muted)
+            Spacer()
+        }
+        .padding(14)
+        .background((detected ? StepAccent.green : JTBrand.muted).opacity(0.08),
+                    in: RoundedRectangle(cornerRadius: 12))
+        .animation(.easeInOut, value: detected)
+    }
+
+    /// Poll for the keyboard-loaded flag; on detection show the ✓ for a beat, THEN advance — so the user
+    /// gets clear visual confirmation that the settings look good instead of a silent jump.
+    private func watchForKeyboard() async {
+        while !Task.isCancelled {
+            if DictationHandoff.keyboardLoaded() {
+                withAnimation { detected = true }
+                try? await Task.sleep(for: .milliseconds(1200))   // let the ✓ register
+                onContinue()
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(700))
+        }
     }
 
     /// Opens Just Talk's own pane in Settings. iOS only allows an app to open its OWN Settings root
