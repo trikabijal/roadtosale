@@ -141,38 +141,38 @@ private struct EnableKeyboardPage: View {
     let onContinue: () -> Void
     @State private var probe = ""
     @State private var detected = false   // keyboard proven enabled + Full Access
+    @State private var showSkip = false   // escape hatch after a while
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             OnboardingHeader(eyebrow: "Step 1",
                              title: "Turn on the\nJust Talk keyboard",
-                             subtitle: "Opens Just Talk in Settings — tap Keyboards, add Just Talk, and turn on Full Access.",
+                             subtitle: "It's a couple of taps — do these two, then come back here.",
                              accent: StepAccent.blue)
-            Spacer().frame(height: 24)
-            VStack(spacing: 0) {
-                ToggleRow(title: "Just Talk", on: true)
-                Divider().overlay(JTBrand.hairline)
-                ToggleRow(title: "Allow Full Access", on: true)
-            }
-            .background(.white, in: RoundedRectangle(cornerRadius: 16))
-            .overlay(RoundedRectangle(cornerRadius: 16).stroke(JTBrand.hairline))
-            Spacer().frame(height: 16)
-            // Live detection status — the visual "settings look good" feedback.
+            Spacer().frame(height: 20)
+            InstructionRow(n: 1, text: "Open **Settings → Keyboards**, add **Just Talk**, and turn on **Full Access**.", accent: StepAccent.blue)
+            InstructionRow(n: 2, text: "In the box below, switch to the **Just Talk** keyboard (the 🌐 globe) once.", accent: StepAccent.blue)
+            Spacer().frame(height: 18)
+            // Live detection status.
             statusRow
             Spacer().frame(height: 12)
-            // Tap here, switch to the Just Talk keyboard (🌐) once — it loads and we detect it.
-            TextField("Then tap here + switch to Just Talk 🌐", text: $probe)
+            TextField("Tap here, then switch to Just Talk 🌐", text: $probe)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke((detected ? StepAccent.green : StepAccent.blue).opacity(0.4)))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke((detected ? StepAccent.green : StepAccent.blue).opacity(0.5)))
             Spacer()
-            PrimaryButton("Open Settings", action: openAppSettings).padding(.bottom, 10)
-            Button("Continue", action: onContinue)
-                .font(.callout.weight(.semibold)).foregroundStyle(JTBrand.muted)
-                .frame(maxWidth: .infinity).padding(.bottom, 8)
+            PrimaryButton("Open Settings", action: openAppSettings)
+                .padding(.bottom, showSkip && !detected ? 6 : 12)
+            // No "Continue" while we auto-detect — only a quiet escape hatch if detection is slow.
+            if showSkip && !detected {
+                Button("Skip for now", action: onContinue)
+                    .font(.footnote).foregroundStyle(JTBrand.muted)
+                    .frame(maxWidth: .infinity).padding(.bottom, 8)
+            }
         }
         .padding()
         .task { await watchForKeyboard() }
+        .task { try? await Task.sleep(for: .seconds(12)); withAnimation { showSkip = true } }
     }
 
     @ViewBuilder private var statusRow: some View {
@@ -180,7 +180,7 @@ private struct EnableKeyboardPage: View {
             Image(systemName: detected ? "checkmark.circle.fill" : "circle.dashed")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(detected ? StepAccent.green : JTBrand.muted)
-            Text(detected ? "Just Talk keyboard is on — you're set!" : "Waiting for the keyboard… we'll continue automatically.")
+            Text(detected ? "Just Talk keyboard is on — you're set!" : "Waiting for the keyboard…")
                 .font(.callout.weight(detected ? .semibold : .regular))
                 .foregroundStyle(detected ? JTBrand.ink : JTBrand.muted)
             Spacer()
@@ -191,8 +191,7 @@ private struct EnableKeyboardPage: View {
         .animation(.easeInOut, value: detected)
     }
 
-    /// Poll for the keyboard-loaded flag; on detection show the ✓ for a beat, THEN advance — so the user
-    /// gets clear visual confirmation that the settings look good instead of a silent jump.
+    /// Poll for the keyboard-loaded flag; on detection show the ✓ for a beat, THEN advance.
     private func watchForKeyboard() async {
         while !Task.isCancelled {
             if DictationHandoff.keyboardLoaded() {
@@ -201,7 +200,7 @@ private struct EnableKeyboardPage: View {
                 onContinue()
                 return
             }
-            try? await Task.sleep(for: .milliseconds(700))
+            try? await Task.sleep(for: .milliseconds(600))
         }
     }
 
@@ -348,6 +347,22 @@ private struct DonePage: View {
 }
 
 // MARK: - Shared components
+
+private struct InstructionRow: View {
+    let n: Int
+    let text: LocalizedStringKey
+    let accent: Color
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Text("\(n)").font(.subheadline.weight(.bold)).foregroundStyle(.white)
+                .frame(width: 24, height: 24).background(accent, in: Circle())
+            Text(text).font(.callout).foregroundStyle(JTBrand.ink)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 6)
+    }
+}
 
 private struct OnboardingHeader: View {
     let eyebrow: String; let title: String; let subtitle: String

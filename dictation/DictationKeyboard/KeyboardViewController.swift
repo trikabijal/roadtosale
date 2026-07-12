@@ -65,6 +65,7 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        DictationHandoff.markKeyboardLoaded()   // also here — reliable proof-of-enablement for onboarding
         // Start continuously reflecting the shared App-Group variables into the UI. iOS recreated us and
         // wiped local memory, but that's fine — the poll re-reads the truth (`capturing`, `pendingText`)
         // from scratch, so the wave/button/label reappear in exactly the right state and any finished
