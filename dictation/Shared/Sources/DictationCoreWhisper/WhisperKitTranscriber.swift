@@ -205,9 +205,10 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
     nonisolated static let silenceFloor: Float = AudioLevels.silenceFloor
 
-    /// Known WhisperKit silence/no-speech hallucinations, normalized. Sourced from the shared
-    /// `defaultJunkPhrases` (DictationCoreBase) so the cleanup pack and this filter can't diverge.
-    nonisolated static let junkPhrases = Set(defaultJunkPhrases)
+    /// Known WhisperKit silence/no-speech hallucinations, normalized. The shared `defaultJunkPhrases`
+    /// (DictationCoreBase) is the common core (so the cleanup pack + this filter can't diverge); the
+    /// extra "uh"/"um"/"." are WhisperKit-specific silence artifacts it emits that cleanup doesn't list.
+    nonisolated static let junkPhrases = Set(defaultJunkPhrases).union(["uh", "um", "."])
 
     /// Pure, testable: true when the transcript looks like a phantom phrase rather than
     /// real dictation. Only fires on short clips so genuine short answers survive.

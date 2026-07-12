@@ -1,11 +1,12 @@
 import Foundation
 
-/// Silence/no-speech hallucination + junk phrases in ONE place. Used by the cleanup fallback pack AND
-/// the WhisperKit hallucination filter, which previously kept divergent hardcoded copies. The loaded
-/// JSON data-pack overrides the cleanup side at runtime; this is the code-level single source of truth.
+/// Junk / no-speech phrases in ONE place — the code-level single source used by BOTH the cleanup
+/// fallback pack and the WhisperKit hallucination filter (they kept divergent copies). MUST equal the
+/// bundled cleanup-pack JSON's `junk_phrases` (a test pins this). WhisperKit adds a couple of STT-only
+/// silence artifacts on top. The loaded JSON pack overrides the cleanup side at runtime.
 public let defaultJunkPhrases: [String] = [
     "thank you", "thanks", "thank you for watching", "thanks for watching",
-    "please subscribe", "you", "bye", "okay", "uh", "um", ".",
+    "please subscribe", "you", "bye", "okay",
 ]
 
 // MARK: - Contract
