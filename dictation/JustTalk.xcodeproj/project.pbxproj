@@ -11,6 +11,7 @@
 		0FEC4AB499C22F3552219FCC /* HotkeyPermissionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8348A65F7FBC56F78D243F23 /* HotkeyPermissionTests.swift */; };
 		201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */; };
 		27ED2AFF7B461210B306C66B /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A732C99F4CC32FEAC6D6762 /* AppState.swift */; };
+		28A9587DC1C9CCADDA3D4183 /* VocabularyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748DAF55C7EA53BA51F0E587 /* VocabularyView.swift */; };
 		2A08240AFDBAC11C579986B4 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE9AA6B82BF95DEE8368937 /* Theme.swift */; };
 		31FD2E192660FDA86DFB389C /* HotkeyConflict.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE587750564E6EF6A0FCF8DA /* HotkeyConflict.swift */; };
 		33433838F497E5B26ED117D0 /* DictationContainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9400B0D4896004BF8C91126D /* DictationContainerApp.swift */; };
@@ -93,6 +94,7 @@
 		67A70E4FF8E3A759DD38FC39 /* DictationContainerApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DictationContainerApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		6D135AE5422B7DADBFD2B1AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		6D602FBD95895B0EED269984 /* KeyboardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeyboardViewModel.swift; sourceTree = "<group>"; };
+		748DAF55C7EA53BA51F0E587 /* VocabularyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VocabularyView.swift; sourceTree = "<group>"; };
 		74FA4087D41C617C22B09290 /* LoginItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginItem.swift; sourceTree = "<group>"; };
 		76746E2E60A6DCC056DE40EA /* MenuBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarView.swift; sourceTree = "<group>"; };
 		77D574EFB507C810CC668CF2 /* JustTalkApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JustTalkApp.swift; sourceTree = "<group>"; };
@@ -169,6 +171,7 @@
 				1D5AD69248D0B47905EDE579 /* InstallSignal.swift */,
 				39B1982D4BCD945A6F0F49D6 /* OnboardingFlow.swift */,
 				C6A61E7598085DE6F8175CC5 /* RecordSession.swift */,
+				748DAF55C7EA53BA51F0E587 /* VocabularyView.swift */,
 			);
 			path = DictationContainerApp;
 			sourceTree = "<group>";
@@ -398,6 +401,7 @@
 				F91B8D676CA1B9B6688FC21A /* InstallSignal.swift in Sources */,
 				201EDAA3CB0FC3865C522A0C /* OnboardingFlow.swift in Sources */,
 				E8F55B0C7559666B4151D7F5 /* RecordSession.swift in Sources */,
+				28A9587DC1C9CCADDA3D4183 /* VocabularyView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
