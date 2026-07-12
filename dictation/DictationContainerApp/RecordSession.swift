@@ -86,6 +86,11 @@ final class RecordSessionModel: ObservableObject {
     /// Telemetry DB (App Group, shared with the Stats/Home tab). Opened lazily — see `telemetryStore()`.
     private var telemetry: TelemetryStore?
 
+    /// Durable custom-vocabulary store (App Group, shared with the Words tab). Read fresh per dictation
+    /// so edits in the app take effect immediately.
+    private let vocabStore = (try? VocabularyStore.iOSURL()).map { VocabularyStore(url: $0) }
+    private func userVocab() -> [String] { vocabStore?.load() ?? [] }
+
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
@@ -248,6 +253,10 @@ final class RecordSessionModel: ObservableObject {
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
         }
+        // Custom vocabulary: seed on first run, then bias the recognizer. (AppleAnalyzer ignores the
+        // bias on iOS 26, so the real win is the cleanup spelling map applied in `transcribe`.)
+        if let vs = vocabStore { Vocabulary.ensureSeeded(vs) }
+        transcriber.setVocabularyBias(Vocabulary.biasTerms(userVocab()))
         DictationHandoff.trace("app", "warm: requesting mic permission…")
         guard await Self.requestMicPermission() else {
             DictationHandoff.trace("app", "mic permission denied")
@@ -332,7 +341,11 @@ final class RecordSessionModel: ObservableObject {
             var didClean = false
             if !text.isEmpty,
                text.split(whereSeparator: \.isWhitespace).count >= cleanupPack.minWordsForCleanup {
-                text = (await cleanup.clean(CleanupRequest(rawText: text, level: .light))).cleanedText
+                // Forced-spelling map from the user's vocabulary — where custom terms actually land on
+                // iOS (names/jargon get the right casing/spelling even when the recognizer mishears).
+                let req = CleanupRequest(rawText: text, level: .light,
+                                         vocab: Vocabulary.spellingMap(userVocab()))
+                text = (await cleanup.clean(req)).cleanedText
                 didClean = true
             }
             guard !text.isEmpty else {

@@ -8,6 +8,8 @@ struct ContentView: View {
         TabView {
             HomeTab()
                 .tabItem { Label("Home", systemImage: "waveform") }
+            WordsTab()
+                .tabItem { Label("Words", systemImage: "character.book.closed") }
             SetupTab()
                 .tabItem { Label("Setup", systemImage: "keyboard") }
         }

@@ -43,3 +43,37 @@ public struct VocabularyStore {
             .appendingPathComponent("vocabulary.json")
     }
 }
+
+// MARK: - Vocabulary helpers (single source of truth for both platforms)
+
+public enum Vocabulary {
+    /// Always-on brand terms so the app spells its own name right even before the user adds anything.
+    public static let brand = ["Just Talk", "Trika"]
+
+    /// Dev seed for the personal daily-driver build (brand + tech + the people/terms in use). This bakes
+    /// personal names into the binary — fine for the personal build; replace with Mac↔iOS vocabulary
+    /// sync before shipping to other users.
+    public static let seed = [
+        "WhisperKit", "Wispr Flow", "Trika", "LLM", "HUD", "VAD", "IPC", "DevOps", "Darwin", "Claude",
+        "PRD", "UAT", "OEM", "Flowable", "Bijal", "Deepali", "Meher", "Teena", "Tiez", "trika.ai",
+        "EHR", "Just Talk", "Road To Sale", "Trisha", "Sanghavi", "Poddar",
+    ]
+
+    /// STT recognition bias = brand + user terms.
+    public static func biasTerms(_ user: [String]) -> [String] { brand + user }
+
+    /// Forced-spelling map for cleanup (term → itself), brand UNDER user so a user override wins.
+    public static func spellingMap(_ user: [String]) -> [String: String] {
+        var map = Dictionary(brand.map { ($0.lowercased(), $0) }, uniquingKeysWith: { _, b in b })
+        for term in user { map[term.lowercased()] = term }
+        return map
+    }
+
+    /// Seed the store the first time (idempotent — only when empty). Returns the resulting terms.
+    @discardableResult
+    public static func ensureSeeded(_ store: VocabularyStore) -> [String] {
+        let current = store.load()
+        if current.isEmpty { store.save(seed); return seed }
+        return current
+    }
+}
