@@ -54,7 +54,11 @@ final class RecordSessionModel: ObservableObject {
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
-        cleanup = TextCleanupFactory.make(CleanupConfig(provider: .ruleBased, level: .light), pack: pack)
+        // Foundation Models cleanup (Apple's on-device LLM) to match the Mac's accuracy — the raw STT is
+        // the same SpeechAnalyzer, but rule-based cleanup left the phone looking far worse. The factory
+        // falls back to rule-based if FM isn't available (older device / no Apple Intelligence). The
+        // container app has the memory headroom for it (unlike the 70 MB keyboard extension).
+        cleanup = TextCleanupFactory.make(CleanupConfig(provider: .foundationModels, level: .light), pack: pack)
         if #available(iOS 26.0, *) {
             transcriber = AppleAnalyzerTranscriber(localeIdentifier: "en-US")
         } else {
@@ -86,16 +90,19 @@ final class RecordSessionModel: ObservableObject {
         didWarm = true
         DictationHandoff.setCapturing(false)   // clear any stale flag left by a killed session
         registerObservers()
+        DictationHandoff.trace("app", "warm: loading transcriber…")
         do { try await transcriber.load() } catch {
             log.error("load: \(error.localizedDescription, privacy: .public)")
         }
+        DictationHandoff.trace("app", "warm: requesting mic permission…")
         guard await Self.requestMicPermission() else {
             DictationHandoff.trace("app", "mic permission denied")
             didWarm = false
             return
         }
+        DictationHandoff.trace("app", "warm: starting flow audio…")
         do {
-            try flowAudio.start()   // one engine: silent keep-alive now; mic tap added per dictation
+            try flowAudio.start()   // one engine: silent keep-alive + always-installed mic tap
         } catch {
             DictationHandoff.trace("app", "flow audio start FAILED: \(error.localizedDescription)")
             didWarm = false
@@ -289,7 +296,9 @@ struct RecordSessionView: View {
                 Text(msg).multilineTextAlignment(.center).foregroundStyle(.secondary).padding(.horizontal)
             }
             Spacer()
-            Button("End session", action: { model.endSession(); onClose() }).padding(.bottom)
+            // No "End session" button — it killed the keep-alive and left the app unrevivable. The
+            // session lives on its own (idle timeout / iOS reclaim); this screen just shows the cold-
+            // launch moment and dismisses when you swipe back.
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         // `begin()` is kicked off by the App's onOpenURL (cold launch); the model is app-level and may

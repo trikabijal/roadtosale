@@ -41,6 +41,9 @@ struct DictationContainerApp: App {
                     // Re-warm on every foreground once set up (covers app relaunch / iOS reclaiming the
                     // keep-alive). Idempotent; needs mic already granted (post-onboarding).
                     if phase == .active && onboardingComplete { Task { await session.warm() } }
+                    // Swiped back to the host app → dismiss the record cover but KEEP the session alive
+                    // (it records in the background). The cover is only for the cold-launch moment.
+                    if phase == .background && recording { recording = false }
                 }
         }
     }

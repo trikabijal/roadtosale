@@ -38,6 +38,8 @@ final class KeyboardViewModel: ObservableObject {
     private var statusResetTask: Task<Void, Never>?
     /// Guards against a lost handoff: if `pendingText` never arrives, resets out of `.awaiting`.
     private var handoffTimeoutTask: Task<Void, Never>?
+    /// After a seamless START, verifies the app actually woke (else it was a stale-heartbeat corpse).
+    private var ackWatchdogTask: Task<Void, Never>?
     /// How long to poll for `pendingText` before assuming the transcript was lost.
     private static let handoffTimeout: Duration = .seconds(20)
 
@@ -83,10 +85,26 @@ final class KeyboardViewModel: ObservableObject {
             if DictationHandoff.isSessionAlive() {
                 DictationHandoff.trace("kbd", "start tap → session ALIVE, posting start (seamless)")
                 DictationHandoff.post(DictationHandoff.startNotification)
+                startAckWatchdog()   // a killed app leaves a stale heartbeat — verify it actually woke
             } else {
                 DictationHandoff.trace("kbd", "start tap → session COLD, openURL (launch app)")
                 openApp?(DictationHandoff.recordURL)
             }
+        }
+    }
+
+    /// After a seamless `START`, confirm the app actually picked it up (`capturing` went true). A
+    /// just-killed app leaves a stale-but-recent heartbeat, so `isSessionAlive()` can wrongly pick the
+    /// seamless path and signal a corpse — nothing launches, nothing records. If unacknowledged, the
+    /// app is dead → fall back to a cold `openURL` launch.
+    private func startAckWatchdog() {
+        ackWatchdogTask?.cancel()
+        ackWatchdogTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(800))
+            guard let self, !Task.isCancelled, self.state == .dictating,
+                  !DictationHandoff.isCapturing() else { return }
+            DictationHandoff.trace("kbd", "START not acked in 800ms → app was dead → openURL fallback")
+            self.openApp?(DictationHandoff.recordURL)
         }
     }
 

@@ -34,6 +34,11 @@ final class RecordingHUD {
     /// Re-floats the pill whenever the active Space changes — entering/returning to another app's
     /// full-screen Space can otherwise leave the (cached) panel behind that Space, hiding the pill.
     private var spaceObserver: (any NSObjectProtocol)?
+    /// Fires the moment macOS reports the pill is no longer visible to the user → bring it back.
+    private var occlusionObserver: (any NSObjectProtocol)?
+    /// Safety loop that re-floats ONLY when `occlusionState` says the pill is hidden. The panel is
+    /// CACHED (never recreated) — recreating would rebuild the SwiftUI view and delay the first show.
+    private var keepOnTopTask: Task<Void, Never>?
     /// Tracks on-screen state so the open/close cues fire on true visibility transitions only —
     /// not on phase changes (e.g. recording→processing) while the pill stays up.
     private var isVisible = false
@@ -96,11 +101,38 @@ final class RecordingHUD {
     private func present() {
         let panel = ensurePanel()
         position(panel)
-        applyTopmost(panel)          // re-assert — macOS may have demoted the cached panel's level
+        applyTopmost(panel)
         panel.orderFrontRegardless()
+        startKeepOnTop()             // bulletproof: re-assert every 0.5s so it can't stay hidden
         if !isVisible {
             isVisible = true
             onAppear?()
+        }
+    }
+
+    /// The permanent fix for "the pill disappeared". macOS tells us via `occlusionState` whether the
+    /// window is actually visible to the user; a light safety loop CHECKS that and only re-floats when
+    /// the pill is genuinely hidden (occluded / pushed behind a full-screen Space) — no blind re-ordering.
+    /// The `didChangeOcclusionState` observer (in ensurePanel) reacts the instant it gets covered; this
+    /// loop is the backstop for anything the notification misses. Cheap — a dictation is seconds.
+    private func startKeepOnTop() {
+        keepOnTopTask?.cancel()
+        keepOnTopTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(600))
+                guard let self, !Task.isCancelled, self.isVisible, let panel = self.panel else { return }
+                self.refloatIfHidden(panel)
+            }
+        }
+    }
+
+    /// If the pill isn't actually visible to the user, bring it back to the top. If it already is, do
+    /// nothing — this is the "check whether it's on top, only act if not" behaviour.
+    private func refloatIfHidden(_ panel: NSPanel) {
+        guard isVisible else { return }
+        if !panel.occlusionState.contains(.visible) {
+            applyTopmost(panel)
+            panel.orderFrontRegardless()
         }
     }
 
@@ -132,6 +164,7 @@ final class RecordingHUD {
 
     func hide() {
         stopReveal()
+        keepOnTopTask?.cancel(); keepOnTopTask = nil   // stop re-asserting; KEEP the panel cached
         panel?.orderOut(nil)
         if isVisible {
             isVisible = false
@@ -198,15 +231,18 @@ final class RecordingHUD {
             self?.saveOrigin(window.frame.origin)
         }
         // Re-float on Space changes: switching into (or back to) another app's full-screen Space can
-        // leave the cached panel stranded behind it. Re-assert level + re-order front while visible.
+        // leave the cached panel stranded behind it.
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self, self.isVisible, let panel = self.panel else { return }
-                self.applyTopmost(panel)
-                panel.orderFrontRegardless()
-            }
+            Task { @MainActor in if let self, let panel = self.panel { self.refloatIfHidden(panel) } }
+        }
+        // The instant macOS reports the pill is no longer visible to the user (covered / behind a
+        // full-screen window), bring it back — event-driven, so no visible gap.
+        occlusionObserver = NotificationCenter.default.addObserver(
+            forName: NSWindow.didChangeOcclusionStateNotification, object: p, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in if let self, let panel = self.panel { self.refloatIfHidden(panel) } }
         }
         panel = p
         return p
