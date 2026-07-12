@@ -17,11 +17,7 @@ public final class KeyboardViewController: UIInputViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Onboarding detection — test BOTH things dictation needs:
-        //  • ENABLED: post a Darwin notification (works even WITHOUT Full Access) → the keyboard exists.
-        //  • FULL ACCESS: write the App-Group flag (only succeeds WITH Full Access) → we can reach shared storage.
-        DictationHandoff.post(DictationHandoff.keyboardLoadedNotification)
-        DictationHandoff.markKeyboardLoaded()
+        postEnablementSignal()   // onboarding: tell the app we're enabled + whether we have Full Access
 
         viewModel = KeyboardViewModel()
         // Route final text into whatever text field the user has focused.
@@ -67,13 +63,21 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        DictationHandoff.post(DictationHandoff.keyboardLoadedNotification)   // enabled (no Full Access needed)
-        DictationHandoff.markKeyboardLoaded()                               // Full Access (App-Group write)
+        postEnablementSignal()
         // Start continuously reflecting the shared App-Group variables into the UI. iOS recreated us and
         // wiped local memory, but that's fine — the poll re-reads the truth (`capturing`, `pendingText`)
         // from scratch, so the wave/button/label reappear in exactly the right state and any finished
         // transcript is picked up. There is nothing to "sync": the UI is a pure function of the variables.
         viewModel.startReflecting()
+    }
+
+    /// Tell the container app (onboarding) that this keyboard is enabled, and whether it has Full Access
+    /// — both facts in one Darwin post, which crosses processes without needing Full Access itself.
+    /// `hasFullAccess` is UIInputViewController's own reliable answer.
+    private func postEnablementSignal() {
+        DictationHandoff.post(hasFullAccess
+            ? DictationHandoff.keyboardEnabledFullAccess
+            : DictationHandoff.keyboardEnabledLimited)
     }
 
     public override func viewWillDisappear(_ animated: Bool) {

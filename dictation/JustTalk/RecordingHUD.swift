@@ -241,7 +241,11 @@ final class RecordingHUD {
             forName: NSWindow.didMoveNotification, object: p, queue: .main
         ) { [weak self] note in
             guard let window = note.object as? NSWindow else { return }
-            self?.saveOrigin(window.frame.origin)
+            // Store the BOTTOM-CENTRE anchor (not the bottom-left origin): the pill hugs its content, so
+            // different phases (tall recording wave vs short "Didn't catch that") are different sizes.
+            // Anchoring bottom-centre keeps the pill visually in the SAME place — it grows upward from a
+            // fixed bottom edge and stays horizontally centred, instead of the top/left edge drifting.
+            self?.saveAnchor(NSPoint(x: window.frame.midX, y: window.frame.minY))
         }
         // Re-float on Space changes: switching into (or back to) another app's full-screen Space can
         // leave the cached panel stranded behind it.
@@ -273,38 +277,34 @@ final class RecordingHUD {
 
     private func position(_ panel: NSPanel) {
         let size = panel.frame.size
-        // Respect a position the user has dragged it to (if still on a connected display);
-        // otherwise default to bottom-centre.
-        if let origin = savedOrigin(), RecordingHUD.isOnScreen(origin, size: size) {
-            panel.setFrameOrigin(origin)
+        // Place so the pill's BOTTOM-CENTRE sits at the anchor — consistent across phases despite
+        // content-hugging size changes. Respect a dragged anchor if still on a connected display.
+        if let anchor = savedAnchor(), RecordingHUD.isOnScreen(bottomCenter: anchor, size: size) {
+            panel.setFrameOrigin(NSPoint(x: anchor.x - size.width / 2, y: anchor.y))
             return
         }
         guard let screen = NSScreen.main ?? NSScreen.screens.first else { return }
         let visible = screen.visibleFrame
-        panel.setFrameOrigin(NSPoint(
-            x: visible.midX - size.width / 2,
-            y: visible.minY + 120
-        ))
+        panel.setFrameOrigin(NSPoint(x: visible.midX - size.width / 2, y: visible.minY + 120))
     }
 
-    // MARK: - Position persistence
+    // MARK: - Position persistence (bottom-centre anchor)
 
-    nonisolated private static let originKey = "hudOrigin"
+    nonisolated private static let originKey = "hudAnchorBottomCenter"
 
-    nonisolated private func saveOrigin(_ p: NSPoint) {
+    nonisolated private func saveAnchor(_ p: NSPoint) {
         UserDefaults.standard.set(NSStringFromPoint(p), forKey: RecordingHUD.originKey)
     }
 
-    nonisolated private func savedOrigin() -> NSPoint? {
+    nonisolated private func savedAnchor() -> NSPoint? {
         guard let s = UserDefaults.standard.string(forKey: RecordingHUD.originKey) else { return nil }
         return NSPointFromString(s)
     }
 
-    /// True only if the saved origin lands the panel's CENTER within a screen's visible area —
-    /// so a position saved on a since-disconnected/rearranged monitor, or dragged mostly
-    /// off-screen, falls back to the default bottom-centre instead of hiding the HUD.
-    nonisolated private static func isOnScreen(_ origin: NSPoint, size: NSSize) -> Bool {
-        let center = NSPoint(x: origin.x + size.width / 2, y: origin.y + size.height / 2)
+    /// True only if the anchored panel's CENTER lands within a screen's visible area — so an anchor
+    /// saved on a since-disconnected monitor falls back to the default bottom-centre instead of hiding.
+    nonisolated private static func isOnScreen(bottomCenter: NSPoint, size: NSSize) -> Bool {
+        let center = NSPoint(x: bottomCenter.x, y: bottomCenter.y + size.height / 2)
         return NSScreen.screens.contains { $0.visibleFrame.contains(center) }
     }
 }
@@ -379,15 +379,10 @@ private struct HUDContentView: View {
                         LinearGradient(colors: [Color.white.opacity(0.06), Color.clear],
                                        startPoint: .top, endPoint: .center)))
         }
-        // Recording → a shimmering gold border (a moving shine sweeps the capsule edge). Other
-        // states keep the quiet hairline. Honors Reduce Motion (static gold, no sweep).
-        .overlay {
-            if model.phase == .recording {
-                GoldShimmerBorder()
-            } else {
-                Capsule().strokeBorder(Theme.Palette.strokeStrong)
-            }
-        }
+        // The gold border is the pill's IDENTITY — show it in EVERY phase so "Didn't catch that",
+        // "Transcribing…", "Copied" etc. are visibly the SAME pill, not a different one. Recording
+        // shimmers (moving shine); other phases hold a static gold stroke. Honors Reduce Motion.
+        .overlay { GoldShimmerBorder(active: model.phase == .recording) }
         .fixedSize(horizontal: true, vertical: false)   // hug content width (texts self-cap below)
         // Smoothly grow/shrink the pill as the transcript streams in (until the text cap), and on
         // state changes — matches the design's growing HUD.
@@ -534,6 +529,9 @@ private struct WaveMeter: View {
 /// A shimmering gold border for the recording pill: a gold gradient with bright highlights rotates
 /// around the capsule edge, giving a moving "shine". Reduce Motion → a static gold stroke.
 private struct GoldShimmerBorder: View {
+    /// Recording → animated shimmer; other phases → a static gold stroke (still the gold border, just
+    /// not moving). Either way the pill keeps its gold identity across every state.
+    var active: Bool = true
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // Warm golds only — the shine is gold-on-gold, no near-white highlight. The mid `gold` is the
@@ -546,7 +544,7 @@ private struct GoldShimmerBorder: View {
 
     var body: some View {
         Group {
-            if reduceMotion {
+            if reduceMotion || !active {
                 Capsule().strokeBorder(gold, lineWidth: lineWidth)
             } else {
                 TimelineView(.animation) { timeline in

@@ -137,9 +137,9 @@ private struct HeroPage: View {
 
 // MARK: - 2. Enable keyboard (deep-link into Settings)
 
-/// Detects the two things dictation needs, independently:
-///  • `enabled`   — the keyboard loaded (Darwin notification; works even WITHOUT Full Access).
-///  • `fullAccess`— the keyboard could write the App Group (only possible WITH Full Access).
+/// Detects the two things dictation needs, from the keyboard's OWN Darwin signals (no App-Group / no
+/// Full-Access dependency): the keyboard posts `…fullaccess` or `…limited` on load based on its own
+/// `hasFullAccess`. Either signal ⇒ the keyboard is enabled; which one ⇒ whether Full Access is on.
 @MainActor
 final class KeyboardDetector: ObservableObject {
     @Published var enabled = false
@@ -147,24 +147,21 @@ final class KeyboardDetector: ObservableObject {
 
     init() {
         let me = Unmanaged.passUnretained(self).toOpaque()
-        DictationHandoff.observe(DictationHandoff.keyboardLoadedNotification, observer: me) { _, obs, _, _, _ in
+        let cb: CFNotificationCallback = { _, obs, _, _, _ in
             guard let obs else { return }
-            let d = Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue()
-            Task { @MainActor in d.noteEnabled(); d.refresh() }   // Darwin = enabled (even w/o Full Access)
+            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onLimited()
         }
-        refresh()
+        DictationHandoff.observe(DictationHandoff.keyboardEnabledLimited, observer: me, callback: cb)
+        DictationHandoff.observe(DictationHandoff.keyboardEnabledFullAccess, observer: me) { _, obs, _, _, _ in
+            guard let obs else { return }
+            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onFullAccess()
+        }
     }
 
-    /// The App-Group flag also proves the keyboard loaded, so `enabled` is true if EITHER signal fired.
-    func refresh() {
-        let hadAccess = DictationHandoff.keyboardLoaded()
-        if hadAccess { fullAccess = true; enabled = true }
-    }
-    func noteEnabled() { enabled = true }
+    nonisolated func onLimited() { Task { @MainActor in self.enabled = true } }
+    nonisolated func onFullAccess() { Task { @MainActor in self.enabled = true; self.fullAccess = true } }
 
-    deinit {
-        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
-    }
+    deinit { DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque()) }
 }
 
 private struct EnableKeyboardPage: View {
@@ -228,12 +225,11 @@ private struct EnableKeyboardPage: View {
     /// BOTH are true — enabled AND Full Access — since dictation needs both.
     private func watch() async {
         while !Task.isCancelled {
-            detector.refresh()
             if allSet {
                 try? await Task.sleep(for: .milliseconds(1200))   // let the ✓ register
                 onContinue(); return
             }
-            try? await Task.sleep(for: .milliseconds(500))
+            try? await Task.sleep(for: .milliseconds(400))
         }
     }
 

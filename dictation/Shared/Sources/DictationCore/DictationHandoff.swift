@@ -81,25 +81,6 @@ public enum DictationHandoff {
         return (store?.object(forKey: levelKey) as? Float) ?? 0
     }
 
-    // MARK: - Keyboard-enabled detection (keyboard → app, for onboarding auto-advance)
-    //
-    // A container app can't ask iOS "is my keyboard enabled?" (no public API). But a keyboard extension
-    // can only READ/WRITE this shared App-Group store when it's enabled AND has Full Access. So the
-    // keyboard sets a flag the first time it loads; the app reads it to auto-detect that the user has
-    // turned the keyboard on (with Full Access) — no manual "I've turned it on" tap.
-
-    private static let kbdLoadedKey = "keyboardLoadedOnce"
-
-    /// Keyboard: called when the extension loads — proves it's enabled + has Full Access.
-    public static func markKeyboardLoaded() {
-        store?.set(true, forKey: kbdLoadedKey); store?.synchronize()
-    }
-
-    /// App: has the Just Talk keyboard ever loaded (⇒ enabled + Full Access)?
-    public static func keyboardLoaded() -> Bool {
-        store?.synchronize(); return store?.bool(forKey: kbdLoadedKey) ?? false
-    }
-
     // MARK: - Stats summary (app → keyboard)
     //
     // The keyboard shows a little stats carousel when idle (words / WPM / streak) — but a keyboard
@@ -211,10 +192,12 @@ public enum DictationHandoff {
     // and the keyboard polls it (a `done` app→keyboard signal used to exist; it caused a stale-instance
     // race and was removed). See docs/ios-dictation-architecture.md.
 
-    /// Keyboard → app: the keyboard extension just loaded. Posted on every load; used by onboarding to
-    /// detect that the keyboard is enabled. Darwin notifications work WITHOUT Full Access (unlike the
-    /// App-Group flag), so this fires even before the user grants Full Access.
-    public static let keyboardLoadedNotification = "com.trika.dictation.keyboard.loaded"
+    // Keyboard → app onboarding detection. The keyboard KNOWS its own Full Access via
+    // UIInputViewController.hasFullAccess, and Darwin notifications cross processes WITHOUT Full Access,
+    // so the keyboard posts one of these on load and the app learns BOTH facts (enabled + access) with
+    // NO App-Group dependency (which needs Full Access and was the fragile part).
+    public static let keyboardEnabledFullAccess = "com.trika.dictation.keyboard.fullaccess"
+    public static let keyboardEnabledLimited    = "com.trika.dictation.keyboard.limited"
 
     /// Keyboard → app (session ALIVE): begin a new dictation without relaunching the app.
     public static let startNotification = "com.trika.dictation.handoff.start"
