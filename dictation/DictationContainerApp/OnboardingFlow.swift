@@ -182,7 +182,6 @@ private struct EnableKeyboardPage: View {
     @Environment(\.scenePhase) private var scenePhase
     @FocusState private var probing: Bool
     @State private var probe = ""
-    @State private var showSkip = false
 
     private var allSet: Bool { detector.enabled && detector.fullAccess }
 
@@ -205,16 +204,18 @@ private struct EnableKeyboardPage: View {
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
-                .padding(.bottom, showSkip && !allSet ? 6 : 12)
-            if showSkip && !allSet {
-                Button("Skip for now", action: onContinue)
-                    .font(.footnote).foregroundStyle(JTBrand.muted)
-                    .frame(maxWidth: .infinity).padding(.bottom, 8)
-            }
+                .padding(.bottom, 6)
+            // Always-available manual continue. iOS gives the container app no reliable way to know a
+            // keyboard is enabled/Full-Access until the user actually switches to it in a text field, so
+            // auto-detection can miss — this button is the guaranteed way forward (matches Wispr, which
+            // also just shows "Go to Settings" and lets the user proceed).
+            Button(allSet ? "Continue" : "I've turned it on — continue", action: onContinue)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(allSet ? StepAccent.green : JTBrand.muted)
+                .frame(maxWidth: .infinity).padding(.bottom, 8)
         }
         .padding()
         .task { await watch() }
-        .task { try? await Task.sleep(for: .seconds(12)); withAnimation { showSkip = true } }
         // Bring the keyboard up automatically (here + when returning from Settings) so the only action
         // left is pressing 🌐 → Just Talk. iOS runs the keyboard ONLY when it's actually shown — it does
         // NOT load it when Full Access is toggled — so this switch is genuinely required.
