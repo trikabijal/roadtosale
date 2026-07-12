@@ -58,6 +58,10 @@ final class RecordSessionModel: ObservableObject {
     private static let maxCaptureSeconds: Double = 600   // 10 minutes
     private var maxCaptureTimer: Task<Void, Never>?
 
+    /// Observes `AVAudioSession` interruptions (system dictation, an incoming call, another app grabbing
+    /// the mic). Without this, an interruption silently stops our engine and the in-flight take is lost.
+    private var interruptionObserver: NSObjectProtocol?
+
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
@@ -116,6 +120,7 @@ final class RecordSessionModel: ObservableObject {
             return
         }
         DictationHandoff.trace("app", "warm — keep-alive started, session alive")
+        registerInterruptionObserver()
         startHeartbeat()
         startIdleTimer()
         if phase == .warming { phase = .ready }
@@ -176,8 +181,66 @@ final class RecordSessionModel: ObservableObject {
         Task { await finish(buffers, sd) }
     }
 
+    // MARK: - Audio interruptions (system dictation / calls / another app grabs the mic)
+
+    private func registerInterruptionObserver() {
+        guard interruptionObserver == nil else { return }
+        interruptionObserver = NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            let info = note.userInfo
+            Task { @MainActor in self?.handleInterruption(info) }
+        }
+    }
+
+    /// The mic was seized (e.g. the user tapped the system keyboard's dictation mic). iOS stops our
+    /// engine and drops the keep-alive assertion, so the session is effectively over. Critically: DON'T
+    /// lose the take — finalize it right now (transcribe the buffered audio, hand it back) exactly as if
+    /// the user had tapped finish. `finish()` runs under a background-task assertion so it completes even
+    /// as iOS backgrounds us. On `.ended` we try to re-warm so the next dictation is still seamless.
+    private func handleInterruption(_ userInfo: [AnyHashable: Any]?) {
+        guard let raw = userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
+        switch type {
+        case .began:
+            DictationHandoff.trace("app", "audio interruption BEGAN (mic seized) — salvaging take")
+            if capturing {
+                endCaptureAndTranscribe()   // transcribe what we have; writes pendingText for the keyboard
+            }
+            // Our keep-alive is gone; let the next keyboard tap cold-relaunch unless `.ended` re-warms us.
+            DictationHandoff.markSessionEnded()
+        case .ended:
+            DictationHandoff.trace("app", "audio interruption ENDED — attempting re-warm")
+            rewarmAfterInterruption()
+        @unknown default:
+            break
+        }
+    }
+
+    /// After an interruption ends, the engine iOS stopped needs a clean restart to resume keep-alive.
+    /// Best-effort: if it fails, the session simply stays ended and the next tap cold-launches.
+    private func rewarmAfterInterruption() {
+        guard didWarm else { return }
+        do {
+            flowAudio.stop()
+            try flowAudio.start()
+            DictationHandoff.markSessionAlive()
+            touch()
+            DictationHandoff.trace("app", "re-warm OK after interruption — session alive again")
+        } catch {
+            DictationHandoff.trace("app", "re-warm FAILED: \(error.localizedDescription) — session ended")
+            didWarm = false
+            DictationHandoff.markSessionEnded()
+        }
+    }
+
     private func finish(_ buffers: [AVAudioPCMBuffer], _ sd: Date) async {
-        defer { if phase == .transcribing { phase = .ready } }
+        // Hold a background-task assertion so the transcribe completes even if iOS is backgrounding us
+        // (e.g. right after an interruption seized the mic) — otherwise a long take is lost mid-transcribe.
+        let bgTask = UIApplication.shared.beginBackgroundTask(withName: "just-talk-transcribe")
+        defer {
+            if phase == .transcribing { phase = .ready }
+            if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask) }
+        }
         do {
             let r = try await transcriber.transcribe(buffers: buffers, audioStartDate: sd)
             var text = r.text
@@ -208,6 +271,7 @@ final class RecordSessionModel: ObservableObject {
         idleTimer?.cancel(); idleTimer = nil
         heartbeat?.cancel(); heartbeat = nil
         maxCaptureTimer?.cancel(); maxCaptureTimer = nil
+        if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs); interruptionObserver = nil }
         capturing = false
         didWarm = false
         flowAudio.stop()
@@ -220,6 +284,7 @@ final class RecordSessionModel: ObservableObject {
 
     deinit {
         DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
+        if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs) }
     }
 
     // MARK: - Keyboard signals
