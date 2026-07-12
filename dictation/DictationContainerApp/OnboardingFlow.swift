@@ -144,6 +144,10 @@ private struct HeroPage: View {
 final class KeyboardDetector: ObservableObject {
     @Published var enabled = false
     @Published var fullAccess = false
+    @Published var darwin = 0        // diag: Darwin signals received
+    @Published var flagRaw = false   // diag: raw persisted-flag read
+    @Published var diag = "—"        // diag: what the keyboard last wrote
+    @Published var grpOK = false     // diag: App Group reachable
 
     init() {
         // PRIMARY: read the persisted App-Group flag (written by the keyboard when it loaded with Full
@@ -163,11 +167,15 @@ final class KeyboardDetector: ObservableObject {
 
     /// Re-read the persisted flag. Called on init, on every foreground, and on a light poll.
     func refresh() {
-        if DictationHandoff.keyboardHasFullAccess() { enabled = true; fullAccess = true }
+        grpOK = DictationHandoff.appGroupReachable()
+        flagRaw = DictationHandoff.keyboardHasFullAccess()
+        diag = DictationHandoff.readKeyboardDiag()
+        if flagRaw { enabled = true; fullAccess = true }
     }
 
     nonisolated func onSignal(fullAccess: Bool) {
         Task { @MainActor in
+            self.darwin += 1
             self.enabled = true
             if fullAccess { self.fullAccess = true }
         }
@@ -201,6 +209,13 @@ private struct EnableKeyboardPage: View {
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
+            #if DEBUG
+            VStack(alignment: .leading, spacing: 2) {
+                Text("DBG grp:\(detector.grpOK ? "OK" : "NIL")  flag:\(detector.flagRaw ? "Y" : "N")  darwin:\(detector.darwin)  en:\(detector.enabled ? "Y" : "N")  fa:\(detector.fullAccess ? "Y" : "N")")
+                Text("DBG kbd:\(detector.diag)")
+            }
+            .font(.system(size: 10, design: .monospaced)).foregroundStyle(.orange).padding(.top, 6)
+            #endif
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
                 .padding(.bottom, showSkip && !allSet ? 6 : 12)
