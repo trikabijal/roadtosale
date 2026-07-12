@@ -36,6 +36,9 @@ final class LicensingService: ObservableObject {
     /// Email of the signed-in user, for display only.
     var email: String? { entitlement.cachedEmail() }
 
+    /// The signed-in identity (name / email / avatar) for the profile UI. Nil when signed out.
+    var profile: UserProfile? { entitlement.cachedProfile() }
+
     /// Whether we have a stored session at all (drives "Sign in" vs "Sign out" UI).
     var hasSession: Bool { authState != nil }
 

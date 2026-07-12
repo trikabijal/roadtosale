@@ -225,6 +225,36 @@ final class EntitlementTests: XCTestCase {
         XCTAssertEqual(ent.cachedState(), .signedOut)
     }
 
+    // MARK: - Profile
+
+    func testProfileDisplayNameAndInitials() {
+        let full = UserProfile(name: "Bijal Sanghavi", email: "bijal@x.com", pictureURL: nil)
+        XCTAssertEqual(full.displayName, "Bijal Sanghavi")
+        XCTAssertEqual(full.initials, "BS")
+
+        let emailOnly = UserProfile(name: nil, email: "bijal@trika.ai", pictureURL: nil)
+        XCTAssertEqual(emailOnly.displayName, "bijal")
+        XCTAssertEqual(emailOnly.initials, "B")
+
+        let empty = UserProfile(name: nil, email: nil, pictureURL: nil)
+        XCTAssertEqual(empty.displayName, "Account")
+        XCTAssertEqual(empty.initials, "A")
+    }
+
+    func testEvaluateStoresProfile() async throws {
+        let (priv, pub) = try makeKeyPair()
+        let jwksData = try JSONEncoder().encode(try jwks(from: pub))
+        let token = try signJWT(claims: [
+            "email": "paid@x.com", "name": "Paid User",
+            "exp": Date().addingTimeInterval(300).timeIntervalSince1970,
+            "realm_access": ["roles": ["paid"]],
+        ], priv: priv)
+        let ent = Entitlement(config: config, defaults: freshDefaults(), fetchJWKS: { _ in jwksData })
+        _ = await ent.evaluate(accessToken: token)
+        XCTAssertEqual(ent.cachedProfile()?.name, "Paid User")
+        XCTAssertEqual(ent.cachedProfile()?.email, "paid@x.com")
+    }
+
     // MARK: - base64url
 
     func testBase64urlRoundTrip() throws {

@@ -32,6 +32,8 @@ final class LicensingService: ObservableObject {
     }
 
     var email: String? { entitlement.cachedEmail() }
+    /// The signed-in identity (name / email / avatar) for the profile UI. Nil when signed out.
+    var profile: UserProfile? { entitlement.cachedProfile() }
     var hasSession: Bool { authState != nil }
 
     // MARK: - Lifecycle

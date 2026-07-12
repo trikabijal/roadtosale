@@ -33,12 +33,43 @@ struct LicenseGateView: View {
     @ViewBuilder private var content: some View {
         switch licensing.state {
         case .entitled, .gracePeriod:
-            titled("You're all set", "Just Talk is unlocked. Happy talking.")
+            profile
         case .notEntitled:
             planInactive
         case .signedOut:
             signIn
         }
+    }
+
+    // MARK: - Signed in & active (profile)
+
+    private var profile: some View {
+        VStack(spacing: 0) {
+            AvatarView(profile: licensing.profile, gold: gold, size: 64)
+            Spacer().frame(height: 14)
+            Text(licensing.profile?.displayName ?? "Your account")
+                .font(.system(size: 20, weight: .bold, design: .serif))
+            if let email = licensing.profile?.email {
+                Text(email).font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer().frame(height: 16)
+            planBadge(active: true)
+            Spacer().frame(height: 24)
+            Button("Sign out") { licensing.signOut() }
+                .buttonStyle(.bordered)
+            Button("Done") { window.close() }
+                .buttonStyle(.link).padding(.top, 6)
+        }
+    }
+
+    private func planBadge(active: Bool) -> some View {
+        HStack(spacing: 6) {
+            Circle().fill(active ? Color.green : Color.orange).frame(width: 7, height: 7)
+            Text(active ? "Plan active" : "Plan inactive")
+                .font(.caption.weight(.semibold))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .background((active ? Color.green : Color.orange).opacity(0.12), in: Capsule())
     }
 
     // MARK: - Signed out
@@ -107,6 +138,32 @@ struct LicenseGateView: View {
             Text(err).font(.footnote).foregroundStyle(.red)
                 .multilineTextAlignment(.center).padding(.top, 12)
         }
+    }
+}
+
+/// Circular avatar: the user's Google picture if present, else a gold monogram from their name/email.
+struct AvatarView: View {
+    let profile: UserProfile?
+    let gold: Color
+    var size: CGFloat = 48
+
+    var body: some View {
+        ZStack {
+            Circle().fill(gold.opacity(0.18))
+            if let s = profile?.pictureURL, let url = URL(string: s) {
+                AsyncImage(url: url) { $0.resizable().scaledToFill() } placeholder: { monogram }
+                    .clipShape(Circle())
+            } else {
+                monogram
+            }
+        }
+        .frame(width: size, height: size)
+    }
+
+    private var monogram: some View {
+        Text(profile?.initials ?? "?")
+            .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
+            .foregroundStyle(gold)
     }
 }
 

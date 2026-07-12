@@ -48,6 +48,7 @@ struct OnboardingFlow: View {
     // PERSISTED step — going to Settings (for the keyboard) can relaunch this light container app, which
     // used to reset onboarding to page 1. Storing the step means the user returns to where they were.
     @AppStorage("onboardingStepRaw") private var stepRaw = 0
+    @ObservedObject var licensing: LicensingService
     let onFinish: () -> Void
 
     private var step: OnboardingStep { OnboardingStep(rawValue: stepRaw) ?? .hero }
@@ -69,7 +70,7 @@ struct OnboardingFlow: View {
         // The enable step detects the keyboard itself and shows a ✓ before advancing (see the page).
         case .enableKeyboard: EnableKeyboardPage(onContinue: { advance(to: .allowMic) })
         case .allowMic:       AllowMicPage(onNext: { advance(to: .signIn) })
-        case .signIn:         SignInPage(onNext: { advance(to: .done) }, onSkip: { advance(to: .done) })
+        case .signIn:         SignInPage(licensing: licensing, onNext: { advance(to: .done) }, onSkip: { advance(to: .done) })
         case .done:           DonePage(onFinish: { stepRaw = 0; complete = true; onFinish() })
         }
     }
@@ -335,37 +336,67 @@ private struct AllowMicPage: View {
 // MARK: - 4. Sign in (install tracking)
 
 private struct SignInPage: View {
+    @ObservedObject var licensing: LicensingService
     let onNext: () -> Void
     let onSkip: () -> Void
+
+    private var signedIn: Bool { licensing.profile != nil }
+
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
-            Image(systemName: "sparkles").font(.system(size: 44)).foregroundStyle(StepAccent.indigo)
-            Spacer().frame(height: 24)
-            Text("Stay in the loop")
-                .font(.system(size: 32, weight: .bold, design: .serif)).foregroundStyle(JTBrand.ink)
-            Spacer().frame(height: 12)
-            Text("Sign in so we can save your preferences and let you know about new features.")
-                .font(.body).multilineTextAlignment(.center).foregroundStyle(JTBrand.muted)
-                .padding(.horizontal, 28)
-            Spacer()
-            // Google sign-in — the identity + install signal. Full OAuth needs a Google client id
-            // (see InstallSignal); until configured this records an anonymous install ping so we still
-            // learn that someone set the app up.
-            Button(action: { InstallSignal.signInWithGoogle(); onNext() }) {
-                HStack(spacing: 12) {
-                    Image(systemName: "g.circle.fill").font(.system(size: 20))
-                    Text("Continue with Google").font(.headline)
+            if signedIn {
+                // Signed in → show the identity we captured, and continue.
+                AvatarView(profile: licensing.profile, size: 72)
+                Spacer().frame(height: 20)
+                Text("Signed in")
+                    .font(.system(size: 30, weight: .bold, design: .serif)).foregroundStyle(JTBrand.ink)
+                Spacer().frame(height: 8)
+                Text(licensing.profile?.displayName ?? licensing.email ?? "")
+                    .font(.headline).foregroundStyle(JTBrand.ink)
+                if let email = licensing.profile?.email, email != licensing.profile?.displayName {
+                    Text(email).font(.callout).foregroundStyle(JTBrand.muted)
                 }
-                .foregroundStyle(JTBrand.ink)
-                .frame(maxWidth: .infinity).padding(.vertical, 16)
-                .background(.white, in: Capsule())
-                .overlay(Capsule().stroke(JTBrand.hairline))
+            } else {
+                Image(systemName: "person.crop.circle.badge.checkmark")
+                    .font(.system(size: 44)).foregroundStyle(StepAccent.indigo)
+                Spacer().frame(height: 24)
+                Text("Sign in to Just Talk")
+                    .font(.system(size: 32, weight: .bold, design: .serif)).foregroundStyle(JTBrand.ink)
+                Spacer().frame(height: 12)
+                Text("Sign in with Google to activate Just Talk and sync your subscription across devices.")
+                    .font(.body).multilineTextAlignment(.center).foregroundStyle(JTBrand.muted)
+                    .padding(.horizontal, 28)
+                if let err = licensing.lastError, !err.isEmpty {
+                    Text(err).font(.footnote).foregroundStyle(.red).padding(.top, 12)
+                }
             }
-            .padding(.horizontal, 24)
-            Button("Not now", action: onSkip)
-                .font(.callout.weight(.semibold)).foregroundStyle(JTBrand.muted)
-                .padding(.top, 14).padding(.bottom, 8)
+            Spacer()
+            if signedIn {
+                Button(action: onNext) {
+                    Text("Continue").font(.headline).foregroundStyle(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, 16)
+                        .background(JTBrand.ink, in: Capsule())
+                }
+                .padding(.horizontal, 24)
+            } else {
+                Button(action: { Task { await licensing.signIn() } }) {
+                    HStack(spacing: 12) {
+                        if licensing.isBusy { ProgressView() }
+                        else { Image(systemName: "g.circle.fill").font(.system(size: 20)) }
+                        Text(licensing.isBusy ? "Signing in…" : "Continue with Google").font(.headline)
+                    }
+                    .foregroundStyle(JTBrand.ink)
+                    .frame(maxWidth: .infinity).padding(.vertical, 16)
+                    .background(.white, in: Capsule())
+                    .overlay(Capsule().stroke(JTBrand.hairline))
+                }
+                .disabled(licensing.isBusy)
+                .padding(.horizontal, 24)
+                Button("Not now", action: onSkip)
+                    .font(.callout.weight(.semibold)).foregroundStyle(JTBrand.muted)
+                    .padding(.top, 14).padding(.bottom, 8)
+            }
         }
         .padding()
     }

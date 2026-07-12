@@ -56,11 +56,41 @@ public enum EntitlementState: Equatable, Sendable {
     }
 }
 
+/// The signed-in identity, for display in the app's profile UI. Purely cosmetic — never a security
+/// signal; entitlement is decided by the verified `paid` role, not by anything here.
+public struct UserProfile: Codable, Equatable, Sendable {
+    public let name: String?
+    public let email: String?
+    public let pictureURL: String?
+
+    public init(name: String?, email: String?, pictureURL: String?) {
+        self.name = name; self.email = email; self.pictureURL = pictureURL
+    }
+
+    /// Full name if known, else the email's local part, else "Account".
+    public var displayName: String {
+        if let name, !name.isEmpty { return name }
+        if let email, let local = email.split(separator: "@").first { return String(local) }
+        return "Account"
+    }
+
+    /// 1–2 letter monogram for an avatar when there's no picture. Derived from the display name, so
+    /// an email-only user reads as the first letter of the local part (not the domain).
+    public var initials: String {
+        let words = displayName.split(whereSeparator: { $0 == " " || $0 == "." })
+        let letters = words.prefix(2).compactMap { $0.first }
+        let text = String(letters).uppercased()
+        return text.isEmpty ? "?" : text
+    }
+}
+
 /// Persisted last-good verdict, so the grace window survives relaunches and offline starts.
 struct EntitlementCache: Codable, Equatable {
     var entitled: Bool
     var lastVerifiedAt: Date
     var email: String?
+    var name: String?
+    var pictureURL: String?
 }
 
 /// Evaluates and caches entitlement. Injectable JWKS fetch + clock keep it unit-testable offline.
@@ -111,7 +141,9 @@ public final class Entitlement {
                 return cachedStateOnFailure(default: .signedOut)
             }
             let entitled = claims.roles.contains(config.requiredRole)
-            store(EntitlementCache(entitled: entitled, lastVerifiedAt: now(), email: claims.email))
+            store(EntitlementCache(entitled: entitled, lastVerifiedAt: now(),
+                                   email: claims.email, name: claims.displayName,
+                                   pictureURL: claims.picture))
             return entitled ? .entitled : .notEntitled
         } catch let e as EntitlementJWT.VerifyError
                     where e == .signatureInvalid || e == .malformed || e == .unsupportedAlg {
@@ -138,6 +170,12 @@ public final class Entitlement {
 
     /// The email of the currently cached user, if any (for UI only — not a security signal).
     public func cachedEmail() -> String? { loadCache()?.email }
+
+    /// The cached signed-in identity, for the profile UI. Nil when signed out.
+    public func cachedProfile() -> UserProfile? {
+        guard let cache = loadCache(), cache.email != nil || cache.name != nil else { return nil }
+        return UserProfile(name: cache.name, email: cache.email, pictureURL: cache.pictureURL)
+    }
 
     /// Forget the entitlement (sign-out).
     public func clear() { defaults.removeObject(forKey: cacheKey) }

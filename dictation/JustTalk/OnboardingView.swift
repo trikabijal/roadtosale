@@ -86,7 +86,7 @@ struct OnboardingView: View {
                     case .accessibility: AccessibilityStep(appState: appState)
                     case .activationKey: KeyStep(appState: appState)
                     case .tryIt:         TryItStep(appState: appState, sentence: testSentence)
-                    case .stayInTouch:   ContactStep(appState: appState)
+                    case .stayInTouch:   ContactStep(appState: appState, licensing: appState.licensing)
                     }
                 }
                 .padding(.horizontal, 32)
@@ -121,11 +121,12 @@ struct OnboardingView: View {
             }
             Spacer()
             if step == .stayInTouch {
+                // Sign-in is optional here — the licensing gate catches an unsigned user at first
+                // dictation — so "Start talking" is always enabled.
                 Button("Skip for now") { appState.completeOnboarding() }
                     .controlSize(.large).buttonStyle(.plain).foregroundStyle(.secondary)
-                Button("Start talking") { appState.submitContact(); appState.completeOnboarding() }
+                Button("Start talking") { appState.completeOnboarding() }
                     .controlSize(.large).buttonStyle(BrandButton(color: step.accent))
-                    .disabled(!emailLooksValid)
             } else {
                 Button(step == .welcome ? "Let's go" : "Continue") {
                     goTo(Step(rawValue: step.rawValue + 1) ?? .stayInTouch)
@@ -556,18 +557,50 @@ private struct TryItStep: View {
 
 private struct ContactStep: View {
     @ObservedObject var appState: AppState
+    @ObservedObject var licensing: LicensingService
+
+    private let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            StepTitle(title: "You're all set. 🎉",
-                      subtitle: "Your voice never leaves your Mac. Leave your email so we can send updates and help if you get stuck.")
-            VStack(alignment: .leading, spacing: 12) {
-                LabeledField(label: "Name", text: Binding(get: { appState.contactName }, set: { appState.contactName = $0 }), prompt: "Your name (optional)")
-                LabeledField(label: "Email", text: Binding(get: { appState.contactEmail }, set: { appState.contactEmail = $0 }), prompt: "you@example.com")
+            if let profile = licensing.profile {
+                // Signed in during onboarding — show who, and the plan status.
+                StepTitle(title: "You're all set. 🎉", subtitle: "Signed in — your Just Talk account is ready.")
+                HStack(spacing: 14) {
+                    AvatarView(profile: profile, gold: gold, size: 52)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(profile.displayName).font(.headline)
+                        if let email = profile.email {
+                            Text(email).font(.callout).foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer()
+                    Button("Sign out") { licensing.signOut() }.buttonStyle(.link)
+                }
+            } else {
+                StepTitle(title: "Sign in to Just Talk",
+                          subtitle: "Sign in with Google to activate Just Talk. Your voice never leaves your Mac — this just links your subscription and syncs preferences across devices.")
+                Button {
+                    if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) {
+                        Task { await licensing.signIn(presenting: window) }
+                    }
+                } label: {
+                    HStack(spacing: 10) {
+                        if licensing.isBusy { ProgressView().controlSize(.small) }
+                        else { Image(systemName: "g.circle.fill") }
+                        Text(licensing.isBusy ? "Signing in…" : "Continue with Google").fontWeight(.semibold)
+                    }
+                    .padding(.vertical, 4).padding(.horizontal, 8)
+                }
+                .buttonStyle(BrandButton(color: gold))
+                .disabled(licensing.isBusy)
+                if let err = licensing.lastError, !err.isEmpty {
+                    Text(err).font(.caption).foregroundStyle(.red)
+                }
+                Text("Or skip for now — you can sign in later; Just Talk will ask before your first dictation.")
+                    .font(.caption).foregroundStyle(.tertiary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            Text("We'll only use it for product updates and support — never shared, never spammed. "
-                 + "Prefer not to? Just hit Skip.")
-                .font(.caption).foregroundStyle(.tertiary)
-                .fixedSize(horizontal: false, vertical: true)
             MenuBarLocator()
         }
     }

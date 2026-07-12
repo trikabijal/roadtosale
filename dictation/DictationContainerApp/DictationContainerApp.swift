@@ -19,9 +19,9 @@ struct DictationContainerApp: App {
                 if !onboardingComplete {
                     // Warm the session the moment onboarding finishes → the first real dictation is
                     // already hot (Wispr parity: it never leaves the app you're typing in).
-                    OnboardingFlow(onFinish: { Task { await session.warm() } })
+                    OnboardingFlow(licensing: licensing, onFinish: { Task { await session.warm() } })
                 } else if licensing.state.isUnlocked {
-                    ContentView()
+                    ContentView(licensing: licensing)
                 } else {
                     // Onboarded but not licensed → sign in / plan status, gating the whole app.
                     LicenseGateView(licensing: licensing)

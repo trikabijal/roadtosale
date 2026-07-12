@@ -4,6 +4,8 @@ import DictationCoreBase
 // Uses the shared `JTBrand` palette defined in OnboardingFlow.swift (gold accent on warm paper).
 
 struct ContentView: View {
+    @ObservedObject var licensing: LicensingService
+
     var body: some View {
         TabView {
             HomeTab()
@@ -12,8 +14,36 @@ struct ContentView: View {
                 .tabItem { Label("Words", systemImage: "character.book.closed") }
             SetupTab()
                 .tabItem { Label("Setup", systemImage: "keyboard") }
+            AccountTab(licensing: licensing)
+                .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
         .tint(JTBrand.gold)
+    }
+}
+
+// MARK: - Account tab (identity profile)
+
+struct AccountTab: View {
+    @ObservedObject var licensing: LicensingService
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                JTBrand.paper.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 20) {
+                        AccountCard(licensing: licensing)
+                        Text("Signed in with Google. Your name and email are stored with your Just Talk account so we can keep your subscription and preferences in sync across devices.")
+                            .font(.footnote).foregroundStyle(JTBrand.muted)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(20)
+                }
+            }
+            .navigationTitle("Account")
+        }
+        .task { await licensing.refresh() }
     }
 }
 
