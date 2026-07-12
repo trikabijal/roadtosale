@@ -76,13 +76,9 @@ public final class KeyboardViewController: UIInputViewController {
     /// `hasFullAccess` is UIInputViewController's own reliable answer.
     private func postEnablementSignal() {
         let fa = hasFullAccess
-        KBLog.error("KBDIAG load hasFullAccess=\(fa)")
-        // DIAG: only lands in the App Group if we have Full Access — so its presence/absence is itself
-        // the answer to "did the keyboard load with Full Access?".
-        DictationHandoff.writeKeyboardDiag("loaded fa=\(fa)")
-        // PERSISTED flag — survives the Settings round-trip; read by the app on foreground.
+        // Persisted flag (only lands with Full Access, so its presence proves it) + a live Darwin
+        // doorbell for the case where the app is already foreground when the keyboard loads.
         if fa { DictationHandoff.markKeyboardFullAccess() }
-        // Live doorbell too (instant while the app is already foreground).
         DictationHandoff.post(fa ? DictationHandoff.keyboardEnabledFullAccess
                                  : DictationHandoff.keyboardEnabledLimited)
     }

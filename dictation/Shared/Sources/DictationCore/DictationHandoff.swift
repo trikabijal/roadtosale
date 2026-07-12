@@ -104,13 +104,6 @@ public enum DictationHandoff {
         store?.synchronize(); return store?.bool(forKey: kbdFullAccessKey) ?? false
     }
 
-    // Diagnostics — is the shared App Group even reachable from this process, and what did the keyboard
-    // last report? (The keyboard's write only lands with Full Access, so an empty diag itself is a clue.)
-    public static func appGroupReachable() -> Bool { store != nil }
-    private static let kbdDiagKey = "keyboardDiag"
-    public static func writeKeyboardDiag(_ s: String) { store?.set(s, forKey: kbdDiagKey); store?.synchronize() }
-    public static func readKeyboardDiag() -> String { store?.synchronize(); return store?.string(forKey: kbdDiagKey) ?? "—" }
-
     // MARK: - Stats summary (app → keyboard)
     //
     // The keyboard shows a little stats carousel when idle (words / WPM / streak) — but a keyboard

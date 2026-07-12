@@ -144,10 +144,6 @@ private struct HeroPage: View {
 final class KeyboardDetector: ObservableObject {
     @Published var enabled = false
     @Published var fullAccess = false
-    @Published var darwin = 0        // diag: Darwin signals received
-    @Published var flagRaw = false   // diag: raw persisted-flag read
-    @Published var diag = "—"        // diag: what the keyboard last wrote
-    @Published var grpOK = false     // diag: App Group reachable
 
     init() {
         // PRIMARY: read the persisted App-Group flag (written by the keyboard when it loaded with Full
@@ -167,15 +163,11 @@ final class KeyboardDetector: ObservableObject {
 
     /// Re-read the persisted flag. Called on init, on every foreground, and on a light poll.
     func refresh() {
-        grpOK = DictationHandoff.appGroupReachable()
-        flagRaw = DictationHandoff.keyboardHasFullAccess()
-        diag = DictationHandoff.readKeyboardDiag()
-        if flagRaw { enabled = true; fullAccess = true }
+        if DictationHandoff.keyboardHasFullAccess() { enabled = true; fullAccess = true }
     }
 
     nonisolated func onSignal(fullAccess: Bool) {
         Task { @MainActor in
-            self.darwin += 1
             self.enabled = true
             if fullAccess { self.fullAccess = true }
         }
@@ -188,6 +180,7 @@ private struct EnableKeyboardPage: View {
     let onContinue: () -> Void
     @StateObject private var detector = KeyboardDetector()
     @Environment(\.scenePhase) private var scenePhase
+    @FocusState private var probing: Bool
     @State private var probe = ""
     @State private var showSkip = false
 
@@ -201,21 +194,15 @@ private struct EnableKeyboardPage: View {
                              accent: StepAccent.blue)
             Spacer().frame(height: 20)
             InstructionRow(n: 1, text: "Open **Settings → Keyboards**, add **Just Talk**, and turn on **Full Access**.", accent: StepAccent.blue)
-            InstructionRow(n: 2, text: "Come back here — we detect it automatically. (Not detected? Tap the box and switch to Just Talk via 🌐 once.)", accent: StepAccent.blue)
+            InstructionRow(n: 2, text: "Back here, the keyboard pops up — press the **🌐 globe** and pick **Just Talk** (you'll see our gold mic). That's the last tap.", accent: StepAccent.blue)
             Spacer().frame(height: 18)
             statusRow
             Spacer().frame(height: 12)
-            TextField("Tap here → press 🌐 → choose Just Talk", text: $probe)
+            TextField("Press 🌐 here and choose Just Talk", text: $probe)
+                .focused($probing)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
-            #if DEBUG
-            VStack(alignment: .leading, spacing: 2) {
-                Text("DBG grp:\(detector.grpOK ? "OK" : "NIL")  flag:\(detector.flagRaw ? "Y" : "N")  darwin:\(detector.darwin)  en:\(detector.enabled ? "Y" : "N")  fa:\(detector.fullAccess ? "Y" : "N")")
-                Text("DBG kbd:\(detector.diag)")
-            }
-            .font(.system(size: 10, design: .monospaced)).foregroundStyle(.orange).padding(.top, 6)
-            #endif
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
                 .padding(.bottom, showSkip && !allSet ? 6 : 12)
@@ -228,9 +215,13 @@ private struct EnableKeyboardPage: View {
         .padding()
         .task { await watch() }
         .task { try? await Task.sleep(for: .seconds(12)); withAnimation { showSkip = true } }
-        // Returning from Settings (where Full Access was toggled + iOS loaded the keyboard) → re-read
-        // the persisted flag. This is the Wispr-style "detected the moment you come back".
-        .onChange(of: scenePhase) { _, phase in if phase == .active { detector.refresh() } }
+        // Bring the keyboard up automatically (here + when returning from Settings) so the only action
+        // left is pressing 🌐 → Just Talk. iOS runs the keyboard ONLY when it's actually shown — it does
+        // NOT load it when Full Access is toggled — so this switch is genuinely required.
+        .onAppear { probing = true }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { detector.refresh(); probing = true }
+        }
     }
 
     // Three states: waiting → enabled-but-no-Full-Access → all set.
