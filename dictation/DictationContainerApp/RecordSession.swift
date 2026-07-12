@@ -27,7 +27,28 @@ final class RecordSessionModel: ObservableObject {
     /// next keyboard tap (this is the seamless state — app is backgrounded but alive).
     /// Names match docs/ios-dictation-architecture.md. `capturing` deliberately shares its name with
     /// the `capturing` App-Group variable (same event); `ready` = warm & alive, waiting.
-    enum Phase: Equatable { case warming, capturing, transcribing, ready, ended, failed(String) }
+    /// The exact interprocess footprint a state implies. Entering a state writes EXACTLY this, so the
+    /// App-Group variables are consistent with the state by construction — the State pattern's guarantee.
+    struct Vars: Equatable {
+        /// A dictation is being captured (keyboard shows "speaking"; the audio thread forwards buffers).
+        let capturing: Bool
+        /// Warm & usable — keyboard takes the seamless signal path; otherwise it cold-launches.
+        let alive: Bool
+    }
+
+    /// The app's session states. Each OWNS its variable footprint (`vars`) — the State-pattern entry
+    /// action lives on the state, not scattered across call sites. `commit(_:)` is the single "enter".
+    enum Phase: Equatable {
+        case warming, capturing, transcribing, ready, ended, failed(String)
+        var vars: Vars {
+            switch self {
+            case .capturing:                return Vars(capturing: true,  alive: true)
+            case .ready, .transcribing:     return Vars(capturing: false, alive: true)
+            case .warming, .ended, .failed: return Vars(capturing: false, alive: false)
+            }
+        }
+        var isAlive: Bool { vars.alive }
+    }
     @Published var phase: Phase = .warming
     @Published var level: Float = 0
     @Published var transcript: String = ""
@@ -91,6 +112,29 @@ final class RecordSessionModel: ObservableObject {
 
     private var didWarm = false
 
+    // MARK: - Single source of truth → App Group projection
+    //
+    // The mirror image of the keyboard's one-snapshot rule. The keyboard READS the interprocess
+    // variables into a single `KeyboardPresentation`; the app WRITES them from a single `phase`. Every
+    // variable the keyboard depends on (`capturing`, the `heartbeat` alive/ended, the level gate) is a
+    // PURE FUNCTION of `phase`, written together HERE. Nothing else in this file may touch
+    // `DictationHandoff.setCapturing` / `markSessionAlive` / `markSessionEnded` or assign `self.capturing`
+    // — that scattering is exactly what let the app's own state drift from the variables (engine dead but
+    // `capturing` still true) and caused the lost-take + stuck-keyboard bugs.
+
+    /// The single "enter a state" — the State pattern's entry point. Client code only ever says *which*
+    /// state we're in; applying its `vars` to the App Group happens here, so the variables can never be
+    /// left inconsistent with the state.
+    private func commit(_ p: Phase) {
+        phase = p                                       // @Published — the app's own UI
+        let v = p.vars
+        capturing = v.capturing                         // audio-thread forwarding gate (same fact)
+        DictationHandoff.setCapturing(v.capturing)      // keyboard: "is a dictation live?"
+        v.alive ? DictationHandoff.markSessionAlive()   // keyboard: seamless-signal vs cold-launch
+                : DictationHandoff.markSessionEnded()
+        if !v.capturing { DictationHandoff.writeLevel(0) }    // no live level unless capturing
+    }
+
     // MARK: - Session lifecycle
 
     /// Warm the session WITHOUT recording: load the model, take mic permission, start the silent
@@ -99,7 +143,7 @@ final class RecordSessionModel: ObservableObject {
     func warm() async {
         guard !didWarm else { return }
         didWarm = true
-        DictationHandoff.setCapturing(false)   // clear any stale flag left by a killed session
+        commit(.warming)                       // clears any stale capturing/alive from a killed session
         registerObservers()
         DictationHandoff.trace("app", "warm: loading transcriber…")
         do { try await transcriber.load() } catch {
@@ -123,7 +167,7 @@ final class RecordSessionModel: ObservableObject {
         registerInterruptionObserver()
         startHeartbeat()
         startIdleTimer()
-        if phase == .warming { phase = .ready }
+        if phase == .warming { commit(.ready) }
     }
 
     /// Cold launch via `justtalk://record` (session wasn't warm): warm, then capture the first dictation.
@@ -131,21 +175,30 @@ final class RecordSessionModel: ObservableObject {
         DictationHandoff.resetTrace()
         DictationHandoff.trace("app", "begin — cold launch")
         await warm()
-        guard didWarm else { phase = .failed("Microphone access needed"); return }
+        guard didWarm else { commit(.failed("Microphone access needed")); return }
         beginCapture()
     }
 
     /// Keyboard signalled `start` (session already alive) — begin a new dictation, no relaunch.
     private func beginCapture() {
-        guard flowAudio.running, !capturing else { return }
+        guard !capturing else { return }
+        // Self-heal: the engine may have been stopped by an audio interruption (Apple grabbed the mic).
+        // `running` is derived from `engine.isRunning`, so this is the TRUTH, not a stale flag. If it's
+        // down, resume it here — no relaunch needed. This is the "Apple leaves, we pick the mic back up"
+        // path: our app stayed alive, we just re-take the mic.
+        if !flowAudio.running {
+            DictationHandoff.trace("app", "beginCapture — engine down (post-interruption?) → resuming")
+            do { try flowAudio.start() } catch {
+                DictationHandoff.trace("app", "resume FAILED: \(error.localizedDescription)")
+                commit(.failed("Couldn't start the mic")); return
+            }
+        }
         DictationHandoff.trace("app", "beginCapture (start signal received)")
         audio.reset()
-        flowAudio.beginCapture()                  // install the mic tap (no engine restart → no 'what')
-        capturing = true
-        DictationHandoff.setCapturing(true)       // keyboard reads this to know a dictation is live
+        flowAudio.beginCapture()                  // engage the mic tap forwarding
         captureStart = Date()
         touch()
-        phase = .capturing
+        commit(.capturing)                        // single write: phase + capturing + alive, together
         startMaxCaptureTimer()
     }
 
@@ -171,11 +224,9 @@ final class RecordSessionModel: ObservableObject {
         let count = audio.snapshot().count
         DictationHandoff.trace("app", "stop signal — transcribing \(count) buffers")
         maxCaptureTimer?.cancel(); maxCaptureTimer = nil
-        flowAudio.endCapture()                    // remove the mic tap; engine keeps running (keep-alive)
-        capturing = false
-        DictationHandoff.setCapturing(false)
+        flowAudio.endCapture()                    // stop forwarding; engine keeps running (keep-alive)
         touch()
-        phase = .transcribing
+        commit(.transcribing)                     // single write: phase + capturing=false + still alive
         let buffers = audio.snapshot()
         let sd = captureStart ?? Date()
         Task { await finish(buffers, sd) }
@@ -192,44 +243,42 @@ final class RecordSessionModel: ObservableObject {
         }
     }
 
-    /// The mic was seized (e.g. the user tapped the system keyboard's dictation mic). iOS stops our
-    /// engine and drops the keep-alive assertion, so the session is effectively over. Critically: DON'T
-    /// lose the take — finalize it right now (transcribe the buffered audio, hand it back) exactly as if
-    /// the user had tapped finish. `finish()` runs under a background-task assertion so it completes even
-    /// as iOS backgrounds us. On `.ended` we try to re-warm so the next dictation is still seamless.
+    /// Apple (or a call, or another app) took the mic. Our app and Apple's dictation are SEPARATE and
+    /// take turns on the one mic — we do NOT tear ourselves down. iOS stops our engine (`running` goes
+    /// false, derived from the engine), but the process stays alive and warm. We only:
+    ///   1. salvage the in-flight take (transcribe what we buffered, hand it back) so nothing is lost, and
+    ///   2. keep heartbeating so the keyboard still sees us alive.
+    /// When Apple releases the mic (`.ended`) we resume the engine; and even if `.ended` never arrives,
+    /// the next keyboard tap self-heals via `beginCapture` (which resumes a stopped engine). No relaunch,
+    /// no `markSessionEnded` — that was the bug that force-cold-launched a still-alive app.
     private func handleInterruption(_ userInfo: [AnyHashable: Any]?) {
         guard let raw = userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
               let type = AVAudioSession.InterruptionType(rawValue: raw) else { return }
         switch type {
         case .began:
-            DictationHandoff.trace("app", "audio interruption BEGAN (mic seized) — salvaging take")
+            DictationHandoff.trace("app", "audio interruption BEGAN (mic seized) — salvage, stay alive")
             if capturing {
                 endCaptureAndTranscribe()   // transcribe what we have; writes pendingText for the keyboard
             }
-            // Our keep-alive is gone; let the next keyboard tap cold-relaunch unless `.ended` re-warms us.
-            DictationHandoff.markSessionEnded()
+            // Deliberately do NOT markSessionEnded / stop the app. We stay warm and wait our turn.
         case .ended:
-            DictationHandoff.trace("app", "audio interruption ENDED — attempting re-warm")
-            rewarmAfterInterruption()
+            DictationHandoff.trace("app", "audio interruption ENDED — resuming engine")
+            resumeAfterInterruption()
         @unknown default:
             break
         }
     }
 
-    /// After an interruption ends, the engine iOS stopped needs a clean restart to resume keep-alive.
-    /// Best-effort: if it fails, the session simply stays ended and the next tap cold-launches.
-    private func rewarmAfterInterruption() {
-        guard didWarm else { return }
+    /// Apple released the mic — resume our engine so the session is immediately seamless again. Best
+    /// effort: if resume fails (rare), `beginCapture` will retry on the next tap.
+    private func resumeAfterInterruption() {
+        guard didWarm, !flowAudio.running else { return }
         do {
-            flowAudio.stop()
             try flowAudio.start()
-            DictationHandoff.markSessionAlive()
-            touch()
-            DictationHandoff.trace("app", "re-warm OK after interruption — session alive again")
+            touch(); commit(.ready)   // engine back → re-assert alive through the single writer
+            DictationHandoff.trace("app", "resumed after interruption — session alive again")
         } catch {
-            DictationHandoff.trace("app", "re-warm FAILED: \(error.localizedDescription) — session ended")
-            didWarm = false
-            DictationHandoff.markSessionEnded()
+            DictationHandoff.trace("app", "resume after interruption FAILED: \(error.localizedDescription)")
         }
     }
 
@@ -238,7 +287,7 @@ final class RecordSessionModel: ObservableObject {
         // (e.g. right after an interruption seized the mic) — otherwise a long take is lost mid-transcribe.
         let bgTask = UIApplication.shared.beginBackgroundTask(withName: "just-talk-transcribe")
         defer {
-            if phase == .transcribing { phase = .ready }
+            if phase == .transcribing { commit(.ready) }
             if bgTask != .invalid { UIApplication.shared.endBackgroundTask(bgTask) }
         }
         do {
@@ -272,14 +321,11 @@ final class RecordSessionModel: ObservableObject {
         heartbeat?.cancel(); heartbeat = nil
         maxCaptureTimer?.cancel(); maxCaptureTimer = nil
         if let obs = interruptionObserver { NotificationCenter.default.removeObserver(obs); interruptionObserver = nil }
-        capturing = false
         didWarm = false
         flowAudio.stop()
-        DictationHandoff.setCapturing(false)
-        DictationHandoff.markSessionEnded()
-        DictationHandoff.writeLevel(0)
         DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
-        if case .failed = phase {} else { phase = .ended }
+        // One write for the terminal state (preserving a failure message if we're already failed).
+        if case .failed = phase { commit(phase) } else { commit(.ended) }
     }
 
     deinit {
@@ -305,15 +351,18 @@ final class RecordSessionModel: ObservableObject {
 
     // MARK: - Heartbeat + idle
 
-    private func touch() { lastActivity = Date(); DictationHandoff.markSessionAlive() }
+    /// Records activity for the idle watchdog. Liveness itself is asserted by `commit` (which every
+    /// caller here runs right after) + the heartbeat timer — never scattered.
+    private func touch() { lastActivity = Date() }
 
     private func startHeartbeat() {
-        DictationHandoff.markSessionAlive()
         heartbeat = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Self.heartbeatSeconds))
-                guard self != nil, !Task.isCancelled else { return }
-                DictationHandoff.markSessionAlive()   // keep the keyboard's "session alive" read fresh
+                guard let self, !Task.isCancelled else { return }
+                // Periodic liveness refresh — only while the state is actually alive (never asserts a
+                // liveness the committed `phase` doesn't have).
+                if self.phase.isAlive { DictationHandoff.markSessionAlive() }
             }
         }
     }

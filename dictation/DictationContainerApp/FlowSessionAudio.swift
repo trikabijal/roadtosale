@@ -22,15 +22,23 @@ final class FlowSessionAudio {
     private let player = AVAudioPlayerNode()
     private let targetFormat = AVAudioFormat(
         commonFormat: .pcmFormatFloat32, sampleRate: 16_000, channels: 1, interleaved: false)!
-    private(set) var running = false
+    /// Liveness is DERIVED from the engine itself, never cached: iOS silently stops the engine on an
+    /// audio interruption (system dictation, a call), and a cached `running = true` would then let us
+    /// "capture" on a dead engine → 0 audio → lost transcript. `engine.isRunning` is always the truth.
+    var running: Bool { engine.isRunning }
+    private var attached = false   // one-time: player node attached + connected to this engine's graph
     /// Gates buffer forwarding. Read on the audio thread; set on the main actor around a dictation.
     nonisolated(unsafe) private var capturing = false
 
     nonisolated(unsafe) var onBuffer: ((AVAudioPCMBuffer) -> Void)?
     nonisolated(unsafe) var onLevel: ((Float) -> Void)?
 
+    /// Start OR resume the session. Idempotent and safe to call again after an iOS audio interruption
+    /// stopped the engine: it re-activates the session, re-installs the mic tap, and re-starts the
+    /// engine/keep-alive WITHOUT re-attaching the player node (that would crash). This is the "resume"
+    /// path the user's model needs — Apple takes the mic, we pause; Apple leaves, we start() again.
     func start() throws {
-        guard !running else { return }
+        guard !engine.isRunning else { return }
         let session = AVAudioSession.sharedInstance()
         try session.setCategory(.playAndRecord, mode: .default,
                                 options: [.mixWithOthers, .allowBluetooth, .defaultToSpeaker])
@@ -40,12 +48,17 @@ final class FlowSessionAudio {
         guard let outFmt = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2) else {
             throw NSError(domain: "FlowSessionAudio", code: 1)
         }
-        engine.attach(player)
-        engine.connect(player, to: engine.mainMixerNode, format: outFmt)
+        // Attach the player ONCE — attaching twice traps. Everything below is safe to redo on a resume.
+        if !attached {
+            engine.attach(player)
+            engine.connect(player, to: engine.mainMixerNode, format: outFmt)
+            attached = true
+        }
 
-        // Mic tap — installed ONCE. This engages the input node so capture is reliable, and the engine
-        // never has to restart (no 'what'). Forwarding is gated by `capturing`.
+        // (Re)install the mic tap. Remove any stale tap first so a resume can't double-install (traps).
+        // Installing engages the input node so capture is reliable. Forwarding is gated by `capturing`.
         let input = engine.inputNode
+        input.removeTap(onBus: 0)
         let inFmt = input.outputFormat(forBus: 0)
         DictationHandoff.trace("audio", "start · inFmt=\(inFmt.sampleRate)Hz \(inFmt.channelCount)ch")
         if inFmt.sampleRate > 0, inFmt.channelCount > 0,
@@ -62,6 +75,9 @@ final class FlowSessionAudio {
         engine.prepare()
         try engine.start()
 
+        // (Re)schedule the silent keep-alive loop and play. Clear any prior schedule first so a resume
+        // doesn't stack loops.
+        player.stop()
         let frames = AVAudioFrameCount(outFmt.sampleRate * 0.5)
         if let buf = AVAudioPCMBuffer(pcmFormat: outFmt, frameCapacity: frames) {
             buf.frameLength = frames
@@ -78,7 +94,6 @@ final class FlowSessionAudio {
             player.scheduleBuffer(buf, at: nil, options: .loops, completionHandler: nil)
             player.play()
         }
-        running = true
         DictationHandoff.trace("audio", "started · running=\(engine.isRunning) playing=\(player.isPlaying)")
         log.notice("flow audio started · running=\(self.engine.isRunning) playing=\(self.player.isPlaying)")
     }
@@ -91,7 +106,7 @@ final class FlowSessionAudio {
     func stop() {
         capturing = false
         engine.inputNode.removeTap(onBus: 0)
-        player.stop(); engine.stop(); running = false
+        player.stop(); engine.stop()   // `running` is derived from engine.isRunning → now false
         try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         log.notice("flow audio stopped")
     }
