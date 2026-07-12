@@ -75,8 +75,14 @@ public final class KeyboardViewController: UIInputViewController {
     /// — both facts in one Darwin post, which crosses processes without needing Full Access itself.
     /// `hasFullAccess` is UIInputViewController's own reliable answer.
     private func postEnablementSignal() {
-        DictationHandoff.post(hasFullAccess ? DictationHandoff.keyboardEnabledFullAccess
-                                            : DictationHandoff.keyboardEnabledLimited)
+        let fa = hasFullAccess
+        // PERSISTED flag (survives the Settings round-trip; the write needs Full Access, so it only
+        // lands when granted). iOS loads the keyboard when Full Access is toggled, so this is written
+        // there and the app detects it on foreground — no need to switch to the keyboard.
+        if fa { DictationHandoff.markKeyboardFullAccess() }
+        // Live doorbell too (instant while the app is already foreground).
+        DictationHandoff.post(fa ? DictationHandoff.keyboardEnabledFullAccess
+                                 : DictationHandoff.keyboardEnabledLimited)
     }
 
     public override func viewWillDisappear(_ animated: Bool) {

@@ -81,6 +81,29 @@ public enum DictationHandoff {
         return (store?.object(forKey: levelKey) as? Float) ?? 0
     }
 
+    // MARK: - Keyboard Full-Access detection (keyboard → app, PERSISTED)
+    //
+    // No container-app API reports whether the keyboard is enabled / has Full Access (confirmed: Apple
+    // exposes it only to the extension via UIInputViewController.hasFullAccess — Apple Dev Forums 28690).
+    // The reliable workaround: the keyboard writes a PERSISTED flag to the shared App Group when it loads
+    // WITH Full Access (the write itself needs Full Access, so its presence proves it). The app reads it
+    // on FOREGROUND — because it persists, it survives the round-trip to Settings (unlike a Darwin
+    // doorbell, which is missed if the app isn't listening at the instant the keyboard posts). iOS loads
+    // the keyboard when Full Access is toggled, so the flag is written then and detected the moment the
+    // user returns to the app — no need to manually switch to the keyboard.
+
+    private static let kbdFullAccessKey = "keyboardHasFullAccess"
+
+    /// Keyboard (has Full Access): record it. Persists across the Settings round-trip.
+    public static func markKeyboardFullAccess() {
+        store?.set(true, forKey: kbdFullAccessKey); store?.synchronize()
+    }
+
+    /// App: has the keyboard confirmed Full Access (⇒ enabled + Full Access)?
+    public static func keyboardHasFullAccess() -> Bool {
+        store?.synchronize(); return store?.bool(forKey: kbdFullAccessKey) ?? false
+    }
+
     // MARK: - Stats summary (app → keyboard)
     //
     // The keyboard shows a little stats carousel when idle (words / WPM / streak) — but a keyboard

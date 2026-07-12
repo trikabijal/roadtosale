@@ -146,6 +146,10 @@ final class KeyboardDetector: ObservableObject {
     @Published var fullAccess = false
 
     init() {
+        // PRIMARY: read the persisted App-Group flag (written by the keyboard when it loaded with Full
+        // Access, e.g. when iOS loaded it as you toggled Full Access) — survives the Settings round-trip.
+        refresh()
+        // BONUS: live Darwin doorbell for the case where the keyboard loads while the app is foreground.
         let me = Unmanaged.passUnretained(self).toOpaque()
         DictationHandoff.observe(DictationHandoff.keyboardEnabledLimited, observer: me) { _, obs, _, _, _ in
             guard let obs else { return }
@@ -155,6 +159,11 @@ final class KeyboardDetector: ObservableObject {
             guard let obs else { return }
             Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onSignal(fullAccess: true)
         }
+    }
+
+    /// Re-read the persisted flag. Called on init, on every foreground, and on a light poll.
+    func refresh() {
+        if DictationHandoff.keyboardHasFullAccess() { enabled = true; fullAccess = true }
     }
 
     nonisolated func onSignal(fullAccess: Bool) {
@@ -170,6 +179,7 @@ final class KeyboardDetector: ObservableObject {
 private struct EnableKeyboardPage: View {
     let onContinue: () -> Void
     @StateObject private var detector = KeyboardDetector()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var probe = ""
     @State private var showSkip = false
 
@@ -183,7 +193,7 @@ private struct EnableKeyboardPage: View {
                              accent: StepAccent.blue)
             Spacer().frame(height: 20)
             InstructionRow(n: 1, text: "Open **Settings → Keyboards**, add **Just Talk**, and turn on **Full Access**.", accent: StepAccent.blue)
-            InstructionRow(n: 2, text: "Come back, tap the box below, then **hold the 🌐 globe and pick Just Talk** — that's what turns it on. You'll see our gold mic.", accent: StepAccent.blue)
+            InstructionRow(n: 2, text: "Come back here — we detect it automatically. (Not detected? Tap the box and switch to Just Talk via 🌐 once.)", accent: StepAccent.blue)
             Spacer().frame(height: 18)
             statusRow
             Spacer().frame(height: 12)
@@ -203,6 +213,9 @@ private struct EnableKeyboardPage: View {
         .padding()
         .task { await watch() }
         .task { try? await Task.sleep(for: .seconds(12)); withAnimation { showSkip = true } }
+        // Returning from Settings (where Full Access was toggled + iOS loaded the keyboard) → re-read
+        // the persisted flag. This is the Wispr-style "detected the moment you come back".
+        .onChange(of: scenePhase) { _, phase in if phase == .active { detector.refresh() } }
     }
 
     // Three states: waiting → enabled-but-no-Full-Access → all set.
@@ -228,6 +241,7 @@ private struct EnableKeyboardPage: View {
     /// BOTH are true — enabled AND Full Access — since dictation needs both.
     private func watch() async {
         while !Task.isCancelled {
+            detector.refresh()   // poll the persisted flag (covers cases the foreground hook misses)
             if allSet {
                 try? await Task.sleep(for: .milliseconds(1200))   // let the ✓ register
                 onContinue(); return
