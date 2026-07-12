@@ -1,0 +1,57 @@
+{
+  "realm": "justtalk",
+  "enabled": true,
+  "displayName": "Just Talk",
+  "sslRequired": "external",
+
+  "//": "Self-registration off: users are created on first Google login (identity brokering).",
+  "registrationAllowed": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": true,
+  "loginWithEmailAllowed": true,
+  "verifyEmail": false,
+
+  "//token-lifespans": "Short access token; app renews via refresh token (AppAuth). The client-side entitlement cache adds an offline grace window on top.",
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 2592000,
+  "ssoSessionMaxLifespan": 5184000,
+  "offlineSessionIdleTimeout": 5184000,
+
+  "roles": {
+    "realm": [
+      {
+        "name": "paid",
+        "description": "User has an active Just Talk entitlement. Granted manually now; by a payment webhook later. Absence = locked app."
+      }
+    ]
+  },
+
+  "//default-roles": "New users get only default-roles-justtalk (which does NOT include 'paid'), so everyone starts locked until 'paid' is granted.",
+
+  "clients": [
+    {
+      "clientId": "justtalk-app",
+      "name": "Just Talk (macOS + iOS)",
+      "description": "Public native client. Authorization Code + PKCE via AppAuth. No client secret.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "com.trika.justtalk.mac://oauth2redirect/*",
+        "com.trika.justtalk.ios://oauth2redirect/*",
+        "http://127.0.0.1/*",
+        "http://localhost/*"
+      ],
+      "webOrigins": ["+"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "com.trika.justtalk.mac://oauth2redirect/*##com.trika.justtalk.ios://oauth2redirect/*"
+      }
+    }
+  ]
+}
