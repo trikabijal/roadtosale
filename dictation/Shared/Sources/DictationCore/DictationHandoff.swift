@@ -74,6 +74,37 @@ public enum DictationHandoff {
         return (store?.object(forKey: levelKey) as? Float) ?? 0
     }
 
+    // MARK: - Stats summary (app → keyboard)
+    //
+    // The keyboard shows a little stats carousel when idle (words / WPM / streak) — but a keyboard
+    // extension can't afford to open the GRDB telemetry DB (70 MB memory ceiling). So the APP computes a
+    // tiny summary after each dictation and writes it here; the keyboard just READS these three ints.
+    // Same reader/writer rule as everything else across the boundary.
+
+    public struct KbdStats: Sendable, Equatable {
+        public let words: Int
+        public let wpm: Int
+        public let streak: Int
+        public init(words: Int, wpm: Int, streak: Int) { self.words = words; self.wpm = wpm; self.streak = streak }
+    }
+
+    private static let statsKey = "kbdStatsSummary"
+
+    /// Container app: publish the compact stats the keyboard shows.
+    public static func writeStats(words: Int, wpm: Int, streak: Int) {
+        store?.set(["words": words, "wpm": wpm, "streak": streak], forKey: statsKey)
+        store?.synchronize()
+    }
+
+    /// Keyboard: read the compact stats summary (nil until the app has published one).
+    public static func readStats() -> KbdStats? {
+        store?.synchronize()
+        guard let d = store?.dictionary(forKey: statsKey),
+              let w = d["words"] as? Int, let wpm = d["wpm"] as? Int, let s = d["streak"] as? Int
+        else { return nil }
+        return KbdStats(words: w, wpm: wpm, streak: s)
+    }
+
     // MARK: - Cross-process trace (diagnostics)
     //
     // Both processes append timestamped events to one file in the App Group container so the full

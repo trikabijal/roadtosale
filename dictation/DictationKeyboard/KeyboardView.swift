@@ -1,4 +1,5 @@
 import SwiftUI
+import DictationCoreBase
 
 /// The keyboard extension's full UI. The area is entirely ours (we don't reimplement typing — users
 /// switch to Apple's keyboard via the globe for that, keeping swipe-to-type). So it's a big, calm
@@ -41,12 +42,18 @@ struct KeyboardView: View {
             case .notSpeaking:
                 ZStack {
                     Circle().fill(Color(.secondarySystemGroupedBackground))
-                        .frame(width: 74, height: 74)
+                        .frame(width: 70, height: 70)
                         .shadow(color: .black.opacity(0.10), radius: 5, y: 2)
-                    Image(systemName: "mic.fill").font(.system(size: 28, weight: .semibold))
+                    Image(systemName: "mic.fill").font(.system(size: 27, weight: .semibold))
                         .foregroundStyle(accent)
                 }
                 Text(p.label).font(.callout).foregroundStyle(.secondary)
+                if let stats = viewModel.stats {
+                    StatStrip(stats: stats, accent: accent)
+                        .frame(height: 30)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 2)
+                }
 
             case .speaking:
                 // The wave shows ONLY while speaking and is ALWAYS the accent colour — there is no
@@ -81,6 +88,37 @@ struct KeyboardView: View {
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 8).padding(.bottom, 5)
+    }
+}
+
+// MARK: - Stat strip (idle carousel)
+
+/// A compact, swipeable one-line carousel of usage stats shown while idle (words / WPM / streak). Pure
+/// display of numbers the app published to the App Group — reading them can't desync anything.
+private struct StatStrip: View {
+    let stats: DictationHandoff.KbdStats
+    let accent: Color
+
+    var body: some View {
+        TabView {
+            if stats.streak > 0 {
+                item("flame.fill", "\(stats.streak)-day streak", accent)
+            } else {
+                item("flame", "Dictate daily for a streak", .secondary)
+            }
+            item("text.bubble.fill", "\(stats.words.formatted()) words", accent)
+            if stats.wpm > 0 { item("bolt.fill", "\(stats.wpm) wpm", accent) }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+    }
+
+    private func item(_ icon: String, _ text: String, _ color: Color) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: icon).font(.system(size: 12, weight: .semibold))
+            Text(text).font(.footnote.weight(.medium))
+        }
+        .foregroundStyle(color)
+        .frame(maxWidth: .infinity)
     }
 }
 

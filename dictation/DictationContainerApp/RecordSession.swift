@@ -374,6 +374,14 @@ final class RecordSessionModel: ObservableObject {
         )
         do { try await store.save(record) }
         catch { DictationHandoff.trace("app", "telemetry save failed: \(error.localizedDescription)") }
+
+        // Publish the compact stats summary for the keyboard's idle carousel (words / WPM / streak).
+        if let totals = try? await store.fetchUsageTotals(),
+           let streak = try? await store.currentStreakDays() {
+            let wpm = totals.totalMinutes > 0.1
+                ? Int((Double(totals.totalWords) / totals.totalMinutes).rounded()) : 0
+            DictationHandoff.writeStats(words: totals.totalWords, wpm: wpm, streak: streak)
+        }
     }
 
     /// Lazily opened telemetry store (App Group DB shared with the Stats tab). Opened once, reused.

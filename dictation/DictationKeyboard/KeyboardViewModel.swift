@@ -50,6 +50,10 @@ final class KeyboardViewModel: ObservableObject {
     // MARK: Published — a SINGLE snapshot. All UI reads from this one value.
 
     @Published private(set) var presentation = KeyboardPresentation.idle
+    /// Compact usage stats (words / WPM / streak) the app publishes — shown in the idle carousel. Read
+    /// from the App Group, never computed here (the keyboard can't open the telemetry DB). Not part of
+    /// the speaking/not-speaking state; it's static content refreshed when the keyboard appears.
+    @Published private(set) var stats: DictationHandoff.KbdStats?
 
     /// Wired by `KeyboardViewController` — inserts the final text into the host text field.
     var insertText: ((String) -> Void)?
@@ -82,6 +86,7 @@ final class KeyboardViewModel: ObservableObject {
     /// Begin continuously reflecting the shared variables into the UI. Idempotent. This is the ONLY
     /// writer of `presentation`, so the UI can never drift from `capturing`.
     func startReflecting() {
+        stats = DictationHandoff.readStats()   // refresh the idle carousel each time we appear
         guard pollTask == nil else { return }
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
