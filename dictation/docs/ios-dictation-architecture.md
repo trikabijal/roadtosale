@@ -85,6 +85,20 @@ No variable is ever written by both sides. `openURL` is **not** a third signal �
 > "Inserted ✓" hint that never drives the wave or colour. `pendingText`/watchdogs are bookkeeping the
 > **render reads**, never independent visual states.
 
+## The State pattern — one transition point per side
+
+Both sides obey the same rule: **state changes happen in exactly one place, driven by (an input event + the current variable state), and entering a state applies that state's variable footprint.** This is why the variables and the visible/behavioural state can never drift.
+
+**App (the writer)** — `RecordSessionModel`:
+- **`transition(on: Event)`** is the *sole* place `phase` changes. Inputs are `Event`s — the Darwin signals (`start`/`stop`), audio interruptions (`interruptionBegan`/`Ended`), and lifecycle ticks (`warmed`/`transcribed`/`end`). It decides the next state from `(phase, event)`, runs that state's *action* (start/stop the mic, kick off transcription), then calls `commit`.
+- **`commit(Phase)`** is the *sole* writer of the App-Group variables (the State pattern's **entry action**). Each `Phase` **owns its footprint** via `Phase.vars` (`capturing`, `alive`); `commit` applies it atomically. Nothing else touches `setCapturing` / `markSessionAlive` / `markSessionEnded`.
+
+**Keyboard (the reader)** — `KeyboardViewModel`:
+- **`render()`** is the *sole* place its state changes: it reads the variables each 80 ms poll and produces one `KeyboardPresentation`. Entering a mode *is* the variables (there's nothing to write back).
+- **`toggleRecording()`** maps an input (a tap) + the current `capturing` to an output (a `START`/`STOP` signal). It never sets visual state — the next `render` reflects the result.
+
+So: **App** = events → `transition` → `commit` → variables. **Keyboard** = variables → `render` → presentation; taps → signals. Two mirror-image single-writers.
+
 ## Heartbeat is liveness — orthogonal to phase
 
 `heartbeat` is written by a **separate 3-second timer** that runs the entire time the app process is
