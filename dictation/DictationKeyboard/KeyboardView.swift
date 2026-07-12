@@ -129,7 +129,10 @@ private struct StatStrip: View {
 private struct Waveform: View {
     let level: Float
     let accent: Color
-    private let bars = 27
+    // Bar count / spacing / loudness response come from the shared DesignTokens.Wave spec so the macOS
+    // pill meter and this keyboard wave share a look + the same level→amplitude curve.
+    private let bars = DesignTokens.Wave.barCount
+    private let spacing = CGFloat(DesignTokens.Wave.barSpacing)
 
     var body: some View {
         TimelineView(.animation) { timeline in
@@ -137,8 +140,8 @@ private struct Waveform: View {
             GeometryReader { geo in
                 let w = geo.size.width
                 let h = geo.size.height
-                let barW = max(3, (w - CGFloat(bars - 1) * 5) / CGFloat(bars))
-                HStack(alignment: .center, spacing: 5) {
+                let barW = max(3, (w - CGFloat(bars - 1) * spacing) / CGFloat(bars))
+                HStack(alignment: .center, spacing: spacing) {
                     ForEach(0..<bars, id: \.self) { i in
                         Capsule()
                             .fill(accent)
@@ -155,8 +158,8 @@ private struct Waveform: View {
         let p = Double(i) / Double(bars - 1)
         let envelope = 0.35 + 0.65 * sin(p * .pi)               // taller in the middle
         let wobble = 0.55 + 0.45 * sin(t * 7 + Double(i) * 0.55) // lively motion
-        let loud = Double(min(1, level * 6))                    // scale by voice
-        let frac = envelope * wobble * (0.12 + 0.88 * loud)
+        let loud = min(1, Double(level) / DesignTokens.Wave.fullScaleRMS)  // shared full-scale RMS
+        let frac = envelope * wobble * (DesignTokens.Wave.floor + (1 - DesignTokens.Wave.floor) * loud)
         return max(4, CGFloat(frac) * maxH)
     }
 }

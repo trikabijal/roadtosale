@@ -101,7 +101,8 @@ final class RecordSessionModel: ObservableObject {
         // the same SpeechAnalyzer, but rule-based cleanup left the phone looking far worse. The factory
         // falls back to rule-based if FM isn't available (older device / no Apple Intelligence). The
         // container app has the memory headroom for it (unlike the 70 MB keyboard extension).
-        cleanup = TextCleanupFactory.make(CleanupConfig(provider: .foundationModels, level: .light), pack: pack)
+        // Shared default cleanup config (.foundationModels, .full) — same aggressiveness as macOS.
+        cleanup = TextCleanupFactory.make(.default, pack: pack)
         if #available(iOS 26.0, *) {
             transcriber = AppleAnalyzerTranscriber(localeIdentifier: SpeechDefaults.locale)
         } else {
@@ -354,7 +355,7 @@ final class RecordSessionModel: ObservableObject {
                text.split(whereSeparator: \.isWhitespace).count >= cleanupPack.minWordsForCleanup {
                 // Forced-spelling map from the user's vocabulary — where custom terms actually land on
                 // iOS (names/jargon get the right casing/spelling even when the recognizer mishears).
-                let req = CleanupRequest(rawText: text, level: .light,
+                let req = CleanupRequest(rawText: text, level: CleanupConfig.default.level,
                                          vocab: Vocabulary.spellingMap(userVocab()))
                 text = (await cleanup.clean(req)).cleanedText
                 didClean = true
