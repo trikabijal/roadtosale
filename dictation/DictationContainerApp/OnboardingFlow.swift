@@ -144,22 +144,27 @@ private struct HeroPage: View {
 final class KeyboardDetector: ObservableObject {
     @Published var enabled = false
     @Published var fullAccess = false
+    @Published var signals = 0   // diagnostics: how many Darwin signals we've actually received
 
     init() {
         let me = Unmanaged.passUnretained(self).toOpaque()
-        let cb: CFNotificationCallback = { _, obs, _, _, _ in
+        DictationHandoff.observe(DictationHandoff.keyboardEnabledLimited, observer: me) { _, obs, _, _, _ in
             guard let obs else { return }
-            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onLimited()
+            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onSignal(fullAccess: false)
         }
-        DictationHandoff.observe(DictationHandoff.keyboardEnabledLimited, observer: me, callback: cb)
         DictationHandoff.observe(DictationHandoff.keyboardEnabledFullAccess, observer: me) { _, obs, _, _, _ in
             guard let obs else { return }
-            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onFullAccess()
+            Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue().onSignal(fullAccess: true)
         }
     }
 
-    nonisolated func onLimited() { Task { @MainActor in self.enabled = true } }
-    nonisolated func onFullAccess() { Task { @MainActor in self.enabled = true; self.fullAccess = true } }
+    nonisolated func onSignal(fullAccess: Bool) {
+        Task { @MainActor in
+            self.signals += 1
+            self.enabled = true
+            if fullAccess { self.fullAccess = true }
+        }
+    }
 
     deinit { DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque()) }
 }
@@ -188,6 +193,10 @@ private struct EnableKeyboardPage: View {
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
+            #if DEBUG
+            Text("debug — signals:\(detector.signals) enabled:\(detector.enabled ? "Y" : "N") fullAccess:\(detector.fullAccess ? "Y" : "N")")
+                .font(.caption2.monospaced()).foregroundStyle(.secondary).padding(.top, 6)
+            #endif
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
                 .padding(.bottom, showSkip && !allSet ? 6 : 12)
