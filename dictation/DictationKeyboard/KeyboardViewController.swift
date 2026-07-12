@@ -1,4 +1,5 @@
 import UIKit
+import DictationCoreBase
 import SwiftUI
 
 /// The extension's principal class. Hosts `KeyboardView` in a `UIHostingController`
@@ -15,6 +16,10 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewDidLoad() {
         super.viewDidLoad()
+
+        // Proof-of-enablement for onboarding auto-advance: a keyboard extension can only reach the App
+        // Group when it's enabled AND has Full Access, so loading here confirms both to the container app.
+        DictationHandoff.markKeyboardLoaded()
 
         viewModel = KeyboardViewModel()
         // Route final text into whatever text field the user has focused.

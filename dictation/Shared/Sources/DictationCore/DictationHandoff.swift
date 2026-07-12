@@ -81,6 +81,25 @@ public enum DictationHandoff {
         return (store?.object(forKey: levelKey) as? Float) ?? 0
     }
 
+    // MARK: - Keyboard-enabled detection (keyboard → app, for onboarding auto-advance)
+    //
+    // A container app can't ask iOS "is my keyboard enabled?" (no public API). But a keyboard extension
+    // can only READ/WRITE this shared App-Group store when it's enabled AND has Full Access. So the
+    // keyboard sets a flag the first time it loads; the app reads it to auto-detect that the user has
+    // turned the keyboard on (with Full Access) — no manual "I've turned it on" tap.
+
+    private static let kbdLoadedKey = "keyboardLoadedOnce"
+
+    /// Keyboard: called when the extension loads — proves it's enabled + has Full Access.
+    public static func markKeyboardLoaded() {
+        store?.set(true, forKey: kbdLoadedKey); store?.synchronize()
+    }
+
+    /// App: has the Just Talk keyboard ever loaded (⇒ enabled + Full Access)?
+    public static func keyboardLoaded() -> Bool {
+        store?.synchronize(); return store?.bool(forKey: kbdLoadedKey) ?? false
+    }
+
     // MARK: - Stats summary (app → keyboard)
     //
     // The keyboard shows a little stats carousel when idle (words / WPM / streak) — but a keyboard

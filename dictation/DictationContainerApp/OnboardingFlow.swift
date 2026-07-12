@@ -45,8 +45,13 @@ enum OnboardingStep: Int, CaseIterable {
 /// page, install-tracking sign-in, then "you're set". Persists completion so it shows once.
 struct OnboardingFlow: View {
     @AppStorage("onboardingComplete") private var complete = false
-    @State private var step: OnboardingStep = OnboardingFlow.initialStep()
+    // PERSISTED step — going to Settings (for the keyboard) can relaunch this light container app, which
+    // used to reset onboarding to page 1. Storing the step means the user returns to where they were.
+    @AppStorage("onboardingStepRaw") private var stepRaw = 0
+    @Environment(\.scenePhase) private var scenePhase
     let onFinish: () -> Void
+
+    private var step: OnboardingStep { OnboardingStep(rawValue: stepRaw) ?? .hero }
 
     var body: some View {
         ZStack {
@@ -57,32 +62,40 @@ struct OnboardingFlow: View {
                 .id(step)
         }
         .preferredColorScheme(.light)
+        // Auto-advance past "enable keyboard" the moment we can prove it's on (the keyboard loaded with
+        // Full Access → wrote the App-Group flag) — no manual "I've turned it on". Checked on every
+        // foreground (returning from Settings) and polled while the user is on that step.
+        .onChange(of: scenePhase) { _, phase in if phase == .active { detectKeyboard() } }
+        .task(id: step) { await pollKeyboardWhileEnabling() }
     }
 
     @ViewBuilder private var content: some View {
         switch step {
         case .hero:           HeroPage(onNext: { advance(to: .enableKeyboard) })
-        case .enableKeyboard: EnableKeyboardPage(onNext: { advance(to: .allowMic) })
+        case .enableKeyboard: EnableKeyboardPage(onContinue: { advance(to: .allowMic) })
         case .allowMic:       AllowMicPage(onNext: { advance(to: .signIn) })
         case .signIn:         SignInPage(onNext: { advance(to: .done) }, onSkip: { advance(to: .done) })
-        case .done:           DonePage(onFinish: { complete = true; onFinish() })
+        case .done:           DonePage(onFinish: { stepRaw = 0; complete = true; onFinish() })
         }
     }
 
     private func advance(to next: OnboardingStep) {
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { step = next }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) { stepRaw = next.rawValue }
     }
 
-    private static func initialStep() -> OnboardingStep {
-        #if DEBUG
-        // `-JTOnboardingPage n` (a launch arg) lands in the argument domain as a string; integer(forKey:)
-        // parses it. Guard on presence so an absent arg doesn't read as 0 (= hero, which is fine anyway).
-        if UserDefaults.standard.object(forKey: "JTOnboardingPage") != nil,
-           let s = OnboardingStep(rawValue: UserDefaults.standard.integer(forKey: "JTOnboardingPage")) {
-            return s
+    /// If we're waiting on the keyboard and it's now proven enabled, move on automatically.
+    private func detectKeyboard() {
+        if step == .enableKeyboard, DictationHandoff.keyboardLoaded() { advance(to: .allowMic) }
+    }
+
+    /// While on the enable step, poll for the keyboard flag (it's set the instant the user switches to
+    /// the Just Talk keyboard once) so we advance without a tap.
+    private func pollKeyboardWhileEnabling() async {
+        guard step == .enableKeyboard else { return }
+        while !Task.isCancelled, step == .enableKeyboard {
+            if DictationHandoff.keyboardLoaded() { advance(to: .allowMic); return }
+            try? await Task.sleep(for: .seconds(1))
         }
-        #endif
-        return .hero
     }
 }
 
@@ -145,16 +158,17 @@ private struct HeroPage: View {
 // MARK: - 2. Enable keyboard (deep-link into Settings)
 
 private struct EnableKeyboardPage: View {
-    let onNext: () -> Void
+    /// Fallback only — the flow normally auto-advances the instant the keyboard loads (see OnboardingFlow).
+    let onContinue: () -> Void
+    @State private var probe = ""
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             OnboardingHeader(eyebrow: "Step 1",
                              title: "Turn on the\nJust Talk keyboard",
-                             subtitle: "One tap opens Settings right where you need it. Flip both switches on.",
+                             subtitle: "Opens Just Talk in Settings — tap Keyboards, add Just Talk, and turn on Full Access.",
                              accent: StepAccent.blue)
-            Spacer().frame(height: 28)
-            // Preview of the exact toggles the user will see in Settings (Wispr's reassurance beat).
+            Spacer().frame(height: 24)
             VStack(spacing: 0) {
                 ToggleRow(title: "Just Talk", on: true)
                 Divider().overlay(JTBrand.hairline)
@@ -162,24 +176,29 @@ private struct EnableKeyboardPage: View {
             }
             .background(.white, in: RoundedRectangle(cornerRadius: 16))
             .overlay(RoundedRectangle(cornerRadius: 16).stroke(JTBrand.hairline))
-            Spacer().frame(height: 20)
+            Spacer().frame(height: 16)
             WhyCard(icon: "lock.fill",
                     title: "Why Full Access?",
                     message: "Your words never leave your iPhone. Full Access only lets the keyboard reach the microphone bridge — nothing is sent anywhere.",
                     accent: StepAccent.blue)
+            Spacer().frame(height: 16)
+            // The auto-detect: tap here, switch to the Just Talk keyboard (🌐) once — it loads, and the
+            // flow continues on its own. No "I've turned it on" tap.
+            TextField("Then tap here + switch to Just Talk 🌐", text: $probe)
+                .padding(.vertical, 12).padding(.horizontal, 14)
+                .background(.white, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(StepAccent.blue.opacity(0.4)))
             Spacer()
-            PrimaryButton("Go to Settings", action: openAppSettings)
-                .padding(.bottom, 10)
-            Button("I've turned it on", action: onNext)
+            PrimaryButton("Open Settings", action: openAppSettings).padding(.bottom, 10)
+            Button("Continue", action: onContinue)
                 .font(.callout.weight(.semibold)).foregroundStyle(JTBrand.muted)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 8)
+                .frame(maxWidth: .infinity).padding(.bottom, 8)
         }
         .padding()
     }
 
-    /// Deep-link straight into Just Talk's OWN pane in Settings (Keyboards is one tap from there) —
-    /// far better than "go to Settings → General → Keyboard → Keyboards" and hunt.
+    /// Opens Just Talk's own pane in Settings. iOS only allows an app to open its OWN Settings root
+    /// (not the Keyboards sub-page directly), so the user taps "Keyboards" there — one tap.
     private func openAppSettings() {
         if let url = URL(string: UIApplication.openSettingsURLString) {
             UIApplication.shared.open(url)
