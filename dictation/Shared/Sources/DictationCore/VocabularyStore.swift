@@ -47,16 +47,18 @@ public struct VocabularyStore {
 // MARK: - Vocabulary helpers (single source of truth for both platforms)
 
 public enum Vocabulary {
-    /// Always-on brand terms so the app spells its own name right even before the user adds anything.
-    public static let brand = ["Just Talk", "Trika"]
+    /// Brand-standard words — ALWAYS applied on both platforms (STT bias + forced spelling), so the app
+    /// always spells the company's own terms right, even if the user never adds vocabulary and even if
+    /// they clear their list. These are not user-editable. Add new brand terms here.
+    public static let brand = ["Just Talk", "Trika", "trika.ai", "Road To Sale"]
 
-    /// Dev seed for the personal daily-driver build (brand + tech + the people/terms in use). This bakes
-    /// personal names into the binary — fine for the personal build; replace with Mac↔iOS vocabulary
-    /// sync before shipping to other users.
+    /// Dev seed for the personal daily-driver build — the personal/tech terms in use (NOT brand words;
+    /// those are always-on via `brand` above). Bakes personal names into the binary — fine for the
+    /// personal build; replace with Mac↔iOS vocabulary sync before shipping to other users.
     public static let seed = [
-        "WhisperKit", "Wispr Flow", "Trika", "LLM", "HUD", "VAD", "IPC", "DevOps", "Darwin", "Claude",
-        "PRD", "UAT", "OEM", "Flowable", "Bijal", "Deepali", "Meher", "Teena", "Tiez", "trika.ai",
-        "EHR", "Just Talk", "Road To Sale", "Trisha", "Sanghavi", "Poddar",
+        "WhisperKit", "Wispr Flow", "LLM", "HUD", "VAD", "IPC", "DevOps", "Darwin", "Claude",
+        "PRD", "UAT", "OEM", "Flowable", "Bijal", "Deepali", "Meher", "Teena", "Tiez",
+        "EHR", "Trisha", "Sanghavi", "Poddar",
     ]
 
     /// STT recognition bias = brand + user terms.
