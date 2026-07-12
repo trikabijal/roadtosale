@@ -86,13 +86,19 @@ final class RecordingHUD {
         model.revealedCount = 0
     }
 
-    func show(phase: RecordingHUDPhase, label: String) {
+    /// Reset all transient pill fields to a fresh phase+label. One place so the four entry points
+    /// (show / setPhase / showCorrectionPrompt / showFailed) can't drift on which fields they clear.
+    private func resetTransient(phase: RecordingHUDPhase, label: String) {
         model.phase = phase
         model.label = label
         model.level = 0
         model.previewText = ""
         model.lowInput = false
         model.revealedCount = 0
+    }
+
+    func show(phase: RecordingHUDPhase, label: String) {
+        resetTransient(phase: phase, label: label)
         if phase == .recording { ensureRevealRunning() } else { stopReveal() }
         present()
     }
@@ -135,12 +141,7 @@ final class RecordingHUD {
     }
 
     func setPhase(_ phase: RecordingHUDPhase, label: String) {
-        model.phase = phase
-        model.label = label
-        model.level = 0
-        model.previewText = ""
-        model.lowInput = false
-        model.revealedCount = 0
+        resetTransient(phase: phase, label: label)
         if phase == .recording { ensureRevealRunning() } else { stopReveal() }
     }
 
@@ -174,11 +175,7 @@ final class RecordingHUD {
     /// correction affordance lives here in the HUD (reachable no matter which app is focused),
     /// replacing the global ⌘⇧Z shortcut that collided with the foreground app's redo.
     func showCorrectionPrompt(onMarkWrong: @escaping () -> Void) {
-        model.phase = .done
-        model.label = "Inserted"
-        model.level = 0
-        model.previewText = ""
-        model.lowInput = false
+        resetTransient(phase: .done, label: "Inserted")
         stopReveal()
         model.onMarkWrong = onMarkWrong
         present()
@@ -187,10 +184,7 @@ final class RecordingHUD {
     /// Show a persistent failure state with Retry / dismiss actions. Does NOT auto-hide —
     /// the user decides whether to retry the preserved audio or discard it.
     func showFailed(message: String, onRetry: @escaping () -> Void, onDismiss: @escaping () -> Void) {
-        model.phase = .failed
-        model.label = message
-        model.level = 0
-        model.previewText = ""
+        resetTransient(phase: .failed, label: message)
         stopReveal()
         model.onRetry = onRetry
         model.onDismiss = onDismiss

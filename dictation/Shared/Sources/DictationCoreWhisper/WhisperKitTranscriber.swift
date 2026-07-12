@@ -203,7 +203,7 @@ public final class WhisperKitTranscriber: SpeechTranscriber {
     // MARK: - Hallucination filter
 
     /// Peak below this counts as silence (≈ -34 dBFS). Conservative so quiet speech survives.
-    nonisolated static let silenceFloor: Float = 0.02
+    nonisolated static let silenceFloor: Float = AudioLevels.silenceFloor
 
     /// Known WhisperKit silence/no-speech hallucinations, normalized. Sourced from the shared
     /// `defaultJunkPhrases` (DictationCoreBase) so the cleanup pack and this filter can't diverge.

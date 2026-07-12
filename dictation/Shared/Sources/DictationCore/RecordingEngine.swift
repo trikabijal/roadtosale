@@ -7,7 +7,13 @@ import AVFoundation
 /// (warn when even the peak stays below this), so the two can never disagree. Sits above room noise
 /// and below normal speech.
 public enum AudioLevels {
+    /// "Is the user audible?" — wizard mic-test pass + recording low-input warning use this peak RMS.
     public static let audibleThreshold: Float = 0.035
+    /// Recording engine: continuous peak below this counts as a silence segment boundary (≈ -40 dBFS).
+    public static let silenceThreshold: Float = 0.01
+    /// WhisperKit hallucination filter: clip peak below this is treated as silence (≈ -34 dBFS).
+    /// Conservative so quiet speech survives. Co-located here so the three "audible" knobs tune together.
+    public static let silenceFloor: Float = 0.02
 }
 
 // MARK: - Delegate protocol
@@ -19,10 +25,15 @@ public protocol RecordingEngineDelegate: AnyObject {
     func recordingEngineDidDetectSilence(_ engine: RecordingEngine)
     /// Per-buffer RMS level (0…~1), for UI meters. Optional.
     func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float)
+    /// An audio-config change stopped the engine and it could NOT re-arm (e.g. no usable input device).
+    /// Capture is effectively dead until stop() — the delegate should end the recording + tell the user,
+    /// not keep showing a live-looking meter. Optional.
+    func recordingEngineDidFailToRecover(_ engine: RecordingEngine)
 }
 
 public extension RecordingEngineDelegate {
     func recordingEngine(_ engine: RecordingEngine, didUpdateLevel level: Float) {}
+    func recordingEngineDidFailToRecover(_ engine: RecordingEngine) {}
 }
 
 // MARK: - Errors
@@ -59,7 +70,7 @@ public final class RecordingEngine: NSObject {
     )!
 
     /// RMS below this threshold counts as silence. Default 0.01 (-40 dBFS approx).
-    public var silenceThreshold: Float = 0.01
+    public var silenceThreshold: Float = AudioLevels.silenceThreshold
     /// How long (ms) continuous silence triggers the delegate callback.
     public var silenceDurationMs: Int = 800
 
@@ -198,9 +209,11 @@ public final class RecordingEngine: NSObject {
             do {
                 try self.armTapAndStart()
             } catch {
-                // Couldn't recover (e.g. no usable input device right now). Leave isRunning true:
-                // a later config change (device back) can re-arm, and stop() still tears down cleanly.
-                // The audio captured before the change is already safe in the caller's buffer.
+                // Couldn't recover (e.g. no usable input device right now). Tell the delegate so it can
+                // end the recording and surface it, instead of leaving a live-looking-but-dead HUD with a
+                // flatlined meter while the user keeps talking into nothing. Audio captured before the
+                // change is already safe in the caller's buffer; stop() still tears down cleanly.
+                self.delegate?.recordingEngineDidFailToRecover(self)
             }
         }
     }

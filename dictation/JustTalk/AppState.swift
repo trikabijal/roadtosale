@@ -1053,9 +1053,11 @@ public final class AppState: NSObject, ObservableObject {
         }
         // Write to clipboard and optionally paste into the app frontmost at record start.
         clipboardPaster.writeAndPaste(text: finalText, autoPaste: autoPaste, targetApp: recordingTargetApp) { [weak self] in
-            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user
-            // the text is waiting on the clipboard.
+            // Target app wasn't frontmost — we didn't paste into the wrong place; tell the user the text
+            // is waiting on the clipboard, and CORRECT the HUD so it doesn't keep claiming "Inserted"
+            // (the correction prompt below shows that optimistically; this async skip fires a beat later).
             self?.statusMessage = "Couldn't paste into the target — text is on your clipboard (⌘V)"
+            self?.recordingHUD.setPhase(.done, label: "Copied to clipboard")
         }
         // (Close cue is fired by HUD.onDisappear when the pill goes away — no per-paste sound here.)
 
@@ -1420,6 +1422,17 @@ extension AppState: RecordingEngineDelegate {
             }
             self.recordingHUD.update(level: level)
             self.evaluateInputLevel(level)
+        }
+    }
+
+    /// The mic died mid-recording and couldn't re-arm (device unplugged, etc.). Don't keep showing a
+    /// live-but-dead HUD — finish with whatever we captured before the change (already in the buffer),
+    /// through the normal stop path, so the audio isn't lost.
+    public nonisolated func recordingEngineDidFailToRecover(_ engine: RecordingEngine) {
+        Task { @MainActor in
+            guard self.dictationState == .recording else { return }
+            self.statusMessage = "Microphone interrupted — finishing with what was captured"
+            self.stopRecordingAndTranscribe()
         }
     }
 
