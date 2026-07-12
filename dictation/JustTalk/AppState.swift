@@ -63,6 +63,9 @@ public final class AppState: NSObject, ObservableObject {
     @Published public private(set) var sttConfig: STTConfig = .default
     @Published public private(set) var cleanupConfig: CleanupConfig = .default
     @Published public private(set) var vocabulary: [String] = []
+    /// Durable, rename-proof store for the vocabulary (NOT UserDefaults — a bundle-id rename once
+    /// orphaned the word list stored in UserDefaults; this lives in the stable App-Support dir).
+    private let vocabularyStore = (try? VocabularyStore.macOSURL()).map { VocabularyStore(url: $0) }
     @Published public private(set) var hotkeyMode: HotkeyMode = .holdLatch
     @Published public var soundEnabled: Bool = false
     /// Per-word roll-up live pill via LocalAgreement streaming STT (PRD 0008). When on, the pill
@@ -272,7 +275,12 @@ public final class AppState: NSObject, ObservableObject {
         // Auto-paste, start/stop sounds, and the word-by-word live pill are always on now (no
         // toggles) — opinionated defaults.
         self.autoPaste = true
-        self.vocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
+        // Vocabulary now lives in a durable, rename-proof file (see `vocabularyStore`). Migrate any
+        // legacy UserDefaults value the first time, so an existing list is rescued rather than dropped.
+        let storedVocabulary = vocabularyStore?.load() ?? []
+        let legacyVocabulary = defaults.stringArray(forKey: "vocabulary") ?? []
+        self.vocabulary = storedVocabulary.isEmpty ? legacyVocabulary : storedVocabulary
+        if storedVocabulary.isEmpty, !legacyVocabulary.isEmpty { vocabularyStore?.save(legacyVocabulary) }
         self.hotkeyMode = HotkeyMode(rawValue: defaults.string(forKey: "hotkeyMode") ?? "") ?? .holdLatch
         self.hotkeyConfig = HotkeyConfig.load(from: defaults)
         self.soundEnabled = true
@@ -1250,7 +1258,7 @@ public final class AppState: NSObject, ObservableObject {
         let cleaned = terms.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
         vocabulary = cleaned
-        UserDefaults.standard.set(cleaned, forKey: "vocabulary")
+        vocabularyStore?.save(cleaned)   // durable, rename-proof (NOT UserDefaults — that lost the list once)
         transcriber.setVocabularyBias(biasTerms)
     }
 
