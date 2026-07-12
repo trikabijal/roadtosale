@@ -7,7 +7,7 @@ import os
 /// Subsystem logger — surfaces history/telemetry failures that were previously swallowed by
 /// `try?`, so "my dictation never reached History" is diagnosable from Console.app instead of
 /// invisible. Filter Console with subsystem `com.trika.dictation`.
-private let log = Logger(subsystem: "com.trika.dictation", category: "AppState")
+private let log = Logger(subsystem: DictationHandoff.logSubsystem, category: "AppState")
 
 // MARK: - DictationState
 
