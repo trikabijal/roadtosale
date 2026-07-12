@@ -82,9 +82,7 @@ private struct StatCarousel: View {
     let totals: UsageTotals
     let streak: Int
 
-    private var wpm: Int {
-        totals.totalMinutes > 0.1 ? Int((Double(totals.totalWords) / totals.totalMinutes).rounded()) : 0
-    }
+    private var wpm: Int { totals.wordsPerMinute }
     private var wpmCaption: String {
         wpm > 0 ? "your speaking speed — about \(max(1, wpm / 40))× faster than typing"
                 : "your speaking speed"
@@ -142,7 +140,7 @@ private struct StreakCard: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text("\(streak)").font(.system(size: 52, weight: .bold, design: .serif))
                     .foregroundStyle(JTBrand.gold)
-                Text(streak == 1 ? "day streak" : "day streak").font(.title3.weight(.semibold))
+                Text("day streak").font(.title3.weight(.semibold))
                 Text("🔥").font(.title2)
             }
             Text(streak == 0 ? "Dictate today to start your streak"

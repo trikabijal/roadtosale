@@ -10,8 +10,9 @@ import DictationCoreBase
 enum JTBrand {
     static let ink = Color(red: 0.09, green: 0.09, blue: 0.11)
     static let paper = Color(red: 0.99, green: 0.985, blue: 0.97)
-    static let gold = Color(red: 0.82, green: 0.62, blue: 0.22)
-    static let goldDeep = Color(red: 0.60, green: 0.42, blue: 0.10)
+    // Gold + deep-gold come from the shared `BrandPalette` so the app and the keyboard never diverge.
+    static let gold = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
+    static let goldDeep = Color(red: BrandPalette.goldDeepRGB.red, green: BrandPalette.goldDeepRGB.green, blue: BrandPalette.goldDeepRGB.blue)
     static let muted = Color(red: 0.42, green: 0.42, blue: 0.46)
     static let hairline = Color(red: 0.88, green: 0.87, blue: 0.84)
 }

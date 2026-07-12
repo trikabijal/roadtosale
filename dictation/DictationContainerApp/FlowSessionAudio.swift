@@ -2,7 +2,7 @@ import AVFoundation
 import os
 import DictationCoreBase
 
-private let log = Logger(subsystem: "com.trika.dictation", category: "FlowSessionAudio")
+private let log = Logger(subsystem: DictationHandoff.logSubsystem, category: "FlowSessionAudio")
 
 /// The iOS Flow Session's audio, in ONE `AVAudioEngine` that starts once and never restarts (two
 /// engines fighting one session threw `'what'` 2003329396 after a cold relaunch).

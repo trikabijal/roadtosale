@@ -56,7 +56,7 @@ struct DiagView: View {
     @State private var text = "loading…"
 
     private var appGroupURL: URL? {
-        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: "group.com.trika.dictation")
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: DictationHandoff.appGroup)
     }
 
     var body: some View {
@@ -77,15 +77,14 @@ struct DiagView: View {
     }
 
     private func load() {
-        guard let group = appGroupURL else {
-            text = "APP GROUP UNAVAILABLE — containerURL is nil (entitlement/provisioning not wired)"
-            return
-        }
-        let log = group.appendingPathComponent("keyboard-diag.log")
-        if let s = try? String(contentsOf: log, encoding: .utf8), !s.isEmpty {
-            text = "APP GROUP OK: \(group.path)\n\n" + s
-        } else {
-            text = "APP GROUP OK: \(group.path)\n\n(keyboard-diag.log is empty or missing — tap the keyboard mic first)"
-        }
+        // The cross-process trace lives in the shared UserDefaults suite (the App-Group *file* container
+        // is flaky inside a keyboard extension), so read it via DictationHandoff.readTrace() — NOT a
+        // keyboard-diag.log file, which nothing writes.
+        let reachable = appGroupURL != nil
+        let header = reachable ? "APP GROUP OK" : "APP GROUP UNAVAILABLE (containerURL nil — entitlement/provisioning?)"
+        let trace = DictationHandoff.readTrace()
+        text = trace.isEmpty
+            ? "\(header)\n\n(no trace yet — tap the keyboard mic first)"
+            : "\(header)\n\n" + trace.joined(separator: "\n")
     }
 }

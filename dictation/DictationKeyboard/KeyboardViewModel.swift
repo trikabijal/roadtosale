@@ -100,6 +100,14 @@ final class KeyboardViewModel: ObservableObject {
     /// appear; it re-reads the shared variables from scratch, so nothing is lost by stopping here.
     func stopReflecting() {
         pollTask?.cancel(); pollTask = nil
+        // Cancel the watchdogs too — a stray stopAckTask outliving this instance would fire a GLOBAL
+        // `setCapturing(false)` (could clear a live session), and a stray startAckTask would `openApp`
+        // after the user navigated away. Also clear the post-STOP bookkeeping so a fresh appear starts clean.
+        startAckTask?.cancel(); startAckTask = nil
+        stopAckTask?.cancel(); stopAckTask = nil
+        awaitingTranscript = false
+        transcriptDeadline = nil
+        hint = nil; hintDeadline = nil
         presentation = .idle
     }
 
@@ -116,7 +124,14 @@ final class KeyboardViewModel: ObservableObject {
             DictationHandoff.trace("kbd", "poll — inserted \(text.count) chars")
         }
 
-        // App alive but the transcript never landed → give up.
+        // Fast path: the app signalled the take produced nothing (empty / error) — clear immediately
+        // instead of waiting out the transcript timeout.
+        if awaitingTranscript, DictationHandoff.consumeNoResult() {
+            awaitingTranscript = false; transcriptDeadline = nil
+            setHint("Didn't catch that — tap to retry")
+        }
+
+        // App alive but the transcript never landed → give up (backstop for a lost signal).
         if awaitingTranscript, let d = transcriptDeadline, Date() > d {
             awaitingTranscript = false; transcriptDeadline = nil
             setHint("Didn't catch that — tap to retry")

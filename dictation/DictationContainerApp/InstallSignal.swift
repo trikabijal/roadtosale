@@ -1,7 +1,8 @@
 import UIKit
 import os
+import DictationCoreBase
 
-private let log = Logger(subsystem: "com.trika.dictation", category: "InstallSignal")
+private let log = Logger(subsystem: DictationHandoff.logSubsystem, category: "InstallSignal")
 
 /// Records that someone set up the app, so we can track installs (the reason for the sign-in step).
 ///

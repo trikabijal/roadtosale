@@ -88,6 +88,9 @@ public struct UsageTotals: Sendable {
     public var totalHours: Double { totalMinutes / 60.0 }
     /// Rough time saved vs typing, at ~40 wpm typing speed (dictation is ~150 wpm). Minutes.
     public var typingMinutesSaved: Double { Double(totalWords) / 40.0 }
+    /// Speaking speed. Single source of truth — both the app's Home hero and the keyboard's stat
+    /// carousel read this so they can't disagree. Guarded so a near-zero duration can't blow it up.
+    public var wordsPerMinute: Int { totalMinutes > 0.1 ? Int((Double(totalWords) / totalMinutes).rounded()) : 0 }
 
     public static let empty = UsageTotals(totalCount: 0, totalAudioMs: 0, totalWords: 0)
 }

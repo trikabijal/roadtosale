@@ -3,7 +3,7 @@ import DictationCoreBase
 import SwiftUI
 import os
 
-private let log = Logger(subsystem: "com.trika.dictation", category: "FlowSession")
+private let log = Logger(subsystem: DictationHandoff.logSubsystem, category: "FlowSession")
 
 /// Thread-safe audio accumulator (mirrors the keyboard's).
 private final class AudioBox: @unchecked Sendable {
@@ -59,7 +59,6 @@ final class RecordSessionModel: ObservableObject {
     private let cleanup: any TextCleanup
     private let cleanupPack: CleanupPack
     private let audio = AudioBox()
-    private var capturing = false
     private var captureStart: Date?
 
     // Safety-valve only: how long the silent keep-alive may run with NO dictation before we release it
@@ -71,6 +70,10 @@ final class RecordSessionModel: ObservableObject {
     private var idleTimer: Task<Void, Never>?
     private var heartbeat: Task<Void, Never>?
     private var lastActivity = Date()
+    /// A nonisolated projection of `phase.isAlive`, written ONLY in `commit` (single writer, can't drift).
+    /// The heartbeat runs detached and reads this, so a long main-actor transcribe can never starve the
+    /// liveness beat (docs warn the heartbeat must not share a thread a transcribe can block).
+    nonisolated(unsafe) private var sessionAlive = false
 
     // Bound a SINGLE dictation's length so accumulated audio can't grow without limit. At 16 kHz mono
     // Float32 the buffer grows ~64 KB/s, so 10 min ≈ 38 MB — comfortably within the app's headroom, but
@@ -104,16 +107,17 @@ final class RecordSessionModel: ObservableObject {
         } else {
             transcriber = AppleSpeechTranscriber(language: "en-US")
         }
-        // Audio-thread callbacks: accumulate only while capturing; publish the live level for the
-        // keyboard waveform. Hop to the main actor for the model's state.
-        flowAudio.onBuffer = { [weak self] buf in
-            Task { @MainActor in guard let self, self.capturing else { return }; self.audio.append(buf) }
-        }
+        // Audio-thread callbacks. FlowSessionAudio only fires these WHILE capturing (it gates on its own
+        // `capturing` flag before calling out), so there's no second gate here — one source of truth.
+        // Buffers append directly on the audio thread: `AudioBox` is lock-protected, so no main-actor hop
+        // (which allocated a Task per buffer and gave no cross-Task ordering guarantee). Level touches a
+        // @Published, so it hops. `writeLevel(0)` on stop is handled by `commit`.
+        flowAudio.onBuffer = { [audio] buf in audio.append(buf) }
         flowAudio.onLevel = { [weak self] lvl in
             Task { @MainActor in
                 guard let self else { return }
                 self.level = lvl
-                DictationHandoff.writeLevel(self.capturing ? lvl : 0)
+                DictationHandoff.writeLevel(lvl)
             }
         }
     }
@@ -136,7 +140,7 @@ final class RecordSessionModel: ObservableObject {
     private func commit(_ p: Phase) {
         phase = p                                       // @Published — the app's own UI
         let v = p.vars
-        capturing = v.capturing                         // audio-thread forwarding gate (same fact)
+        sessionAlive = v.alive                          // nonisolated mirror for the detached heartbeat
         DictationHandoff.setCapturing(v.capturing)      // keyboard: "is a dictation live?"
         v.alive ? DictationHandoff.markSessionAlive()   // keyboard: seamless-signal vs cold-launch
                 : DictationHandoff.markSessionEnded()
@@ -201,7 +205,8 @@ final class RecordSessionModel: ObservableObject {
 
         case (_, .interruptionEnded):
             DictationHandoff.trace("app", "interruption ENDED — resume engine")
-            if !flowAudio.running { do { try flowAudio.start() } catch {} }  // best-effort; .start retries too
+            // Best-effort resume; if it fails, `beginCapture` self-heals on the next tap, so a swallow is fine.
+            if !flowAudio.running { try? flowAudio.start() }
             if didWarm { commit(.ready) }
 
         case (_, .transcribed):
@@ -225,6 +230,7 @@ final class RecordSessionModel: ObservableObject {
     }
 
     private func startCaptureAudio() {
+        DictationHandoff.clearNoResult()  // fresh take — drop any prior "nothing came of that" flag
         audio.reset()
         flowAudio.beginCapture()          // engage mic-tap forwarding
         captureStart = Date()
@@ -295,7 +301,7 @@ final class RecordSessionModel: ObservableObject {
         maxCaptureTimer?.cancel()
         maxCaptureTimer = Task { [weak self] in
             try? await Task.sleep(for: .seconds(Self.maxCaptureSeconds))
-            guard let self, !Task.isCancelled, self.capturing else { return }
+            guard let self, !Task.isCancelled, self.phase == .capturing else { return }
             DictationHandoff.trace("app", "max capture reached (\(Int(Self.maxCaptureSeconds))s) → auto-finish")
             self.transition(on: .stop)
         }
@@ -350,6 +356,7 @@ final class RecordSessionModel: ObservableObject {
             }
             guard !text.isEmpty else {
                 DictationHandoff.trace("app", "transcribe → EMPTY (nothing heard)")
+                DictationHandoff.signalNoResult()   // tell the keyboard fast (no 20s "Transcribing…" hang)
                 return
             }
             transcript = text
@@ -362,6 +369,7 @@ final class RecordSessionModel: ObservableObject {
             await recordTelemetry(result: r, finalText: text, rawText: raw, didClean: didClean)
         } catch {
             DictationHandoff.trace("app", "transcribe ERROR: \(error.localizedDescription)")
+            DictationHandoff.signalNoResult()   // don't leave the keyboard hanging on a failed take
             log.error("transcribe: \(error.localizedDescription, privacy: .public)")
         }
     }
@@ -391,9 +399,7 @@ final class RecordSessionModel: ObservableObject {
         // Publish the compact stats summary for the keyboard's idle carousel (words / WPM / streak).
         if let totals = try? await store.fetchUsageTotals(),
            let streak = try? await store.currentStreakDays() {
-            let wpm = totals.totalMinutes > 0.1
-                ? Int((Double(totals.totalWords) / totals.totalMinutes).rounded()) : 0
-            DictationHandoff.writeStats(words: totals.totalWords, wpm: wpm, streak: streak)
+            DictationHandoff.writeStats(words: totals.totalWords, wpm: totals.wordsPerMinute, streak: streak)
         }
     }
 
@@ -452,13 +458,13 @@ final class RecordSessionModel: ObservableObject {
     private func touch() { lastActivity = Date() }
 
     private func startHeartbeat() {
-        heartbeat = Task { [weak self] in
+        // DETACHED so a long transcribe on the main actor can't starve the beat. It only reads the
+        // nonisolated `sessionAlive` mirror and calls the nonisolated `markSessionAlive`.
+        heartbeat = Task.detached { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(Self.heartbeatSeconds))
                 guard let self, !Task.isCancelled else { return }
-                // Periodic liveness refresh — only while the state is actually alive (never asserts a
-                // liveness the committed `phase` doesn't have).
-                if self.phase.isAlive { DictationHandoff.markSessionAlive() }
+                if self.sessionAlive { DictationHandoff.markSessionAlive() }   // refresh only while alive
             }
         }
     }
@@ -472,7 +478,7 @@ final class RecordSessionModel: ObservableObject {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(30))
                 guard let self, !Task.isCancelled else { return }
-                if !self.capturing, Date().timeIntervalSince(self.lastActivity) > Self.idleTimeoutSeconds {
+                if self.phase != .capturing, Date().timeIntervalSince(self.lastActivity) > Self.idleTimeoutSeconds {
                     self.endSession()
                     return
                 }

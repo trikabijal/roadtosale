@@ -14,8 +14,8 @@ struct KeyboardView: View {
     @ObservedObject var viewModel: KeyboardViewModel
     let onNextKeyboard: () -> Void
 
-    /// Subtle Just Talk brand accent — reads on both light and dark grounds.
-    private let accent = Color(red: 0.86, green: 0.62, blue: 0.20)
+    /// Subtle Just Talk brand accent — from the shared `BrandPalette` so it matches the app exactly.
+    private let accent = Color(red: BrandPalette.goldRGB.red, green: BrandPalette.goldRGB.green, blue: BrandPalette.goldRGB.blue)
 
     private var p: KeyboardPresentation { viewModel.presentation }
 

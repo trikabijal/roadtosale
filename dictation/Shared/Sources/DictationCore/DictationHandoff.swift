@@ -7,6 +7,8 @@ import Foundation
 public enum DictationHandoff {
     public static let appGroup = "group.com.trika.dictation"
     public static let urlScheme = "justtalk"
+    /// os_log subsystem shared by both processes (keyboard + app) — one string, not repeated per file.
+    public static let logSubsystem = "com.trika.dictation"
 
     /// URL the keyboard opens to start a Flow Session in the container app.
     public static var recordURL: URL { URL(string: "\(urlScheme)://record")! }
@@ -44,19 +46,24 @@ public enum DictationHandoff {
     // they're typing in (Wispr's "Flow Session"). The app heartbeats here; the keyboard reads it to
     // choose the seamless (signal) path vs the cold (launch) path.
 
-    /// Container app: mark the session alive (call on start + on a periodic heartbeat).
+    /// Container app: mark the session alive (call on start + on a periodic heartbeat). Synchronizes so
+    /// the beat is visible cross-process immediately — without it the keyboard's `isSessionAlive` read
+    /// can miss a fresh beat and needlessly cold-launch (defeating the seamless Flow Session).
     public static func markSessionAlive() {
-        store?.set(Date().timeIntervalSince1970, forKey: sessionKey)
+        guard let store else { return }
+        store.set(Date().timeIntervalSince1970, forKey: sessionKey); store.synchronize()
     }
 
     /// Container app: session ended (idle timeout / torn down) — next keyboard tap must relaunch.
     public static func markSessionEnded() {
-        store?.removeObject(forKey: sessionKey)
+        guard let store else { return }
+        store.removeObject(forKey: sessionKey); store.synchronize()
     }
 
     /// Keyboard: is a background session alive (heartbeat fresh)? If so, signal it instead of launching.
     /// The window is short so a suspended/killed app can't look "alive" — a stale beat forces a relaunch.
     public static func isSessionAlive(maxAgeSeconds: TimeInterval = 8) -> Bool {
+        store?.synchronize()   // pull the app's latest beat before judging liveness
         guard let ts = store?.object(forKey: sessionKey) as? TimeInterval else { return false }
         return Date().timeIntervalSince1970 - ts <= maxAgeSeconds
     }
@@ -136,6 +143,31 @@ public enum DictationHandoff {
         guard let store else { return }
         store.set(["text": text, "ts": Date().timeIntervalSince1970], forKey: key)
         store.synchronize()
+    }
+
+    // MARK: - "No result" fast-path (app → keyboard)
+    //
+    // When a dictation produces no text (nothing heard / transcribe error) the app knows instantly, but
+    // has no transcript to write. Without a signal the keyboard would sit on "Transcribing…" for the full
+    // 20 s transcript timeout. This lets the app say "nothing came of that" so the keyboard clears on its
+    // next 80 ms poll. The app clears it at each capture start, so only the current take's outcome shows.
+
+    private static let noResultKey = "flowSessionNoResult"
+
+    /// Container app: clear any stale "no result" flag (call when a new capture begins).
+    public static func clearNoResult() { store?.removeObject(forKey: noResultKey); store?.synchronize() }
+
+    /// Container app: the last dictation produced no text — tell the keyboard fast.
+    public static func signalNoResult() {
+        store?.set(Date().timeIntervalSince1970, forKey: noResultKey); store?.synchronize()
+    }
+
+    /// Keyboard: consume a recent "no result" signal (true at most once, within the window).
+    public static func consumeNoResult(maxAgeSeconds: TimeInterval = 25) -> Bool {
+        store?.synchronize()
+        guard let ts = store?.object(forKey: noResultKey) as? TimeInterval else { return false }
+        store?.removeObject(forKey: noResultKey)
+        return Date().timeIntervalSince1970 - ts <= maxAgeSeconds
     }
 
     /// Keyboard: read + clear the pending transcript (nil if none). Ignores stale entries older than
