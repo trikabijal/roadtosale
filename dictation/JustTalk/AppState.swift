@@ -1334,22 +1334,15 @@ public final class AppState: NSObject, ObservableObject {
         }
     }
 
-    /// Forced-spelling map for cleanup: each vocab term maps to itself so the cleanup
-    /// engine restores the exact casing/spelling after the LLM pass.
-    /// Always-on brand terms so the app spells its own name (and the company) correctly, even before
-    /// the user has added any custom vocabulary — "just talk" → "Just Talk". Merged UNDER the user's
-    /// terms, so a user override always wins on collision.
-    static let brandVocabulary = ["Just Talk", "Trika"]
+    // Brand terms, STT bias, and the forced-spelling map all come from the SHARED `Vocabulary` helper
+    // (DictationCoreBase) so macOS and iOS stay identical — brand terms, merge order (brand under user),
+    // and casing behaviour are defined once for both platforms.
 
     /// STT recognition bias = built-in brand terms + the user's custom vocabulary.
-    private var biasTerms: [String] { Self.brandVocabulary + vocabulary }
+    private var biasTerms: [String] { Vocabulary.biasTerms(vocabulary) }
 
-    private var vocabularyMap: [String: String] {
-        var map = Dictionary(Self.brandVocabulary.map { ($0.lowercased(), $0) },
-                             uniquingKeysWith: { _, b in b })
-        for term in vocabulary { map[term.lowercased()] = term }   // user terms win on collision
-        return map
-    }
+    /// Forced-spelling map for cleanup: brand terms under the user's, each mapping to its exact casing.
+    private var vocabularyMap: [String: String] { Vocabulary.spellingMap(vocabulary) }
 
     // MARK: - Per-app cleanup profiles (E2)
 
