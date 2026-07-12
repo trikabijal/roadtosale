@@ -244,6 +244,12 @@ final class HotkeyManager {
         thread.qualityOfService = .userInteractive
         self.tapThread = thread
         thread.start()
+        // Wait for the tap thread to enable the tap before we return success. The thread signals
+        // `ready` IMMEDIATELY after `CGEvent.tapEnable` (line ~239), so in practice this resolves in a
+        // few ms — the 1 s is only a safety cap for a pathological thread-start stall, not a normal cost.
+        // Kept synchronous on purpose: callers (refreshPermissions/setup/beginHotkeyTest) need the
+        // success Bool to decide suppress-tap vs fallback-monitor; making it async would ripple through
+        // all of them for a wait that's effectively instant.
         _ = ready.wait(timeout: .now() + 1.0)
 
         // Verify the tap actually enabled. If not (permission revoked mid-flight, etc.), report
@@ -296,26 +302,29 @@ final class HotkeyManager {
         }
     }
 
-    /// Apply a press/release edge. Suppresses the key only when the config says to
-    /// (Fn / function keys); real modifiers pass through so shortcuts keep working.
+    private enum KeyEdge { case press, release, none }
+
+    /// The one place the press/release edge is computed. Reads+updates `keyIsDown` under the lock and
+    /// returns which edge (if any) fired — shared by the suppressing tap and the fallback monitor so the
+    /// edge logic can't drift between them.
+    private func keyEdge(down: Bool) -> KeyEdge {
+        stateLock.lock(); defer { stateLock.unlock() }
+        let wasDown = keyIsDown
+        if down, !wasDown { keyIsDown = true; return .press }
+        if !down, wasDown { keyIsDown = false; return .release }
+        return .none
+    }
+
+    /// Apply a press/release edge on the suppressing tap. Suppresses the key only when the config says
+    /// to (Fn / function keys); real modifiers pass through so shortcuts keep working. Fires on the main
+    /// queue (this runs on the tap thread).
     private func transition(down: Bool, pass: Unmanaged<CGEvent>) -> Unmanaged<CGEvent>? {
         let consume = config.suppresses
-        stateLock.lock()
-        let wasDown = keyIsDown
-        if down && !wasDown {
-            keyIsDown = true
-            stateLock.unlock()
-            DispatchQueue.main.async { [weak self] in self?.firePress() }
-            return consume ? nil : pass
-        } else if !down && wasDown {
-            keyIsDown = false
-            stateLock.unlock()
-            DispatchQueue.main.async { [weak self] in self?.fireRelease() }
-            return consume ? nil : pass
+        switch keyEdge(down: down) {
+        case .press:   DispatchQueue.main.async { [weak self] in self?.firePress() };   return consume ? nil : pass
+        case .release: DispatchQueue.main.async { [weak self] in self?.fireRelease() }; return consume ? nil : pass
+        case .none:    return pass   // no edge (e.g. another modifier changed in the same event)
         }
-        stateLock.unlock()
-        // No edge (e.g. another modifier changed in the same event) — let it through.
-        return pass
     }
 
     private func firePress() {
@@ -353,18 +362,10 @@ final class HotkeyManager {
     }
 
     private func fallbackTransition(down: Bool) {
-        stateLock.lock()
-        let wasDown = keyIsDown
-        if down && !wasDown {
-            keyIsDown = true
-            stateLock.unlock()
-            firePress()
-        } else if !down && wasDown {
-            keyIsDown = false
-            stateLock.unlock()
-            fireRelease()
-        } else {
-            stateLock.unlock()
+        switch keyEdge(down: down) {
+        case .press:   firePress()      // global monitor already runs on the main thread
+        case .release: fireRelease()
+        case .none:    break
         }
     }
 }

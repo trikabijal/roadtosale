@@ -336,16 +336,20 @@ public final class AppState: NSObject, ObservableObject {
             showOnboardingWindow()
         }
 
-        // 5. Load the speech model (downloads on first run — show progress).
+        // 5. Load the speech model (downloads on first run — show progress). Bounded by a generous
+        //    timeout so a HUNG network (no progress, no error) can't stall onboarding forever — on
+        //    timeout it throws and drops into the same fallback path as a load failure. The window is
+        //    large (a first-run large-model download is legitimately slow) but finite.
         let modelName = sttConfig.modelDisplayName
+        let transcriber = self.transcriber
         statusMessage = "Preparing \(modelName)…"
         do {
-            try await transcriber.load { [weak self] fraction in
-                guard let self else { return }
-                if fraction < 1.0 {
-                    self.statusMessage = "Downloading \(modelName)… \(Int(fraction * 100))%"
-                } else {
-                    self.statusMessage = "Loading \(modelName)…"
+            try await withTimeout(seconds: Self.modelLoadTimeout) { [weak self] in
+                try await transcriber.load { fraction in
+                    guard let self else { return }
+                    self.statusMessage = fraction < 1.0
+                        ? "Downloading \(modelName)… \(Int(fraction * 100))%"
+                        : "Loading \(modelName)…"
                 }
             }
             engineLoaded = transcriber.isLoaded
@@ -747,10 +751,20 @@ public final class AppState: NSObject, ObservableObject {
     /// passes can't starve capture.
     private func startStreamTick() {
         streamTickTask = Task { @MainActor in
+            // Flatten only the NEW buffers each tick and append to a persistent array, instead of
+            // re-flattening the whole recording every 100ms (which was O(n²) — ~4.8M floats × 10/s near
+            // the end of a 5-min take, on the main actor). `step` still gets the full cumulative samples,
+            // so the pill contract is unchanged; the cost is now O(delta) per tick. `drain(after:)` is a
+            // pure read, and the per-segment flush path is disabled while the pill is active, so this
+            // cursor is independent.
+            var fed = 0
+            var samples: [Float] = []
             while dictationState == .recording, let pill = streamingPill {
                 try? await Task.sleep(for: Self.streamTickInterval)
                 guard dictationState == .recording, streamingPill === pill else { break }
-                let samples = AudioSampleBridge.flatten(audio.snapshot())
+                let (newBuffers, newCount) = audio.drain(after: fed)
+                fed = newCount
+                if !newBuffers.isEmpty { samples.append(contentsOf: AudioSampleBridge.flatten(newBuffers)) }
                 guard !samples.isEmpty else { continue }
                 let t = await pill.step(samples: samples)
                 guard dictationState == .recording, streamingPill === pill else { break }
@@ -1100,6 +1114,9 @@ public final class AppState: NSObject, ObservableObject {
     /// realtime; if it hangs past this, treat the attempt as failed so the dictation surfaces
     /// the retry-from-box affordance instead of leaving the HUD stuck on "Transcribing…".
     private static let transcribeTimeout: Double = 60
+    /// Generous cap on model load/download so a hung network can't stall onboarding forever (a real
+    /// first-run large-model download is slow but well under this).
+    private static let modelLoadTimeout: Double = 300
 
     /// Transcribe with automatic retries on transient failure. Genuine empty / no-audio is
     /// rethrown immediately (no point retrying silence); a timeout (likely a real hang) fails
