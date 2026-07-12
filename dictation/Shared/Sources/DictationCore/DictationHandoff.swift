@@ -211,6 +211,11 @@ public enum DictationHandoff {
     // and the keyboard polls it (a `done` app→keyboard signal used to exist; it caused a stale-instance
     // race and was removed). See docs/ios-dictation-architecture.md.
 
+    /// Keyboard → app: the keyboard extension just loaded. Posted on every load; used by onboarding to
+    /// detect that the keyboard is enabled. Darwin notifications work WITHOUT Full Access (unlike the
+    /// App-Group flag), so this fires even before the user grants Full Access.
+    public static let keyboardLoadedNotification = "com.trika.dictation.keyboard.loaded"
+
     /// Keyboard → app (session ALIVE): begin a new dictation without relaunching the app.
     public static let startNotification = "com.trika.dictation.handoff.start"
     /// Keyboard → app: stop recording now (transcribe + hand back).

@@ -17,8 +17,10 @@ public final class KeyboardViewController: UIInputViewController {
     public override func viewDidLoad() {
         super.viewDidLoad()
 
-        // Proof-of-enablement for onboarding auto-advance: a keyboard extension can only reach the App
-        // Group when it's enabled AND has Full Access, so loading here confirms both to the container app.
+        // Onboarding detection — test BOTH things dictation needs:
+        //  • ENABLED: post a Darwin notification (works even WITHOUT Full Access) → the keyboard exists.
+        //  • FULL ACCESS: write the App-Group flag (only succeeds WITH Full Access) → we can reach shared storage.
+        DictationHandoff.post(DictationHandoff.keyboardLoadedNotification)
         DictationHandoff.markKeyboardLoaded()
 
         viewModel = KeyboardViewModel()
@@ -65,7 +67,8 @@ public final class KeyboardViewController: UIInputViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        DictationHandoff.markKeyboardLoaded()   // also here — reliable proof-of-enablement for onboarding
+        DictationHandoff.post(DictationHandoff.keyboardLoadedNotification)   // enabled (no Full Access needed)
+        DictationHandoff.markKeyboardLoaded()                               // Full Access (App-Group write)
         // Start continuously reflecting the shared App-Group variables into the UI. iOS recreated us and
         // wiped local memory, but that's fine — the poll re-reads the truth (`capturing`, `pendingText`)
         // from scratch, so the wave/button/label reappear in exactly the right state and any finished

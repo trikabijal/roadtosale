@@ -137,11 +137,43 @@ private struct HeroPage: View {
 
 // MARK: - 2. Enable keyboard (deep-link into Settings)
 
+/// Detects the two things dictation needs, independently:
+///  • `enabled`   — the keyboard loaded (Darwin notification; works even WITHOUT Full Access).
+///  • `fullAccess`— the keyboard could write the App Group (only possible WITH Full Access).
+@MainActor
+final class KeyboardDetector: ObservableObject {
+    @Published var enabled = false
+    @Published var fullAccess = false
+
+    init() {
+        let me = Unmanaged.passUnretained(self).toOpaque()
+        DictationHandoff.observe(DictationHandoff.keyboardLoadedNotification, observer: me) { _, obs, _, _, _ in
+            guard let obs else { return }
+            let d = Unmanaged<KeyboardDetector>.fromOpaque(obs).takeUnretainedValue()
+            Task { @MainActor in d.noteEnabled(); d.refresh() }   // Darwin = enabled (even w/o Full Access)
+        }
+        refresh()
+    }
+
+    /// The App-Group flag also proves the keyboard loaded, so `enabled` is true if EITHER signal fired.
+    func refresh() {
+        let hadAccess = DictationHandoff.keyboardLoaded()
+        if hadAccess { fullAccess = true; enabled = true }
+    }
+    func noteEnabled() { enabled = true }
+
+    deinit {
+        DictationHandoff.removeObserver(Unmanaged.passUnretained(self).toOpaque())
+    }
+}
+
 private struct EnableKeyboardPage: View {
     let onContinue: () -> Void
+    @StateObject private var detector = KeyboardDetector()
     @State private var probe = ""
-    @State private var detected = false   // keyboard proven enabled + Full Access
-    @State private var showSkip = false   // escape hatch after a while
+    @State private var showSkip = false
+
+    private var allSet: Bool { detector.enabled && detector.fullAccess }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -153,54 +185,55 @@ private struct EnableKeyboardPage: View {
             InstructionRow(n: 1, text: "Open **Settings → Keyboards**, add **Just Talk**, and turn on **Full Access**.", accent: StepAccent.blue)
             InstructionRow(n: 2, text: "In the box below, switch to the **Just Talk** keyboard (the 🌐 globe) once.", accent: StepAccent.blue)
             Spacer().frame(height: 18)
-            // Live detection status.
             statusRow
             Spacer().frame(height: 12)
             TextField("Tap here, then switch to Just Talk 🌐", text: $probe)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke((detected ? StepAccent.green : StepAccent.blue).opacity(0.5)))
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
-                .padding(.bottom, showSkip && !detected ? 6 : 12)
-            // No "Continue" while we auto-detect — only a quiet escape hatch if detection is slow.
-            if showSkip && !detected {
+                .padding(.bottom, showSkip && !allSet ? 6 : 12)
+            if showSkip && !allSet {
                 Button("Skip for now", action: onContinue)
                     .font(.footnote).foregroundStyle(JTBrand.muted)
                     .frame(maxWidth: .infinity).padding(.bottom, 8)
             }
         }
         .padding()
-        .task { await watchForKeyboard() }
+        .task { await watch() }
         .task { try? await Task.sleep(for: .seconds(12)); withAnimation { showSkip = true } }
     }
 
+    // Three states: waiting → enabled-but-no-Full-Access → all set.
     @ViewBuilder private var statusRow: some View {
+        let (icon, color, text): (String, Color, String) = {
+            if allSet { return ("checkmark.circle.fill", StepAccent.green, "Just Talk is on with Full Access — you're set!") }
+            if detector.enabled { return ("exclamationmark.triangle.fill", StepAccent.red, "Keyboard added — now turn on Full Access for it.") }
+            return ("circle.dashed", JTBrand.muted, "Waiting for the keyboard…")
+        }()
         HStack(spacing: 10) {
-            Image(systemName: detected ? "checkmark.circle.fill" : "circle.dashed")
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(detected ? StepAccent.green : JTBrand.muted)
-            Text(detected ? "Just Talk keyboard is on — you're set!" : "Waiting for the keyboard…")
-                .font(.callout.weight(detected ? .semibold : .regular))
-                .foregroundStyle(detected ? JTBrand.ink : JTBrand.muted)
+            Image(systemName: icon).font(.system(size: 20, weight: .semibold)).foregroundStyle(color)
+            Text(text).font(.callout.weight(allSet || detector.enabled ? .semibold : .regular))
+                .foregroundStyle(allSet || detector.enabled ? JTBrand.ink : JTBrand.muted)
             Spacer()
         }
         .padding(14)
-        .background((detected ? StepAccent.green : JTBrand.muted).opacity(0.08),
-                    in: RoundedRectangle(cornerRadius: 12))
-        .animation(.easeInOut, value: detected)
+        .background(color.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        .animation(.easeInOut, value: detector.enabled)
+        .animation(.easeInOut, value: detector.fullAccess)
     }
 
-    /// Poll for the keyboard-loaded flag; on detection show the ✓ for a beat, THEN advance.
-    private func watchForKeyboard() async {
+    /// Poll the Full-Access flag (the Darwin signal sets `enabled` via the observer); advance only when
+    /// BOTH are true — enabled AND Full Access — since dictation needs both.
+    private func watch() async {
         while !Task.isCancelled {
-            if DictationHandoff.keyboardLoaded() {
-                withAnimation { detected = true }
+            detector.refresh()
+            if allSet {
                 try? await Task.sleep(for: .milliseconds(1200))   // let the ✓ register
-                onContinue()
-                return
+                onContinue(); return
             }
-            try? await Task.sleep(for: .milliseconds(600))
+            try? await Task.sleep(for: .milliseconds(500))
         }
     }
 

@@ -1452,6 +1452,12 @@ extension AppState: RecordingEngineDelegate {
                 return
             }
             self.recordingHUD.update(level: level)
+            // SELF-HEAL: we're recording and getting levels, so we DO have control — make sure the pill
+            // is actually on-screen. If it never showed or got dropped, reinstate it here (this callback
+            // fires continuously while recording, so the pill can't stay gone for a whole dictation).
+            if self.dictationState == .recording {
+                self.recordingHUD.ensureVisible(phase: .recording, label: "Listening…")
+            }
             self.evaluateInputLevel(level)
         }
     }

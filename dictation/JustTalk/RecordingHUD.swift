@@ -156,6 +156,19 @@ final class RecordingHUD {
         model.level = level
     }
 
+    /// SELF-HEAL. Called continuously from the live mic-level callback while recording: if the app
+    /// thinks the pill should be up but AppKit says the panel is NOT actually on-screen, re-present it.
+    /// A recording always produces level callbacks (even in silence), so a pill that never showed — or
+    /// got dropped by a Space switch / start-throw / anything — is reinstated within a frame. Cheap
+    /// no-op in the common case (already visible). Does NOT reset the pill's live text/phase.
+    func ensureVisible(phase: RecordingHUDPhase, label: String) {
+        if isVisible, let panel, panel.isVisible { return }   // already on-screen — nothing to do
+        hudLog.notice("HUD ensureVisible — pill was NOT on-screen; re-presenting (phase=\(String(describing: phase), privacy: .public))")
+        if model.phase != phase { model.phase = phase; model.label = label }
+        if phase == .recording { ensureRevealRunning() }
+        present()
+    }
+
     /// Show/clear the "I can barely hear you" warning while recording.
     func setLowInput(_ low: Bool) {
         if model.lowInput != low { model.lowInput = low }
