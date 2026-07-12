@@ -83,6 +83,9 @@ final class RecordSessionModel: ObservableObject {
     /// the mic). Without this, an interruption silently stops our engine and the in-flight take is lost.
     private var interruptionObserver: NSObjectProtocol?
 
+    /// Telemetry DB (App Group, shared with the Stats/Home tab). Opened lazily — see `telemetryStore()`.
+    private var telemetry: TelemetryStore?
+
     init() {
         let pack = CleanupPackLoader.load()
         cleanupPack = pack
@@ -324,10 +327,13 @@ final class RecordSessionModel: ObservableObject {
         }
         do {
             let r = try await transcriber.transcribe(buffers: buffers, audioStartDate: sd)
-            var text = r.text
+            let raw = r.text
+            var text = raw
+            var didClean = false
             if !text.isEmpty,
                text.split(whereSeparator: \.isWhitespace).count >= cleanupPack.minWordsForCleanup {
                 text = (await cleanup.clean(CleanupRequest(rawText: text, level: .light))).cleanedText
+                didClean = true
             }
             guard !text.isEmpty else {
                 DictationHandoff.trace("app", "transcribe → EMPTY (nothing heard)")
@@ -340,9 +346,45 @@ final class RecordSessionModel: ObservableObject {
             // instance race and is deliberately gone.
             DictationHandoff.write(text)
             DictationHandoff.trace("app", "transcribe → \(text.count) chars, wrote pendingText")
+            await recordTelemetry(result: r, finalText: text, rawText: raw, didClean: didClean)
         } catch {
             DictationHandoff.trace("app", "transcribe ERROR: \(error.localizedDescription)")
             log.error("transcribe: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+
+    /// Persist this dictation to the shared telemetry DB so the app's Home/Stats tab has real data.
+    /// iOS was never writing telemetry (only macOS did), so every stat showed zero. We write to the
+    /// SAME App-Group database the Stats tab reads (`iOSDatabaseURL`). The container app has the room
+    /// for GRDB (unlike the 70 MB keyboard), and this runs off the hot path (after handoff).
+    private func recordTelemetry(result r: TranscriptionResult, finalText: String,
+                                 rawText: String, didClean: Bool) async {
+        guard let store = telemetryStore() else { return }
+        let record = TranscriptRecord(
+            platform: "ios",
+            audioDurationMs: r.audioDurationMs,
+            transcriptText: finalText,
+            whisperkitConfidence: r.confidence,
+            latencyMs: r.latencyMs,
+            modelTier: "\(r.provider.rawValue)/\(r.model)",
+            frontmostApp: nil,                              // a keyboard can't know the host app
+            rawText: rawText,
+            cleanupLevel: didClean ? CleanupLevel.light.rawValue : CleanupLevel.off.rawValue,
+            cleanupProvider: didClean ? "foundationModels" : nil
+        )
+        do { try await store.save(record) }
+        catch { DictationHandoff.trace("app", "telemetry save failed: \(error.localizedDescription)") }
+    }
+
+    /// Lazily opened telemetry store (App Group DB shared with the Stats tab). Opened once, reused.
+    private func telemetryStore() -> TelemetryStore? {
+        if let telemetry { return telemetry }
+        do {
+            telemetry = try TelemetryStore(databaseURL: TelemetryStore.iOSDatabaseURL())
+            return telemetry
+        } catch {
+            DictationHandoff.trace("app", "telemetry open failed: \(error.localizedDescription)")
+            return nil
         }
     }
 

@@ -83,10 +83,13 @@ public struct WeeklyStats: Sendable {
 public struct UsageTotals: Sendable {
     public let totalCount: Int
     public let totalAudioMs: Int
+    public let totalWords: Int
     public var totalMinutes: Double { Double(totalAudioMs) / 60_000.0 }
     public var totalHours: Double { totalMinutes / 60.0 }
+    /// Rough time saved vs typing, at ~40 wpm typing speed (dictation is ~150 wpm). Minutes.
+    public var typingMinutesSaved: Double { Double(totalWords) / 40.0 }
 
-    public static let empty = UsageTotals(totalCount: 0, totalAudioMs: 0)
+    public static let empty = UsageTotals(totalCount: 0, totalAudioMs: 0, totalWords: 0)
 }
 
 // MARK: - Store
@@ -198,9 +201,10 @@ public actor TelemetryStore {
         try dbQueue.read { db in
             guard let row = try Row.fetchOne(
                 db,
-                sql: "SELECT COUNT(*) as total, COALESCE(SUM(audio_duration_ms), 0) as total_audio FROM transcript_records"
+                sql: "SELECT COUNT(*) as total, COALESCE(SUM(audio_duration_ms), 0) as total_audio, COALESCE(SUM(word_count), 0) as total_words FROM transcript_records"
             ) else { return .empty }
-            return UsageTotals(totalCount: row["total"] ?? 0, totalAudioMs: row["total_audio"] ?? 0)
+            return UsageTotals(totalCount: row["total"] ?? 0, totalAudioMs: row["total_audio"] ?? 0,
+                               totalWords: row["total_words"] ?? 0)
         }
     }
 
