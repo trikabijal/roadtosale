@@ -75,10 +75,8 @@ public final class KeyboardViewController: UIInputViewController {
     /// — both facts in one Darwin post, which crosses processes without needing Full Access itself.
     /// `hasFullAccess` is UIInputViewController's own reliable answer.
     private func postEnablementSignal() {
-        let fa = hasFullAccess
-        KBLog.error("postEnablementSignal · hasFullAccess=\(fa)")   // .error so it surfaces in Console
-        DictationHandoff.post(fa ? DictationHandoff.keyboardEnabledFullAccess
-                                 : DictationHandoff.keyboardEnabledLimited)
+        DictationHandoff.post(hasFullAccess ? DictationHandoff.keyboardEnabledFullAccess
+                                            : DictationHandoff.keyboardEnabledLimited)
     }
 
     public override func viewWillDisappear(_ animated: Bool) {

@@ -144,7 +144,6 @@ private struct HeroPage: View {
 final class KeyboardDetector: ObservableObject {
     @Published var enabled = false
     @Published var fullAccess = false
-    @Published var signals = 0   // diagnostics: how many Darwin signals we've actually received
 
     init() {
         let me = Unmanaged.passUnretained(self).toOpaque()
@@ -160,7 +159,6 @@ final class KeyboardDetector: ObservableObject {
 
     nonisolated func onSignal(fullAccess: Bool) {
         Task { @MainActor in
-            self.signals += 1
             self.enabled = true
             if fullAccess { self.fullAccess = true }
         }
@@ -185,18 +183,14 @@ private struct EnableKeyboardPage: View {
                              accent: StepAccent.blue)
             Spacer().frame(height: 20)
             InstructionRow(n: 1, text: "Open **Settings → Keyboards**, add **Just Talk**, and turn on **Full Access**.", accent: StepAccent.blue)
-            InstructionRow(n: 2, text: "In the box below, switch to the **Just Talk** keyboard (the 🌐 globe) once.", accent: StepAccent.blue)
+            InstructionRow(n: 2, text: "Come back, tap the box below, then **hold the 🌐 globe and pick Just Talk** — that's what turns it on. You'll see our gold mic.", accent: StepAccent.blue)
             Spacer().frame(height: 18)
             statusRow
             Spacer().frame(height: 12)
-            TextField("Tap here, then switch to Just Talk 🌐", text: $probe)
+            TextField("Tap here → press 🌐 → choose Just Talk", text: $probe)
                 .padding(.vertical, 12).padding(.horizontal, 14)
                 .background(.white, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke((allSet ? StepAccent.green : StepAccent.blue).opacity(0.5)))
-            #if DEBUG
-            Text("debug — signals:\(detector.signals) enabled:\(detector.enabled ? "Y" : "N") fullAccess:\(detector.fullAccess ? "Y" : "N")")
-                .font(.caption2.monospaced()).foregroundStyle(.secondary).padding(.top, 6)
-            #endif
             Spacer()
             PrimaryButton("Open Settings", action: openAppSettings)
                 .padding(.bottom, showSkip && !allSet ? 6 : 12)
