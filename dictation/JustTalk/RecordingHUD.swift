@@ -36,8 +36,8 @@ final class RecordingHUD {
     private var spaceObserver: (any NSObjectProtocol)?
     /// Fires the moment macOS reports the pill is no longer visible to the user → bring it back.
     private var occlusionObserver: (any NSObjectProtocol)?
-    /// Safety loop that re-floats ONLY when `occlusionState` says the pill is hidden. The panel is
-    /// CACHED (never recreated) — recreating would rebuild the SwiftUI view and delay the first show.
+    /// Safety loop that re-asserts topmost on the CACHED panel every 0.6s (never recreates it —
+    /// recreating would rebuild the SwiftUI view and delay the first show).
     private var keepOnTopTask: Task<Void, Never>?
     /// Tracks on-screen state so the open/close cues fire on true visibility transitions only —
     /// not on phase changes (e.g. recording→processing) while the pill stays up.
@@ -110,30 +110,28 @@ final class RecordingHUD {
         }
     }
 
-    /// The permanent fix for "the pill disappeared". macOS tells us via `occlusionState` whether the
-    /// window is actually visible to the user; a light safety loop CHECKS that and only re-floats when
-    /// the pill is genuinely hidden (occluded / pushed behind a full-screen Space) — no blind re-ordering.
-    /// The `didChangeOcclusionState` observer (in ensurePanel) reacts the instant it gets covered; this
-    /// loop is the backstop for anything the notification misses. Cheap — a dictation is seconds.
+    /// The permanent fix for "the pill disappeared". We do NOT trust `occlusionState` to decide whether
+    /// to re-float: for a borderless, non-activating, shadowless panel it's laggy/unreliable and
+    /// `didChangeOcclusionState` may never fire — so a pill stranded behind a full-screen Space would
+    /// never come back (that was the regression). Instead this light loop simply RE-ASSERTS topmost on
+    /// the cached panel every 0.6s. Re-ordering an existing panel is cheap (the thing we avoid is
+    /// *recreating* it, not re-ordering it), so unconditional re-float is both correct and fast.
     private func startKeepOnTop() {
         keepOnTopTask?.cancel()
         keepOnTopTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: .milliseconds(600))
                 guard let self, !Task.isCancelled, self.isVisible, let panel = self.panel else { return }
-                self.refloatIfHidden(panel)
+                self.reassertTopmost(panel)
             }
         }
     }
 
-    /// If the pill isn't actually visible to the user, bring it back to the top. If it already is, do
-    /// nothing — this is the "check whether it's on top, only act if not" behaviour.
-    private func refloatIfHidden(_ panel: NSPanel) {
+    /// Bring the cached panel back to the top, unconditionally. Never recreates it.
+    private func reassertTopmost(_ panel: NSPanel) {
         guard isVisible else { return }
-        if !panel.occlusionState.contains(.visible) {
-            applyTopmost(panel)
-            panel.orderFrontRegardless()
-        }
+        applyTopmost(panel)
+        panel.orderFrontRegardless()
     }
 
     func setPhase(_ phase: RecordingHUDPhase, label: String) {
@@ -235,14 +233,14 @@ final class RecordingHUD {
         spaceObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in if let self, let panel = self.panel { self.refloatIfHidden(panel) } }
+            Task { @MainActor in if let self, let panel = self.panel { self.reassertTopmost(panel) } }
         }
         // The instant macOS reports the pill is no longer visible to the user (covered / behind a
         // full-screen window), bring it back — event-driven, so no visible gap.
         occlusionObserver = NotificationCenter.default.addObserver(
             forName: NSWindow.didChangeOcclusionStateNotification, object: p, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in if let self, let panel = self.panel { self.refloatIfHidden(panel) } }
+            Task { @MainActor in if let self, let panel = self.panel { self.reassertTopmost(panel) } }
         }
         panel = p
         return p
