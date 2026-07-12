@@ -155,3 +155,8 @@ one session and threw `'what'` 2003329396 after a cold relaunch — hence the si
 | wave/button/colour desynced (golden vs gray, stuck button) after app died mid-record | keyboard held per-element local state that drifted from `capturing` | keyboard holds **no** local state — one 80 ms poll renders a single `KeyboardPresentation` from `capturing`; a stop-ack watchdog clears a stuck flag if the app died |
 | app suspended mid-long-dictation (lost a 66s take) | iOS suspends an app "playing" pure silence | keep-alive plays a ~-78 dB tone, not zeros |
 | long recording could grow audio unbounded | no cap on a single dictation's accumulated buffers | app auto-finishes at 10 min (`maxCaptureSeconds`) — ~38 MB ceiling |
+| Apple's system dictation mic seized ours mid-take | no `AVAudioSession` interruption handling | on `.began` salvage (transcribe buffered) + stay alive; on `.ended` resume; `beginCapture` self-heals a stopped engine |
+
+## Hardening backlog
+
+- **Hard-kill mid-capture loses the take.** The raw audio buffers live in the *app's RAM* (`AudioBox`), **not** in the App Group — only `capturing`/`level`/`pendingText` cross the boundary. So if the user force-kills the app *while capturing* (swipe-up-kill), the buffered audio dies with the process; the next `STOP` has nothing to transcribe. Confirmed rare (needs a deliberate kill mid-dictation). **Fix when we harden:** stream captured PCM to a file in the App Group container as it's captured; on `STOP` with a stale/dead app, relaunch the app pointed at that file so it transcribes and writes `pendingText`. Deferred — low likelihood, real cost.
