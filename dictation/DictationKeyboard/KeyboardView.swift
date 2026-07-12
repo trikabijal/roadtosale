@@ -44,10 +44,17 @@ struct KeyboardView: View {
 
             case .dictating:
                 Waveform(level: viewModel.micLevel, active: true, accent: accent)
-                    .frame(height: 68)
+                    .frame(height: 62)
                     .padding(.horizontal, 22)
-                Label("Listening… tap to finish", systemImage: "stop.circle")
-                    .font(.callout.weight(.medium)).foregroundStyle(accent)
+                // Explicit, obviously-tappable Stop pill (the whole surface also stops, this makes it clear).
+                HStack(spacing: 8) {
+                    Image(systemName: "stop.fill").font(.system(size: 13, weight: .bold))
+                    Text("Tap to finish").font(.callout.weight(.semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 20).padding(.vertical, 11)
+                .background(accent, in: Capsule())
+                .shadow(color: accent.opacity(0.35), radius: 5, y: 2)
 
             case .awaiting:
                 Waveform(level: 0, active: false, accent: .secondary)
@@ -62,17 +69,16 @@ struct KeyboardView: View {
     // MARK: - Bottom bar (globe is required by iOS)
 
     private var bottomBar: some View {
-        HStack(spacing: 4) {
+        HStack {
+            Spacer()
             Button(action: onNextKeyboard) {
-                Image(systemName: "globe").font(.system(size: 19))
-                    .foregroundStyle(.secondary).frame(width: 42, height: 38)
+                Image(systemName: "globe").font(.system(size: 15))
+                    .foregroundStyle(.tertiary).frame(width: 34, height: 30)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            Text("Switch keyboard to type").font(.caption2).foregroundStyle(.tertiary)
-            Spacer()
         }
-        .padding(.horizontal, 10).padding(.bottom, 6)
+        .padding(.horizontal, 8).padding(.bottom, 5)
     }
 }
 
