@@ -1,6 +1,9 @@
 import AppKit
 import SwiftUI
 import DictationCore
+import os
+
+private let hudLog = Logger(subsystem: DictationHandoff.logSubsystem, category: "RecordingHUD")
 
 enum RecordingHUDPhase {
     case recording, processing, failed, done
@@ -111,6 +114,9 @@ final class RecordingHUD {
         applyTopmost(panel)
         panel.orderFrontRegardless()
         startKeepOnTop()             // bulletproof: re-assert every 0.5s so it can't stay hidden
+        // Durable diagnostics (survives Release): if the pill "disappears" we can see whether present()
+        // even ran and whether AppKit thinks the panel is on-screen + at the shielding level.
+        hudLog.notice("HUD present · onScreen=\(panel.isVisible, privacy: .public) level=\(panel.level.rawValue, privacy: .public) frame=\(NSStringFromRect(panel.frame), privacy: .public) screens=\(NSScreen.screens.count, privacy: .public)")
         if !isVisible {
             isVisible = true
             onAppear?()
@@ -163,6 +169,7 @@ final class RecordingHUD {
     }
 
     func hide() {
+        hudLog.notice("HUD hide · wasVisible=\(self.isVisible, privacy: .public)")
         stopReveal()
         keepOnTopTask?.cancel(); keepOnTopTask = nil   // stop re-asserting; KEEP the panel cached
         panel?.orderOut(nil)

@@ -655,18 +655,38 @@ public final class AppState: NSObject, ObservableObject {
         recordingFrontmostApp = frontApp?.bundleIdentifier
         recordingTargetApp = frontApp
         do {
-            try recordingEngine.start()
-            dictationState = .recording
-            statusMessage = "Recording…"
-            recordingHUD.show(phase: .recording, label: "Listening…")  // open cue via HUD.onAppear
-            // ONE capture→transcribe path. The live pill (growing HUD text) always comes from the
-            // streaming session's own STT — the single `transcriber` model. The old second
-            // (tiny preview) model was deleted: running two models starved the Neural Engine and
-            // dropped mic-tap buffers ("no live text + slow", "middle got dropped").
-            startStreamingSession()
+            try armAndShowRecording()
         } catch {
-            statusMessage = "Failed to start: \(error.localizedDescription)"
+            // A start() throw used to leave the user with NO pill and only a status string (the recurring
+            // "HUD is gone" — a transient HAL/device-settle failure right after the launch warm-up).
+            // Retry once after a clean stop; if it still fails, show a VISIBLE failed HUD instead of
+            // nothing, so a start failure can never look like "the pill just disappeared".
+            log.error("recording start failed: \(error.localizedDescription, privacy: .public) — retrying")
+            recordingEngine.stop()
+            do {
+                try armAndShowRecording()
+            } catch {
+                log.error("recording start retry failed: \(error.localizedDescription, privacy: .public)")
+                dictationState = .idle
+                statusMessage = "Couldn't start recording: \(error.localizedDescription)"
+                recordingHUD.showFailed(
+                    message: "Couldn't start the mic — tap Retry",
+                    onRetry: { [weak self] in self?.startRecording() },
+                    onDismiss: { [weak self] in self?.recordingHUD.hide() })
+            }
         }
+    }
+
+    /// Arm the engine and show the recording pill — the ONE place both do this, so the pill and the
+    /// recording state can't get out of step (and a retry reuses the exact same path).
+    private func armAndShowRecording() throws {
+        try recordingEngine.start()
+        dictationState = .recording
+        statusMessage = "Recording…"
+        recordingHUD.show(phase: .recording, label: "Listening…")   // open cue via HUD.onAppear
+        // ONE capture→transcribe path. The live pill (growing HUD text) comes from the streaming
+        // session's own STT — the single `transcriber` model.
+        startStreamingSession()
     }
 
     func stopRecordingAndTranscribe() {
@@ -1442,6 +1462,9 @@ extension AppState: RecordingEngineDelegate {
     public nonisolated func recordingEngineDidFailToRecover(_ engine: RecordingEngine) {
         Task { @MainActor in
             guard self.dictationState == .recording else { return }
+            // Logged: if this fires spuriously (a transient config change), it would end a recording +
+            // hide the pill mid-dictation — a candidate for the "HUD disappeared" reports.
+            log.notice("recordingEngineDidFailToRecover → ending recording (mic couldn't re-arm)")
             self.statusMessage = "Microphone interrupted — finishing with what was captured"
             self.stopRecordingAndTranscribe()
         }
