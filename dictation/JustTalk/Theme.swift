@@ -1,9 +1,18 @@
 import SwiftUI
+import DictationCore
 
 // MARK: - Design tokens (JustTalk redesign)
 
-/// Single source of truth for the redesigned UI — palette, radii, spacing, materials, type.
-/// Derived from the approved design prototype. Every view reads from here; no ad-hoc colors.
+/// macOS UI tokens. The CROSS-PLATFORM values (brand accent, semantic colours, radius/spacing) come from
+/// the shared `DesignTokens` so macOS and iOS agree; only the macOS-specific dark chrome (grounds,
+/// hairlines, text ramp, traffic-light dots, mono type) lives here. See docs/design-system.md.
+private extension Color {
+    /// Build a Color from a shared-token RGB tuple.
+    init(_ rgb: (red: Double, green: Double, blue: Double)) {
+        self.init(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+}
+
 enum Theme {
 
     // MARK: Palette
@@ -24,17 +33,14 @@ enum Theme {
         static let textSecondary  = Color(hex: 0x98989D)
         static let textTertiary   = Color(hex: 0x7C7C82)
 
-        // Brand accent (the design ships a pink default + 3 alternates).
-        static let accent        = Color(hex: 0xFF2E7E)   // pink (default)
-        static let accentPurple   = Color(hex: 0x7C5CFF)
-        static let accentGold     = Color(hex: 0xFFB020)
-        static let accentCyan     = Color(hex: 0x25C9E6)
+        // Brand accent — the SHARED gold (was a macOS-only pink; the 3 unused alternates are removed).
+        static let accent        = Color(DesignTokens.Color.accent)
 
-        // Semantic state colors — kept distinct from the brand accent, always paired with an icon.
-        static let recording     = Color(hex: 0xFF453A)   // red
-        static let warning       = Color(hex: 0xFF9F0A)   // orange
-        static let caution       = Color(hex: 0xFFD60A)   // yellow
-        static let success       = Color(hex: 0x30D158)   // green
+        // Semantic state colors — from the shared spec, always paired with an icon.
+        static let recording     = Color(DesignTokens.Color.recording)
+        static let warning       = Color(DesignTokens.Color.warning)
+        static let caution       = Color(hex: 0xFFD60A)   // yellow — macOS-only caution tint
+        static let success       = Color(DesignTokens.Color.success)
 
         // Window traffic-light dots.
         static let tlClose       = Color(hex: 0xFF5F57)
@@ -45,20 +51,20 @@ enum Theme {
     // MARK: Corner radii
 
     enum Radius {
-        static let window: CGFloat  = 16
-        static let card: CGFloat    = 12
-        static let control: CGFloat = 8
-        static let chip: CGFloat    = 6
+        static let window  = CGFloat(DesignTokens.Radius.window)
+        static let card    = CGFloat(DesignTokens.Radius.card)
+        static let control = CGFloat(DesignTokens.Radius.control)
+        static let chip    = CGFloat(DesignTokens.Radius.chip)
     }
 
     // MARK: Spacing scale
 
     enum Space {
-        static let xs: CGFloat = 4
-        static let sm: CGFloat = 8
-        static let md: CGFloat = 12
-        static let lg: CGFloat = 16
-        static let xl: CGFloat = 20
+        static let xs = CGFloat(DesignTokens.Space.xs)
+        static let sm = CGFloat(DesignTokens.Space.sm)
+        static let md = CGFloat(DesignTokens.Space.md)
+        static let lg = CGFloat(DesignTokens.Space.lg)
+        static let xl = CGFloat(DesignTokens.Space.xl)
     }
 
     // MARK: Type
